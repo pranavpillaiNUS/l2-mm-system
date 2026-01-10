@@ -1,0 +1,17 @@
+data_raw/
+data_derived/
+reports/
+
+*.png
+*.log
+*.jsonl
+*.jsonl.gz
+*.json.gz
+*.csv
+*.parquet
+
+__pycache__/
+*.pyc
+.env
+.venv/
+.venv/

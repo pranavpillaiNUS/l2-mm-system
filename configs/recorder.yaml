@@ -1,0 +1,4 @@
+exchange: binance_spot
+symbol: BTCUSDT
+output_root: "data_raw/recordings"
+

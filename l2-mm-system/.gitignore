@@ -1,9 +1,0 @@
-data_raw/
-data_derived/
-.venv/
-__pycache__/
-.ipynb_checkpoints/
-*.log
-*.gz
-*.zst
-.DS_Store

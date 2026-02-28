@@ -1,7 +1,4 @@
 #!/bin/bash
-# Start recorder in tmux
-# Usage: ./scripts/start_recorder.sh [symbol]
-
 SYMBOL=${1:-btcusdt}
 SESSION="rec_${SYMBOL}"
 
@@ -14,10 +11,10 @@ fi
 
 echo "Starting recorder for $SYMBOL..."
 tmux new-session -d -s "$SESSION"
-tmux send-keys -t "$SESSION" "cd ~/l2-mm-system && conda activate l2mm" Enter
+tmux send-keys -t "$SESSION" "cd trading-projects/l2-mm-system && conda activate l2mm" Enter
 tmux send-keys -t "$SESSION" "python -m src.recorder.simple_recorder --symbol $SYMBOL" Enter
 
 echo "Recorder started!"
-echo "   Attach: tmux attach -t $SESSION"
-echo "   Detach: Ctrl+B then D"
-echo "   Kill:   tmux kill-session -t $SESSION"
+echo "  Attach: tmux attach -t $SESSION"
+echo "  Detach: Ctrl+B then D"
+echo "  Kill:   tmux kill-session -t $SESSION"

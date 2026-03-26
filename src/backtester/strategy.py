@@ -240,3 +240,59 @@ class SMACrossoverStrategy(BaseStrategy): # Strategy no. 3
         self.prev_slow = slow_sma
         
         return signal
+    
+class BollingerBandStrategy(BaseStrategy): # Strategy no. 4
+    """
+    Buy when price drops below lower band, sell when it rises above upper band.
+    Bands = SMA ± (num_std x standard deviation), so they adapt to volatility.
+    
+    Parameters:
+        period: bars for moving average + std dev (default 24)
+        num_std: standard deviations for band width (default 2.0)
+    """
+    
+    def __init__(self, period: int = 24, num_std: float = 2.0):
+        super().__init__(name=f"Bollinger({period}, {num_std}σ)")
+        self.period = period
+        self.num_std = num_std
+    
+    def generate_signal(
+        self,
+        timestamp: datetime,
+        row: pd.Series,
+        position: float,
+        history: pd.DataFrame,
+    ) -> TradeSignal:
+        if len(history) < self.period:
+            return TradeSignal(timestamp, Signal.HOLD, reason="insufficient_history")
+        
+        closes = history["close"].tail(self.period)
+        sma = closes.mean()
+        std = closes.std()
+        
+        upper_band = sma + self.num_std * std
+        lower_band = sma - self.num_std * std
+        price = row["close"]
+        
+        # price below lower band -> oversold -> buy
+        if price < lower_band and position < 1:
+            distance = (lower_band - price) / std  # how far below in std devs
+            return TradeSignal(
+                timestamp=timestamp,
+                signal=Signal.BUY,
+                strength=min(distance, 1.0),
+                target_quantity=0.5,
+                reason=f"below_lower_{price:.0f}<{lower_band:.0f}",
+            )
+        # price above upper band -> overbought -> sell
+        elif price > upper_band and position > 0:
+            distance = (price - upper_band) / std
+            return TradeSignal(
+                timestamp=timestamp,
+                signal=Signal.SELL,
+                strength=min(distance, 1.0),
+                target_quantity=position,
+                reason=f"above_upper_{price:.0f}>{upper_band:.0f}",
+            )
+        
+        return TradeSignal(timestamp, Signal.HOLD, reason="within_bands")

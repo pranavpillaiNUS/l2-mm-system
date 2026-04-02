@@ -1,140 +1,64 @@
 """
-Walk-forward testing for Momentum and MeanReversion.
-Optimize params on training window, test on next month.
-Repeats across 2024 to get honest out-of-sample performance.
+Plot out-of-sample equity curves from walk-forward results.
+Reads the winning params from walk_forward_results.csv,
+re-runs just those backtests, and stitches the equity curves together.
 """
 import sys
 sys.path.insert(0, ".")
 
+import ast
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
-from itertools import product
 
 from src.backtester.config import BacktestConfig, FeeConfig, SlippageConfig
 from src.backtester.engine import BacktestEngine
-from src.backtester.strategy import MomentumStrategy, MeanReversionStrategy
+from src.backtester.strategy import (
+    MomentumStrategy, MeanReversionStrategy,
+    SMACrossoverStrategy, BollingerBandStrategy,
+)
 
-
-# same param grids from the original sweeps
-PARAM_GRIDS = {
-    "Momentum": {
-        "class": MomentumStrategy,
-        "params": list(product([12, 24, 48], [0.01, 0.02, 0.03])),
-        "param_names": ["lookback", "threshold"],
-    },
-    "MeanReversion": {
-        "class": MeanReversionStrategy,
-        "params": list(product([12, 24, 48], [0.01, 0.02, 0.03])),
-        "param_names": ["lookback", "threshold"],
-    },
+STRATEGY_CLASSES = {
+    "Momentum": MomentumStrategy,
+    "MeanReversion": MeanReversionStrategy,
+    "SMA": SMACrossoverStrategy,
+    "Bollinger": BollingerBandStrategy,
 }
 
-# anchored windows - train always starts jan, test is next month
+# test windows (same as walk_forward.py)
 WINDOWS = [
-    {"train_start": "2024-01-01", "train_end": "2024-03-31", "test_start": "2024-04-01", "test_end": "2024-04-30"},
-    {"train_start": "2024-01-01", "train_end": "2024-04-30", "test_start": "2024-05-01", "test_end": "2024-05-31"},
-    {"train_start": "2024-01-01", "train_end": "2024-05-31", "test_start": "2024-06-01", "test_end": "2024-06-30"},
-    {"train_start": "2024-01-01", "train_end": "2024-06-30", "test_start": "2024-07-01", "test_end": "2024-07-31"},
-    {"train_start": "2024-01-01", "train_end": "2024-07-31", "test_start": "2024-08-01", "test_end": "2024-08-31"},
-    {"train_start": "2024-01-01", "train_end": "2024-08-31", "test_start": "2024-09-01", "test_end": "2024-09-30"},
-    {"train_start": "2024-01-01", "train_end": "2024-09-30", "test_start": "2024-10-01", "test_end": "2024-10-31"},
-    {"train_start": "2024-01-01", "train_end": "2024-10-31", "test_start": "2024-11-01", "test_end": "2024-11-30"},
-    {"train_start": "2024-01-01", "train_end": "2024-11-30", "test_start": "2024-12-01", "test_end": "2024-12-31"},
+    ("2024-04-01", "2024-04-30"),
+    ("2024-05-01", "2024-05-31"),
+    ("2024-06-01", "2024-06-30"),
+    ("2024-07-01", "2024-07-31"),
+    ("2024-08-01", "2024-08-31"),
+    ("2024-09-01", "2024-09-30"),
+    ("2024-10-01", "2024-10-31"),
+    ("2024-11-01", "2024-11-30"),
+    ("2024-12-01", "2024-12-31"),
 ]
 
 
-def sweep_on_window(engine, strategy_class, param_combos, param_names, start, end):
-    """Run all param combos on a date range, return sorted by sharpe."""
-    results = []
-    for combo in param_combos:
-        params = dict(zip(param_names, combo))
-        strategy = strategy_class(**params)
-        try:
-            result = engine.run(strategy, start=start, end=end, verbose=False)
-            results.append({
-                "params": params,
-                "sharpe": result.metrics.sharpe_ratio,
-                "return": result.metrics.total_return_pct,
-                "trades": result.metrics.num_trades,
-            })
-        except Exception:
-            results.append({"params": params, "sharpe": -999, "return": 0, "trades": 0})
+def stitch_equity_curves(equity_list, initial_cash):
+    """
+    Chain equity series from separate windows into one continuous curve.
+    Each window runs independently from initial_cash, so we convert to
+    return multipliers and compound them.
+    """
+    stitched = pd.Series(dtype=float)
+    cumulative_multiplier = 1.0
 
-    results.sort(key=lambda x: x["sharpe"], reverse=True)
-    return results
+    for eq in equity_list:
+        # normalize this window: 100k -> multipliers starting at 1.0
+        normalized = eq / initial_cash
+        # scale by where the previous window ended
+        scaled = normalized * cumulative_multiplier * initial_cash
+        stitched = pd.concat([stitched, scaled])
+        # update cumulative for next window
+        cumulative_multiplier *= normalized.iloc[-1]
 
-
-def run_walk_forward(engine, strategy_name, grid_info):
-    """Full walk-forward for one strategy."""
-    print(f"\n--- {strategy_name} ---\n")
-    window_results = []
-
-    for i, w in enumerate(WINDOWS):
-        # find best params on training data
-        train_results = sweep_on_window(
-            engine, grid_info["class"], grid_info["params"],
-            grid_info["param_names"], w["train_start"], w["train_end"],
-        )
-        best = train_results[0]
-
-        # test those params on unseen month
-        test_strategy = grid_info["class"](**best["params"])
-        test_result = engine.run(
-            test_strategy, start=w["test_start"], end=w["test_end"], verbose=False,
-        )
-
-        month = pd.Timestamp(w["test_start"]).strftime("%b")
-        print(f"  {month}: best={best['params']}  "
-              f"train_sharpe={best['sharpe']:.3f}  "
-              f"test_sharpe={test_result.metrics.sharpe_ratio:.3f}  "
-              f"test_ret={test_result.metrics.total_return_pct:.1f}%")
-
-        window_results.append({
-            "window": i + 1,
-            "test_month": month,
-            "train_end": w["train_end"],
-            "best_params": str(best["params"]),
-            "train_sharpe": best["sharpe"],
-            "test_sharpe": test_result.metrics.sharpe_ratio,
-            "test_return_pct": test_result.metrics.total_return_pct,
-            "test_max_dd": test_result.metrics.max_drawdown,
-            "test_trades": test_result.metrics.num_trades,
-        })
-
-    return window_results
-
-
-def print_summary(strategy_name, window_results, in_sample_sharpe):
-    """Print the numbers that matter."""
-    sharpes = [w["test_sharpe"] for w in window_results]
-    returns = [w["test_return_pct"] for w in window_results]
-
-    avg_sharpe = np.mean(sharpes)
-    win_rate = sum(1 for s in sharpes if s > 0) / len(sharpes)
-    overfit_ratio = avg_sharpe / in_sample_sharpe if in_sample_sharpe != 0 else 0
-
-    # did the optimizer pick the same params each time, or jump around?
-    chosen = [w["best_params"] for w in window_results]
-    unique = len(set(chosen))
-
-    print(f"\n{strategy_name} summary:")
-    print(f"  avg OOS sharpe:    {avg_sharpe:.3f}")
-    print(f"  avg OOS return:    {np.mean(returns):.1f}%/month")
-    print(f"  window win rate:   {win_rate:.0%}")
-    print(f"  in-sample sharpe:  {in_sample_sharpe:.3f}")
-    print(f"  overfit ratio:     {overfit_ratio:.2f}  (1.0=no overfit, <0.5=heavy)")
-    print(f"  param stability:   {unique} unique picks across {len(window_results)} windows")
-
-    return {
-        "strategy": strategy_name,
-        "avg_oos_sharpe": avg_sharpe,
-        "avg_oos_return": np.mean(returns),
-        "window_win_rate": win_rate,
-        "in_sample_sharpe": in_sample_sharpe,
-        "overfit_ratio": overfit_ratio,
-        "unique_params": unique,
-    }
+    return stitched
 
 
 def main():
@@ -149,33 +73,74 @@ def main():
     )
     engine = BacktestEngine(config)
 
-    # from the original sweeps
-    in_sample_sharpes = {
-        "Momentum": 0.36,
-        "MeanReversion": 0.39,
-    }
+    # read the winning params from walk-forward results
+    results_df = pd.read_csv("results/walk_forward/walk_forward_results.csv")
 
-    all_results = {}
-    summaries = []
+    # re-run winning params for each strategy/window and collect equity curves
+    strategy_curves = {}
 
-    for name, grid in PARAM_GRIDS.items():
-        window_results = run_walk_forward(engine, name, grid)
-        all_results[name] = window_results
-        summary = print_summary(name, window_results, in_sample_sharpes[name])
-        summaries.append(summary)
+    for strategy_name in STRATEGY_CLASSES:
+        rows = results_df[results_df["strategy"] == strategy_name].sort_values("window")
+        equity_list = []
 
-    # save results
+        for _, row in rows.iterrows():
+            params = ast.literal_eval(row["best_params"])
+            window_start, window_end = WINDOWS[row["window"] - 1]
+
+            strategy = STRATEGY_CLASSES[strategy_name](**params)
+            result = engine.run(strategy, start=window_start, end=window_end, verbose=False)
+            equity_list.append(result.equity_series)
+
+        stitched = stitch_equity_curves(equity_list, config.initial_cash)
+        strategy_curves[strategy_name] = stitched
+        print(f"{strategy_name}: {len(stitched)} bars, "
+              f"${stitched.iloc[0]:,.0f} -> ${stitched.iloc[-1]:,.0f}")
+
+    # also get buy & hold for comparison
+    df = engine.loader.load("BTCUSDT", start="2024-04-01", end="2024-12-31")
+    bh_equity = (df["close"] / df["close"].iloc[0]) * config.initial_cash
+
     output_dir = Path("results/walk_forward")
-    output_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = []
-    for name, results in all_results.items():
-        for w in results:
-            rows.append({"strategy": name, **{k: v for k, v in w.items()}})
+    # plot 1: all OOS equity curves
+    fig, ax = plt.subplots(figsize=(12, 6))
+    colors = {"Momentum": "#e74c3c", "MeanReversion": "#2ecc71",
+              "SMA": "#3498db", "Bollinger": "#9b59b6"}
 
-    pd.DataFrame(rows).to_csv(output_dir / "walk_forward_results.csv", index=False)
-    pd.DataFrame(summaries).to_csv(output_dir / "walk_forward_summary.csv", index=False)
-    print(f"\nSaved to {output_dir}/")
+    for name, curve in strategy_curves.items():
+        ax.plot(curve.index, curve.values, label=name, color=colors[name], linewidth=1.5)
+    ax.plot(bh_equity.index, bh_equity.values, label="Buy & Hold",
+            color="gray", linewidth=1, linestyle="--", alpha=0.7)
+
+    ax.set_title("Out-of-Sample Equity Curves (Walk-Forward, Apr-Dec 2024)")
+    ax.set_ylabel("Portfolio Value ($)")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_dir / "oos_equity_curves.png", dpi=150)
+    print(f"\nSaved equity plot to {output_dir / 'oos_equity_curves.png'}")
+
+    # plot 2: monthly OOS returns comparison (bar chart)
+    months = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    fig, ax = plt.subplots(figsize=(12, 6))
+    x = np.arange(len(months))
+    width = 0.2
+
+    for i, strategy_name in enumerate(STRATEGY_CLASSES):
+        rows = results_df[results_df["strategy"] == strategy_name].sort_values("window")
+        returns = rows["test_return_pct"].values
+        ax.bar(x + i * width, returns, width, label=strategy_name, color=colors[strategy_name])
+
+    ax.set_xticks(x + width * 1.5)
+    ax.set_xticklabels(months)
+    ax.set_ylabel("Monthly Return (%)")
+    ax.set_title("Out-of-Sample Monthly Returns by Strategy")
+    ax.legend()
+    ax.axhline(y=0, color="black", linewidth=0.5)
+    ax.grid(True, alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(output_dir / "oos_monthly_returns.png", dpi=150)
+    print(f"Saved monthly returns plot to {output_dir / 'oos_monthly_returns.png'}")
 
 
 if __name__ == "__main__":

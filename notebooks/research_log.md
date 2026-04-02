@@ -150,3 +150,70 @@ Tested 20 period/std combos. Best was BB(24, 2.5σ) with Sharpe 0.20, 20.0% retu
 - walk-forward testing — are these best params overfit to 2024?
 - would mean reversion win in a flat or bearish year?
 ---
+
+## 2026-04-03: Walk-Forward Testing
+
+### Question
+Are the "best" params from the sweeps actually good, or did they just get lucky on 2024 data?
+
+### Method
+Walk-forward analysis with anchored expanding windows. Train always starts from January, test is the next unseen month. 9 windows total (train→Mar test Apr, train→Apr test May, ... train→Nov test Dec). For each window, run the full param sweep on training data, pick the best Sharpe, then test those params on the next month. The test month is strictly out-of-sample — the optimizer never saw it.
+
+Used the same param grids from the original sweeps:
+- Momentum: lookback [12,24,48] × threshold [1%,2%,3%]
+- MeanReversion: same grid
+- SMA: fast [12,24,48] × slow [48,72,96,120], skipping fast >= slow
+- Bollinger: period [12,24,36,48] × std [1.0,1.5,2.0,2.5,3.0]
+
+### Results
+
+| Strategy | In-Sample Sharpe | OOS Sharpe | Overfit Ratio | Win Rate | Param Stability |
+|----------|-----------------|------------|---------------|----------|-----------------|
+| MeanReversion | 0.39 | 0.51 | 1.31 | 78% | 1 unique (perfect) |
+| Bollinger | 0.20 | 0.33 | 1.63 | 89% | 3 unique |
+| Momentum | 0.36 | 0.24 | 0.67 | 56% | 2 unique |
+| SMA | 0.39 | 0.22 | 0.56 | 56% | 4 unique |
+
+Overfit ratio = OOS Sharpe / in-sample Sharpe. 1.0 = no overfit, <0.5 = heavily overfit.
+
+### The ranking flipped
+In-sample ranking: MeanRev = SMA > Momentum > Bollinger
+Out-of-sample ranking: MeanRev > Bollinger > Momentum > SMA
+
+Bollinger jumped from last to second. SMA dropped from tied-first to last. This is exactly why you do walk-forward — in-sample numbers are misleading.
+
+### Parameter stability
+- MeanReversion picked {lookback: 12, threshold: 0.03} in all 9 windows. perfect stability
+- Momentum picked {lookback: 24, threshold: 0.03} in 8/9 windows. very stable
+- Bollinger settled on {period: 24, num_std: 2.5} from June onward (7/9). good once it settled
+- SMA jumped between 4 different combos. optimizer chasing noise
+
+### Equity curves
+All four strategies ended profitable OOS (Apr-Dec):
+- Momentum: $100k → $128k
+- MeanReversion: $100k → $126k
+- Bollinger: $100k → $125k
+- SMA: $100k → $117k
+
+MeanReversion had the smoothest curve — stair-steps up with flat periods, never really dips. Momentum was flat Apr-Sep then ripped Oct-Nov. SMA and Bollinger somewhere in between.
+
+None beat buy & hold ($100k → ~$148k over same period). Still expected in a trending year.
+
+### Monthly breakdown
+Momentum is feast-or-famine: -5.5% in Aug, +16.5% in Nov. Returns concentrated in trending months (Jul, Oct, Nov).
+MeanReversion is consistent: never lost money in any month. Worst was 0.0% (flat in Jun and Nov). Best was 7.4% (Sep).
+Bollinger similar to MeanReversion but with slightly more variance.
+SMA struggled in choppy months and only showed up for the Nov trend.
+
+### Takeaways
+1. parameter stability is a better predictor of robustness than raw in-sample Sharpe. SMA had the best in-sample Sharpe (tied) but worst OOS because its "best" params kept changing
+2. MeanReversion is genuinely robust. same params won every window, OOS Sharpe actually exceeded in-sample. these aren't overfit
+3. Momentum works but is regime-dependent. prints money in trends, bleeds in chop. you'd want some way to detect the regime before allocating to it
+4. Bollinger was underrated in-sample. its low Sharpe was partly because early windows hadn't settled on good params. once it locked onto (24, 2.5σ) it was consistently positive
+5. a practical allocation would blend MeanReversion (consistent base) with Momentum (trend capture). diversification across strategy types, not just assets
+
+### Next
+- error analysis document
+- lessons learned document
+- README improvements
+- then exams (weeks 13-15), then summer L2 work

@@ -4,9 +4,7 @@ from src.backtester.data_loader import DataLoader
 
 def test_load_data():
     """Test loading BTCUSDT data."""
-    print("=" * 60)
     print("TEST: Load Data")
-    print("=" * 60)
     
     loader = DataLoader(Path("data/bars"))
     
@@ -25,9 +23,7 @@ def test_load_data():
 
 def test_date_filter():
     """Test date filtering."""
-    print("\n" + "=" * 60)
-    print("TEST: Date Filtering")
-    print("=" * 60)
+    print("\nTEST: Date Filtering")
     
     loader = DataLoader(Path("data/bars"))
     
@@ -42,9 +38,7 @@ def test_date_filter():
 
 def test_bar_iteration():
     """Test bar-by-bar iteration."""
-    print("\n" + "=" * 60)
-    print("TEST: Bar Iteration")
-    print("=" * 60)
+    print("\nTEST: Bar Iteration")
     
     loader = DataLoader(Path("data/bars"))
     
@@ -63,6 +57,4 @@ if __name__ == "__main__":
     test_date_filter()
     test_bar_iteration()
     
-    print("\n" + "=" * 60)
-    print("ALL TESTS PASSED")
-    print("=" * 60)
+    print("\nALL TESTS PASSED")

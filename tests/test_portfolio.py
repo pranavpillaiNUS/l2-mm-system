@@ -2,9 +2,7 @@ from datetime import datetime, timedelta
 from src.backtester.portfolio import Portfolio, Fill, Side
 
 def test_basic_trading():
-    print("=" * 60)
     print("TEST: Basic Trading")
-    print("=" * 60)
     
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1, 10, 0, 0)
@@ -59,9 +57,7 @@ def test_basic_trading():
     return True
 
 def test_short_selling():
-    print("\n" + "=" * 60)
-    print("TEST: Short Selling")
-    print("=" * 60)
+    print("\nTEST: Short Selling")
 
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1)
@@ -99,9 +95,7 @@ def test_short_selling():
     return True
 
 def test_multiple_trades():
-    print("\n" + "=" * 60)
-    print("TEST: Multiple Trades (Averaging)")
-    print("=" * 60)
+    print("\nTEST: Multiple Trades (Averaging)")
 
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1)
@@ -144,14 +138,10 @@ def test_multiple_trades():
     return True
 
 if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("PORTFOLIO MODULE TESTS")
-    print("=" * 60)
+    print("\nPORTFOLIO MODULE TESTS")
     
     test_basic_trading()
     test_short_selling()
     test_multiple_trades()
     
-    print("\n" + "=" * 60)
-    print("ALL TESTS PASSED! hooray!")
-    print("=" * 60)
+    print("\nALL TESTS PASSED! hooray!")

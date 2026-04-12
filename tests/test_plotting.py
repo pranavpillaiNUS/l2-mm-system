@@ -50,9 +50,7 @@ def create_sample_backtest():
 
 
 def test_all_plots():
-    print("=" * 60)
     print("TEST: Plotting Module")
-    print("=" * 60)
     
     # Create output directory
     output_dir = Path("results/test_plots")

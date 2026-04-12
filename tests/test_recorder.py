@@ -8,9 +8,7 @@ from src.recorder.simple_recorder import SimpleRecorder
 
 async def test_recorder_connection():
     """Test that recorder can connect and receive messages."""
-    print("=" * 60)
     print("TEST: Recorder Connection (10 seconds)")
-    print("=" * 60)
     
     output_dir = Path("data")
     recorder = SimpleRecorder(symbol="btcusdt", output_dir=output_dir)
@@ -28,7 +26,7 @@ async def test_recorder_connection():
     
     # Check output
     files = list((output_dir / "raw" / "btcusdt").glob("*.jsonl.gz"))
-    print(f"\n� Files created: {len(files)}")
+    print(f"\nFiles created: {len(files)}")
     
     if files:
         print(f"Recorder test passed!")

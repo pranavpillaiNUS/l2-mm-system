@@ -7,9 +7,7 @@ from src.backtester.metrics import calculate_metrics, calculate_drawdown_series
 
 
 def test_metrics_calculation():
-    print("=" * 60)
     print("TEST: Metrics Calculation")
-    print("=" * 60)
     
     # Create a backtest scenario
     portfolio = Portfolio(initial_cash=100_000)
@@ -60,26 +58,24 @@ def test_metrics_calculation():
         total_volume=portfolio.total_volume,
     )
     
-    print("\n� PERFORMANCE METRICS")
+    print("\nPERFORMANCE METRICS")
     print("-" * 40)
     for key, value in metrics.to_dict().items():
         print(f"  {key:.<35} {value}")
     
-    print(f"\n� Summary: {metrics.summary()}")
+    print(f"\nSummary: {metrics.summary()}")
     
     # Verify calculations make sense
     assert metrics.num_trades == len(portfolio.fills), "Trade count mismatch"
     assert -1 <= metrics.max_drawdown <= 1, "Drawdown should be between 0 and 1"
     assert metrics.total_fees == portfolio.total_fees, "Fee mismatch"
     
-    print("\n✅ Metrics test passed!")
+    print("\nMetrics test passed!")
 
 
 def test_drawdown_calculation():
     """Test drawdown series calculation."""
-    print("\n" + "=" * 60)
-    print("TEST: Drawdown Calculation")
-    print("=" * 60)
+    print("T\nEST: Drawdown Calculation")
     
     # Create simple equity curve: 100 -> 120 -> 90 -> 110
     dates = pd.date_range('2024-01-01', periods=4, freq='D')
@@ -102,6 +98,4 @@ if __name__ == "__main__":
     test_metrics_calculation()
     test_drawdown_calculation()
     
-    print("\n" + "=" * 60)
-    print("ALL METRICS TESTS PASSED!")
-    print("=" * 60)
+    print("\nALL METRICS TESTS PASSED!")

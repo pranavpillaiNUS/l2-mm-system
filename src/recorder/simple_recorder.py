@@ -2,6 +2,7 @@
 Minimal L2 recorder for Binance depth stream.
 
 Captures raw WebSocket messages to gzipped JSON files.
+Also fetches REST snapshots at connect and every hour for book reconstruction.
 Run in background, keep pc on
 
 Usage:
@@ -11,6 +12,7 @@ import asyncio
 import websockets
 import json
 import gzip
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -22,6 +24,7 @@ class SimpleRecorder:
     """Records Binance depth stream to gzipped files."""
     
     WS_URL = "wss://stream.binance.com:9443/ws"
+    REST_URL = "https://api.binance.com/api/v3/depth"
     
     def __init__(self, symbol: str, output_dir: Path):
         self.symbol = symbol.lower()
@@ -37,6 +40,36 @@ class SimpleRecorder:
     def _get_ws_url(self) -> str:
         return f"{self.WS_URL}/{self.symbol}@depth@100ms"
     
+    def _fetch_snapshot(self) -> Optional[dict]:
+        """Fetch full orderbook snapshot from REST API.
+        Returns the snapshot dict or None if it fails.
+        The snapshot has lastUpdateId, bids, and asks — this is
+        the reference point we need to reconstruct the book from diffs."""
+        url = f"{self.REST_URL}?symbol={self.symbol.upper()}&limit=1000"
+        try:
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+                print(f"  Snapshot fetched: lastUpdateId={data['lastUpdateId']}, "
+                      f"{len(data['bids'])} bids, {len(data['asks'])} asks")
+                return data
+        except Exception as e:
+            print(f"  Snapshot fetch failed: {e}")
+            return None
+    
+    def _write_snapshot(self, recv_time: datetime) -> None:
+        """Fetch and write a snapshot to the current file.
+        Tagged with type=snapshot so replay engine can tell it apart from diffs."""
+        snapshot = self._fetch_snapshot()
+        if snapshot and self._current_file:
+            record = {
+                "recv_time": recv_time.isoformat(),
+                "type": "snapshot",
+                "data": snapshot,
+            }
+            self._current_file.write(json.dumps(record) + "\n")
+            self._current_file.flush()
+    
     def _rotate_file(self, now: datetime) -> None:
         """Rotate to new file every hour."""
         if self._current_hour != now.hour or self._current_file is None:
@@ -50,6 +83,9 @@ class SimpleRecorder:
             self._current_hour = now.hour
             self._message_count = 0
             print(f"Writing to: {filepath.name}")
+            
+            # snapshot at the start of each file so we have a resync point
+            self._write_snapshot(now)
     
     def _write_message(self, data: dict, recv_time: datetime) -> None:
         """Write message to file."""
@@ -86,6 +122,11 @@ class SimpleRecorder:
                 ) as ws:
                     print("Connected! Recording...\n")
                     reconnect_delay = 1.0
+                    
+                    # snapshot right after connecting — this is the anchor
+                    # for all diffs that follow until the next snapshot
+                    now = datetime.utcnow()
+                    self._rotate_file(now)
                     
                     async for message in ws:
                         if not self._running:

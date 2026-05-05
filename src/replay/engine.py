@@ -22,8 +22,9 @@ the strategy via on_order_placed so it can track order IDs for later
 cancellation. The strategy owns its cancel/replace logic.
 """
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
-from typing import List, Protocol, Tuple, Union
+from typing import List, Optional, Protocol, Tuple, Union
 
 from src.replay.orderbook import Orderbook
 from src.replay.depth_parser import DepthParser, DepthEvent
@@ -74,6 +75,7 @@ class ReplayConfig:
     trade_files: List[Path]
     sim_config: SimConfig
     checkpoint_interval: int = 1000  # book state hash every N events
+    record_book_samples: bool = False
 
 
 @dataclass
@@ -90,11 +92,22 @@ class ReplayStats:
 
 
 @dataclass
+class BookSample:
+    timestamp_ms: int
+    best_bid: Decimal
+    best_ask: Decimal
+    mid: Decimal
+    microprice: Optional[Decimal]
+    spread: Decimal
+
+
+@dataclass
 class ReplayResult:
     fills: List[Fill]
     events: List[OrderEvent]
     stats: ReplayStats
     checkpoints: List[Tuple[int, int, str]]  # (event_idx, timestamp_ms, book_hash)
+    book_samples: List[BookSample]
 
 
 class ReplayEngine:
@@ -118,6 +131,7 @@ class ReplayEngine:
         self.sim = ExecutionSimulator(config.sim_config)
         self._in_gap = True  # no book state until first snapshot
         self._stats = ReplayStats()
+        self._book_samples: List[BookSample] = []
 
     def run(self, strategy: Strategy) -> ReplayResult:
         """
@@ -152,6 +166,7 @@ class ReplayEngine:
             events=self.sim.events,
             stats=self._stats,
             checkpoints=checkpoints,
+            book_samples=list(self._book_samples),
         )
 
     # --- event handlers ---
@@ -168,6 +183,7 @@ class ReplayEngine:
                 # next callback.
                 self._cancel_all(event.exchange_time_ms)
 
+            self._record_book_sample(event.exchange_time_ms)
             fills = self.sim.on_book_update(self.book, event.exchange_time_ms)
             self._dispatch_fills(fills, strategy)
             actions = strategy.on_book_update(self.book, event.exchange_time_ms)
@@ -187,6 +203,7 @@ class ReplayEngine:
             return
 
         self.book.apply_diff(event.bids, event.asks, event.last_update_id)
+        self._record_book_sample(event.exchange_time_ms)
         fills = self.sim.on_book_update(self.book, event.exchange_time_ms)
         self._dispatch_fills(fills, strategy)
         actions = strategy.on_book_update(self.book, event.exchange_time_ms)
@@ -232,3 +249,23 @@ class ReplayEngine:
         for order in self.sim.open_orders:
             if self.sim.cancel(order.order_id, timestamp_ms):
                 self._stats.orders_cancelled += 1
+
+    def _record_book_sample(self, timestamp_ms: int) -> None:
+        if not self.config.record_book_samples:
+            return
+
+        best_bid = self.book.best_bid
+        best_ask = self.book.best_ask
+        mid = self.book.mid
+        spread = self.book.spread
+        if best_bid is None or best_ask is None or mid is None or spread is None:
+            return
+
+        self._book_samples.append(BookSample(
+            timestamp_ms=timestamp_ms,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            mid=mid,
+            microprice=self.book.microprice,
+            spread=spread,
+        ))

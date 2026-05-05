@@ -5,7 +5,6 @@ Run with: python tests/test_mm_strategies.py
 """
 from decimal import Decimal
 from datetime import datetime
-from typing import Optional, Tuple
 
 from src.execution.order import (
     Fill, Order, OrderRequest, OrderSide, OrderStatus, OrderType,
@@ -13,7 +12,7 @@ from src.execution.order import (
 from src.replay.engine import CancelRequest
 from src.replay.orderbook import Orderbook
 from src.replay.trade_parser import TradeEvent
-from src.strategies.base_mm import BaseMMStrategy
+from src.strategies.microprice_mm import MicropriceMM
 from src.strategies.symmetric_mm import SymmetricMM
 
 
@@ -261,8 +260,8 @@ def test_tick_rounding():
         max_position=Decimal("1.0"),
         tick_size=Decimal("0.10"),
     )
-    # mid = 100.50, bid = 100.50 - 0.75 = 99.75 -> round to 99.70
-    #                ask = 100.50 + 0.75 = 101.25 -> round to 101.20
+    # mid = 100.50, bid = 100.50 - 0.75 = 99.75 -> round down to 99.70
+    #                ask = 100.50 + 0.75 = 101.25 -> round up to 101.30
     book = make_book()
     actions = strat.on_book_update(book, timestamp_ms=1000)
 
@@ -271,8 +270,30 @@ def test_tick_rounding():
     sell = next(o for o in orders if o.side == OrderSide.SELL)
 
     assert buy.price == Decimal("99.7") or buy.price == Decimal("99.70")
-    assert sell.price == Decimal("101.2") or sell.price == Decimal("101.20")
+    assert sell.price == Decimal("101.3") or sell.price == Decimal("101.30")
     print(f"PASS: prices rounded to tick_size=0.10 (bid={buy.price}, ask={sell.price})")
+
+
+def test_microprice_quotes_around_microprice():
+    strat = MicropriceMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("1.0"),
+    )
+    # microprice = (9 * 101 + 1 * 100) / 10 = 100.90
+    book = make_book(
+        bids=[("100.00", "9.0")],
+        asks=[("101.00", "1.0")],
+    )
+    actions = strat.on_book_update(book, timestamp_ms=1000)
+
+    orders = [a for a in actions if isinstance(a, OrderRequest)]
+    buy = next(o for o in orders if o.side == OrderSide.BUY)
+    sell = next(o for o in orders if o.side == OrderSide.SELL)
+
+    assert buy.price == Decimal("100.40")
+    assert sell.price == Decimal("101.40")
+    print("PASS: microprice MM quotes around book microprice")
 
 
 # --- edge cases ---
@@ -350,6 +371,7 @@ if __name__ == "__main__":
     test_position_limit_blocks_buy_side()
     test_position_limit_blocks_sell_side()
     test_tick_rounding()
+    test_microprice_quotes_around_microprice()
     test_empty_book_returns_no_actions()
     test_on_trade_returns_empty()
     test_cancel_stale_order_when_side_blocked()

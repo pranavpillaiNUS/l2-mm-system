@@ -12,8 +12,8 @@ which returns the desired bid and ask prices. Everything else — deciding
 when to cancel, building OrderRequests, tracking fills — lives here.
 """
 from abc import ABC, abstractmethod
-from decimal import Decimal, ROUND_DOWN
-from typing import Dict, List, Optional, Tuple
+from decimal import Decimal, ROUND_DOWN, ROUND_UP
+from typing import List, Optional, Tuple
 
 from src.execution.order import Fill, Order, OrderRequest, OrderSide, OrderType
 from src.replay.engine import Action, CancelRequest
@@ -80,9 +80,10 @@ class BaseMMStrategy(ABC):
 
         desired_bid, desired_ask = self.compute_quotes(book, timestamp_ms)
 
-        # Round to tick
-        desired_bid = self._round_to_tick(desired_bid) if desired_bid is not None else None
-        desired_ask = self._round_to_tick(desired_ask) if desired_ask is not None else None
+        # Round bids down and asks up so tick normalization never makes
+        # quotes more aggressive than the strategy intended.
+        desired_bid = self._round_bid(desired_bid) if desired_bid is not None else None
+        desired_ask = self._round_ask(desired_ask) if desired_ask is not None else None
 
         # Position limits: don't quote the side that would increase exposure
         if self.position >= self.max_position:
@@ -170,6 +171,10 @@ class BaseMMStrategy(ABC):
             return None
         return order.price
 
-    def _round_to_tick(self, price: Decimal) -> Decimal:
-        """Round price down to the nearest tick."""
+    def _round_bid(self, price: Decimal) -> Decimal:
+        """Round bid price down to the nearest tick."""
         return (price / self.tick_size).to_integral_value(ROUND_DOWN) * self.tick_size
+
+    def _round_ask(self, price: Decimal) -> Decimal:
+        """Round ask price up to the nearest tick."""
+        return (price / self.tick_size).to_integral_value(ROUND_UP) * self.tick_size

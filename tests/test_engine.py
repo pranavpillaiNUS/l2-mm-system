@@ -276,6 +276,46 @@ def test_gap_detection_cancels_active_orders():
         print("PASS: gap detection cancels all active orders")
 
 
+def test_gap_detection_cancels_pending_orders():
+    """A sequence gap cancels orders that were placed but have not arrived."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        t_diff = _BASE_MS + 1000
+        t_gap = _BASE_MS + 1500
+        t_after_recovery = _BASE_MS + 3000
+
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=t_diff, U=101, u=101,
+                  bids=[], asks=[]),
+            # Gap occurs before the snapshot-submitted orders can arrive.
+            _diff("2026-04-21T00:00:01.500000+00:00", E=t_gap, U=200, u=200,
+                  bids=[], asks=[]),
+            _snapshot("2026-04-21T00:00:02+00:00", last_update_id=300,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            # If the pending orders survived the gap, they would arrive here.
+            _diff("2026-04-21T00:00:03+00:00", E=t_after_recovery, U=301, u=301,
+                  bids=[], asks=[]),
+        ])
+
+        config = ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(base_latency_ms=3000, jitter_ms=0),
+        )
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(config).run(strategy)
+
+        assert result.stats.gaps_detected == 1
+        assert result.stats.orders_cancelled == 2
+        assert len(strategy.orders) == 2
+        assert all(o.status == OrderStatus.CANCELLED
+                   for o in strategy.orders.values())
+        assert not any(e.event_type == "arrived" for e in result.events)
+        print("PASS: gap detection cancels pending orders before arrival")
+
+
 def test_gap_recovery_after_snapshot():
     """After a gap, a new snapshot restores normal operation."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -519,6 +559,7 @@ if __name__ == "__main__":
     test_starts_in_gap_skips_diffs_until_snapshot()
     test_basic_replay_with_fill()
     test_gap_detection_cancels_active_orders()
+    test_gap_detection_cancels_pending_orders()
     test_gap_recovery_after_snapshot()
     test_trades_skipped_during_gap()
     test_cancel_request_from_strategy()

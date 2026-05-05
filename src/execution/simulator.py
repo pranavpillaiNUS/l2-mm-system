@@ -180,6 +180,10 @@ class ExecutionSimulator:
     def active_orders(self) -> List[Order]:
         return [o for o in self._orders.values() if o.is_active]
 
+    @property
+    def open_orders(self) -> List[Order]:
+        return [o for o in self._orders.values() if not o.is_done]
+
     # --- private helpers ---
 
     def _activate_limit(self, order: Order, book: Orderbook, timestamp_ms: int) -> None:

@@ -468,6 +468,68 @@ def test_checkpoints():
         print(f"PASS: {len(result.checkpoints)} checkpoints recorded at interval=2")
 
 
+def test_book_sampling_default_off():
+    """Book samples are not recorded unless explicitly enabled."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000, U=101, u=101,
+                  bids=[["100.50", "1.0"]], asks=[]),
+        ])
+
+        config = ReplayConfig(
+            depth_files=[depth_file], trade_files=[], sim_config=_sim_config(),
+        )
+        result = ReplayEngine(config).run(NullStrategy())
+
+        assert result.book_samples == []
+        print("PASS: book sampling default is off")
+
+
+def test_book_sampling_records_only_outside_gaps():
+    """Book samples are recorded for usable snapshots/diffs, not gap events."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        t_diff = _BASE_MS + 1000
+        t_gap = _BASE_MS + 2000
+        t_gap_diff = _BASE_MS + 3000
+        t_recovery = "2026-04-21T00:00:04+00:00"
+
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            # Skipped before first snapshot.
+            _diff(_BASE_RECV, _BASE_MS - 1000, U=1, u=1,
+                  bids=[["90.00", "1.0"]], asks=[["91.00", "1.0"]]),
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=t_diff, U=101, u=101,
+                  bids=[["100.50", "2.0"]], asks=[]),
+            # Gap and following diff are skipped.
+            _diff("2026-04-21T00:00:02+00:00", E=t_gap, U=200, u=200,
+                  bids=[["99.00", "2.0"]], asks=[]),
+            _diff("2026-04-21T00:00:03+00:00", E=t_gap_diff, U=201, u=201,
+                  bids=[["98.00", "2.0"]], asks=[]),
+            _snapshot(t_recovery, last_update_id=300,
+                      bids=[["102.00", "4.0"]], asks=[["103.00", "2.0"]]),
+        ])
+
+        config = ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(),
+            record_book_samples=True,
+        )
+        result = ReplayEngine(config).run(NullStrategy())
+
+        timestamps = [sample.timestamp_ms for sample in result.book_samples]
+        assert timestamps == [_BASE_MS, t_diff, _BASE_MS + 4000]
+        assert result.book_samples[0].mid == Decimal("100.50")
+        assert result.book_samples[1].best_bid == Decimal("100.50")
+        assert result.book_samples[2].mid == Decimal("102.50")
+        print("PASS: book sampling records only usable book states")
+
+
 def test_determinism():
     """Identical inputs produce identical fills and checkpoints."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -564,6 +626,8 @@ if __name__ == "__main__":
     test_trades_skipped_during_gap()
     test_cancel_request_from_strategy()
     test_checkpoints()
+    test_book_sampling_default_off()
+    test_book_sampling_records_only_outside_gaps()
     test_determinism()
     test_empty_replay()
     test_stats_add_up()

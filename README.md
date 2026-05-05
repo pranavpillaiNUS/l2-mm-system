@@ -98,11 +98,10 @@ FIFO queue model: when a limit order arrives, `queue_ahead` is set to the book q
 
 Market orders walk available book levels greedily; unfilled remainder is cancelled. Aggressive limit orders (price crosses the spread) execute immediately as takers. Fees are assigned per fill: maker rate for resting limit fills, taker rate for everything else.
 
-### What's left to build
-
 **`src/replay/engine.py`** — the main replay loop. Takes a list of depth and trade files, creates the event merger, drives the orderbook forward event by event, calls `simulator.on_book_update` and `simulator.on_trade`, dispatches to the strategy, and handles gap/resync (pauses strategy callbacks when a gap is detected, resumes after the next snapshot). Returns a `ReplayResult` with all fills and events.
 
-**`src/strategies/`** — four market-making strategy implementations, in order of complexity:
+**`src/strategies/`**
+Base market-making strategy plumbing plus two quoting strategies:
 
 | Strategy | Quoting reference | What it adds |
 |---|---|---|
@@ -111,15 +110,21 @@ Market orders walk available book levels greedily; unfilled remainder is cancell
 | `InventorySkewMM` | microprice + skew | shifts quotes toward flat as inventory grows |
 | `VolAdaptiveMM` | microprice + skew + vol | widens spreads in high-volatility periods |
 
-All strategies inherit from `BaseMMStrategy` with callbacks `on_book_update`, `on_trade`, `on_fill`, each returning a list of `OrderRequest` objects.
+Strategies inherit from `BaseMMStrategy` with callbacks `on_book_update`, `on_trade`, `on_fill`, each returning a list of actions: `OrderRequest` to place orders or `CancelRequest` to cancel existing orders.
+
+**`src/analysis/markout.py`**
+Computes side-normalized fill markouts at 1s, 5s, 30s, 1m, and 5m horizons using recorded book samples from the replay engine. Positive markout means favorable post-fill movement; negative markout indicates adverse selection.
+
+**`scripts/run_replay.py`**
+Runs a single L2 replay on local recorded data, prints event/execution/P&L/markout summaries, and can write `summary.json`, `fills.csv`, and `markouts.csv` under `results/replay/`.
+
+### What's left to build
 
 **`src/analysis/`** — post-replay analysis:
-- `markout.py` — adverse selection measurement: mid price change at 1s, 5s, 30s, 1min, 5min after each fill
 - `pnl.py` — P&L decomposition into spread capture, adverse selection cost, fees, and inventory P&L
 - `fill_rate.py` — fill probability by distance from mid, time of day, volatility regime
 
 **`scripts/`**:
-- `run_replay.py` — run a single replay session, print summary stats
 - `sweep_mm_params.py` — parameter sweep over spread width, inventory limits, etc.
 - `walk_forward_mm.py` — same anchored-window framework as Phase 1, adapted for L2 time periods
 - `benchmark.py` — throughput, latency, and memory benchmarks (events/sec, ms/fill)
@@ -132,26 +137,26 @@ src/replay/
 ├── depth_parser.py   # parse depth .jsonl.gz, gap detection                        ✓
 ├── trade_parser.py   # parse trade .jsonl.gz, gap detection                        ✓
 ├── event_merger.py   # time-sorted merge of both streams                           ✓
-└── engine.py         # main replay loop, gap/resync handling                       [ ]
+└── engine.py         # main replay loop, gap/resync handling                       ✓
 
 src/execution/
 ├── order.py          # OrderRequest, Order, Fill, OrderEvent types                 ✓
 └── simulator.py      # FIFO queue, latency, partial fills, fees                    ✓
 
 src/strategies/
-├── base_mm.py        # BaseMMStrategy ABC                                           [ ]
-├── symmetric_mm.py   # quote symmetrically around mid                              [ ]
-├── microprice_mm.py  # quote around microprice                                     [ ]
+├── base_mm.py        # BaseMMStrategy ABC                                           ✓
+├── symmetric_mm.py   # quote symmetrically around mid                              ✓
+├── microprice_mm.py  # quote around microprice                                     ✓
 ├── inventory_skew.py # shift quotes toward flat                                    [ ]
 └── vol_adaptive.py   # widen in high vol, tighten in low vol                       [ ]
 
 src/analysis/
-├── markout.py        # adverse selection at multiple horizons                      [ ]
+├── markout.py        # adverse selection at multiple horizons                      ✓
 ├── pnl.py            # P&L decomposition                                           [ ]
 └── fill_rate.py      # fill probability analysis                                   [ ]
 
 scripts/
-├── run_replay.py          # [ ]
+├── run_replay.py          # ✓
 ├── sweep_mm_params.py     # [ ]
 ├── walk_forward_mm.py     # [ ]
 └── benchmark.py           # [ ]
@@ -223,6 +228,9 @@ python tests/test_depth_parser.py
 python tests/test_trade_parser.py
 python tests/test_event_merger.py
 python tests/test_execution_simulator.py
+python tests/test_engine.py
+python tests/test_mm_strategies.py
+python tests/test_markout.py
 ```
 
 Note: `test_depth_parser.py` and `test_trade_parser.py` include a smoke test against a real recorded file. These require data in `data/raw/` and are skipped automatically if the files are not present.

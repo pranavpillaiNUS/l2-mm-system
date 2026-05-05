@@ -13,15 +13,15 @@ The engine processes events in timestamp order:
 Gap handling: the engine starts in gap state (book uninitialized). A snapshot
 exits gap state and resyncs the book. A sequence gap in depth diffs re-enters
 gap state. During a gap, events are counted but not dispatched -- the book is
-unreliable and strategy callbacks would see stale data. All active orders are
-cancelled on gap entry because queue positions are invalidated.
+unreliable and strategy callbacks would see stale data. All open orders are
+cancelled on gap entry because queue positions and pending intent are invalid.
 
 Order management: strategies return Actions (OrderRequests or CancelRequests)
 from callbacks. The engine submits orders through the simulator and notifies
 the strategy via on_order_placed so it can track order IDs for later
 cancellation. The strategy owns its cancel/replace logic.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Protocol, Tuple, Union
 
@@ -163,8 +163,9 @@ class ReplayEngine:
 
             if self._in_gap:
                 self._in_gap = False
-                # Cancel active orders -- queue positions are invalid after
-                # a gap. The strategy will re-quote on the next callback.
+                # Cancel open orders -- queue positions and pending intent
+                # are invalid after a gap. The strategy will re-quote on the
+                # next callback.
                 self._cancel_all(event.exchange_time_ms)
 
             fills = self.sim.on_book_update(self.book, event.exchange_time_ms)
@@ -227,7 +228,7 @@ class ReplayEngine:
                 strategy.on_order_placed(action, order)
 
     def _cancel_all(self, timestamp_ms: int) -> None:
-        """Cancel all active orders -- used on gap entry and gap recovery."""
-        for order in self.sim.active_orders:
-            self.sim.cancel(order.order_id, timestamp_ms)
-            self._stats.orders_cancelled += 1
+        """Cancel all open orders -- used on gap entry and gap recovery."""
+        for order in self.sim.open_orders:
+            if self.sim.cancel(order.order_id, timestamp_ms):
+                self._stats.orders_cancelled += 1

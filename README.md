@@ -51,8 +51,7 @@ scripts/
 ├── compare_strategies.py  # 18-combo sweep (Momentum vs Mean Reversion)
 ├── sweep_sma.py           # 11-combo SMA sweep
 ├── sweep_bollinger.py     # 20-combo Bollinger sweep
-├── walk_forward.py        # 9-window anchored walk-forward, all 4 strategies
-└── plot_walk_forward.py   # OOS equity curves and monthly return charts
+└── walk_forward.py        # anchored walk-forward plus OOS plots
 ```
 
 ---
@@ -187,7 +186,7 @@ scripts/
 Port the hot path of the replay loop to C++17 via pybind11 for roughly a 10x speedup on parameter sweeps. The Python implementation is the reference; the C++ port must produce bit-identical results on the same input.
 
 ```
-cpp/
+cpp/  # planned
 ├── CMakeLists.txt
 ├── orderbook.hpp / .cpp    # SortedMap with int64 prices (tick units, no Decimal overhead)
 ├── replay_engine.hpp / .cpp  # core event processing loop
@@ -209,14 +208,13 @@ l2-mm-system/
 │   ├── execution/     # Phase 2 execution simulator (complete)
 │   ├── strategies/    # Phase 2 baseline MM strategies
 │   └── analysis/      # Phase 2 markout and P&L analysis
-├── cpp/               # Phase 3 C++17 port (not started)
-├── tests/             # one file per module, standalone (no pytest)
+├── tests/             # deterministic test suite
 ├── scripts/           # runnable analysis scripts
 ├── notebooks/         # research_log.md, error_analysis.md, lessons_learned.md
 ├── data/
 │   ├── bars/          # OHLCV parquet files
 │   └── raw/           # recorded L2 data (gitignored, local only)
-└── results/           # output CSVs and plots (gitignored, force-add selectively)
+└── results/           # selected research artifacts; generated outputs are gitignored
 ```
 
 ---
@@ -239,7 +237,12 @@ python scripts/compare_strategies.py
 python scripts/walk_forward.py
 ```
 
-**Run tests:**
+**Run deterministic tests:**
+```bash
+env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+```
+
+Individual test files can also be run directly:
 ```bash
 python tests/test_orderbook.py
 python tests/test_depth_parser.py
@@ -252,7 +255,7 @@ python tests/test_markout.py
 python tests/test_pnl.py
 ```
 
-Note: `test_depth_parser.py` and `test_trade_parser.py` include a smoke test against a real recorded file. These require data in `data/raw/` and are skipped automatically if the files are not present.
+Note: `tests/test_recorder.py` is a live recorder/network test and is intentionally excluded from the deterministic suite. Some parser tests include smoke checks against local recorded files and skip those checks automatically when `data/raw/` is not present.
 
 ---
 

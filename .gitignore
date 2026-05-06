@@ -3,6 +3,8 @@ data_derived/
 reports/
 notebooks/project_brief_current_stage.md
 
+.pytest_cache/
+
 *.png
 *.log
 *.jsonl
@@ -14,6 +16,5 @@ notebooks/project_brief_current_stage.md
 __pycache__/
 *.pyc
 .env
-.venv/
 .venv/
 data/

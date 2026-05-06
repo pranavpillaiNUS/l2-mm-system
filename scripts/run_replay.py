@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List
 
 from src.analysis.markout import compute_markouts, summarize_markouts
+from src.analysis.pnl import compute_pnl_decomposition, format_pnl_summary
 from src.execution.order import Fill
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
@@ -98,7 +99,7 @@ def _gross_pnl(strategy, mark_price: Decimal | None) -> Decimal:
     return strategy.realized_pnl + strategy.position * mark_price
 
 
-def _print_summary(args, result, strategy, markouts, final_mid):
+def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     maker_fills = sum(1 for fill in result.fills if fill.is_maker)
     taker_fills = len(result.fills) - maker_fills
     gross_pnl = _gross_pnl(strategy, final_mid)
@@ -148,19 +149,26 @@ def _print_summary(args, result, strategy, markouts, final_mid):
     if not markout_summary:
         print("  No markouts available.")
     else:
-        print(f"  {'Horizon':<8} {'Count':>8} {'Avg Px':>16} {'Avg bps':>16}")
+        print(f"  {'Horizon':<8} {'Count':>8} {'Avg bps':>10} {'p25 bps':>10} {'p50 bps':>10} {'p75 bps':>10}")
         for horizon in ["1s", "5s", "30s", "1m", "5m"]:
             row = markout_summary.get(horizon)
             if row is None:
                 continue
+            p25 = _decimal_str(row["p25_markout_bps"]) if row["p25_markout_bps"] is not None else "n/a"
+            p50 = _decimal_str(row["p50_markout_bps"]) if row["p50_markout_bps"] is not None else "n/a"
+            p75 = _decimal_str(row["p75_markout_bps"]) if row["p75_markout_bps"] is not None else "n/a"
             print(
                 f"  {horizon:<8} {row['count']:>8} "
-                f"{_decimal_str(row['avg_markout']):>16} "
-                f"{_decimal_str(row['avg_markout_bps']):>16}"
+                f"{_decimal_str(row['avg_markout_bps']):>10} "
+                f"{p25:>10} {p50:>10} {p75:>10}"
             )
 
+    if decomp is not None:
+        print()
+        print(format_pnl_summary(decomp))
 
-def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid) -> None:
+
+def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid, decomp=None) -> None:
     run_id = f"{args.symbol.lower()}_{args.strategy}_{args.date}_{args.hour:02d}_{args.hours}h"
     run_dir = output_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -188,6 +196,7 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "fees": strategy.total_fees,
         "net_pnl": gross_pnl - strategy.total_fees,
         "markouts": summarize_markouts(markouts),
+        "pnl_decomposition": decomp.__dict__ if decomp is not None else None,
     }
 
     with (run_dir / "summary.json").open("w", encoding="utf-8") as f:
@@ -292,10 +301,11 @@ def main():
     result = engine.run(strategy)
     final_mid = _final_mid(engine)
     markouts = compute_markouts(result.fills, result.book_samples)
+    decomp = compute_pnl_decomposition(result.fills, result.book_samples, markouts, final_mid)
 
-    _print_summary(args, result, strategy, markouts, final_mid)
+    _print_summary(args, result, strategy, markouts, final_mid, decomp)
     if args.write_results:
-        _write_results(args.output_dir, args, result, strategy, markouts, final_mid)
+        _write_results(args.output_dir, args, result, strategy, markouts, final_mid, decomp)
 
 
 if __name__ == "__main__":

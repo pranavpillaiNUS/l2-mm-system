@@ -91,9 +91,44 @@ def test_summary_groups_by_horizon():
     print("PASS: summary aggregates by horizon")
 
 
+def test_percentiles_none_when_fewer_than_4_fills():
+    rows = compute_markouts(
+        [make_fill("f1", OrderSide.BUY, 1000), make_fill("f2", OrderSide.BUY, 1000)],
+        [make_sample(2000, "101.00")],
+        {"1s": 1000},
+    )
+
+    summary = summarize_markouts(rows)
+
+    assert summary["1s"]["p25_markout_bps"] is None
+    assert summary["1s"]["p50_markout_bps"] is None
+    assert summary["1s"]["p75_markout_bps"] is None
+    print("PASS: percentiles are None when fewer than 4 fills")
+
+
+def test_percentiles_present_with_enough_fills():
+    fills = [make_fill(f"f{i}", OrderSide.BUY, 1000) for i in range(8)]
+    # mid moves by different amounts: 100, 101, 102, 103, 104, 105, 106, 107
+    samples = [make_sample(2000 + i * 10, str(100 + i)) for i in range(8)]
+
+    rows = compute_markouts(fills, samples, {"1s": 1000})
+    summary = summarize_markouts(rows)
+
+    assert summary["1s"]["count"] == 8
+    assert summary["1s"]["p25_markout_bps"] is not None
+    assert summary["1s"]["p50_markout_bps"] is not None
+    assert summary["1s"]["p75_markout_bps"] is not None
+    # p25 <= p50 <= p75
+    assert summary["1s"]["p25_markout_bps"] <= summary["1s"]["p50_markout_bps"]
+    assert summary["1s"]["p50_markout_bps"] <= summary["1s"]["p75_markout_bps"]
+    print("PASS: percentiles present and ordered with enough fills")
+
+
 if __name__ == "__main__":
     test_fill_matches_first_sample_at_or_after_horizon()
     test_missing_future_horizon_is_skipped()
     test_buy_and_sell_sign_convention()
     test_summary_groups_by_horizon()
+    test_percentiles_none_when_fewer_than_4_fills()
+    test_percentiles_present_with_enough_fills()
     print("\nAll tests passed.")

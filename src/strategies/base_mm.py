@@ -41,15 +41,18 @@ class BaseMMStrategy(ABC):
         order_qty: Decimal,
         max_position: Decimal,
         tick_size: Decimal = Decimal("0.01"),
+        requote_interval_ms: int = 0,
     ):
         self.order_qty = order_qty
         self.max_position = max_position
         self.tick_size = tick_size
+        self.requote_interval_ms = requote_interval_ms
 
         # Order tracking — shared refs with the simulator, so status
         # updates (filled, cancelled) are visible here automatically.
         self._bid_order: Optional[Order] = None
         self._ask_order: Optional[Order] = None
+        self._last_requote_ms: Optional[int] = None
 
         # Inventory: positive = long, negative = short
         self.position: Decimal = Decimal("0")
@@ -91,7 +94,17 @@ class BaseMMStrategy(ABC):
         if self.position <= -self.max_position:
             desired_ask = None  # already max short, don't sell more
 
-        return self._requote(desired_bid, desired_ask, timestamp_ms)
+        current_bid = self._live_price(self._bid_order)
+        current_ask = self._live_price(self._ask_order)
+        if self._should_hold_quotes(
+            desired_bid, desired_ask, current_bid, current_ask, timestamp_ms,
+        ):
+            return []
+
+        actions = self._requote(desired_bid, desired_ask, timestamp_ms)
+        if actions:
+            self._last_requote_ms = timestamp_ms
+        return actions
 
     def on_trade(self, trade: TradeEvent, book: Orderbook) -> List[Action]:
         return []
@@ -170,6 +183,40 @@ class BaseMMStrategy(ABC):
         if order is None or order.is_done:
             return None
         return order.price
+
+    def _should_hold_quotes(
+        self,
+        desired_bid: Optional[Decimal],
+        desired_ask: Optional[Decimal],
+        current_bid: Optional[Decimal],
+        current_ask: Optional[Decimal],
+        timestamp_ms: int,
+    ) -> bool:
+        """
+        Hold existing quotes during the requote interval.
+
+        This only throttles pure price refreshes. It does not block placing a
+        missing side after a fill, and it does not delay risk-reducing cancels
+        when position limits suppress one side.
+        """
+        if self.requote_interval_ms <= 0 or self._last_requote_ms is None:
+            return False
+        if timestamp_ms - self._last_requote_ms >= self.requote_interval_ms:
+            return False
+
+        return (
+            self._side_can_hold(desired_bid, current_bid)
+            and self._side_can_hold(desired_ask, current_ask)
+        )
+
+    def _side_can_hold(
+        self,
+        desired_price: Optional[Decimal],
+        current_price: Optional[Decimal],
+    ) -> bool:
+        if desired_price is None:
+            return current_price is None
+        return current_price is not None
 
     def _round_bid(self, price: Decimal) -> Decimal:
         """Round bid price down to the nearest tick."""

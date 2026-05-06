@@ -33,9 +33,11 @@ class SymmetricMM(BaseMMStrategy):
         order_qty: Decimal,
         max_position: Decimal,
         tick_size: Decimal = Decimal("0.01"),
+        requote_interval_ms: int = 0,
     ):
         super().__init__(order_qty=order_qty, max_position=max_position,
-                         tick_size=tick_size)
+                         tick_size=tick_size,
+                         requote_interval_ms=requote_interval_ms)
         self.half_spread = half_spread
 
     def compute_quotes(

@@ -139,6 +139,58 @@ def test_requote_when_mid_changes():
     print("PASS: requotes with cancel/replace when mid changes")
 
 
+def test_requote_interval_holds_existing_quotes():
+    strat = SymmetricMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("1.0"),
+        requote_interval_ms=1000,
+    )
+    book = make_book()
+
+    actions1 = strat.on_book_update(book, timestamp_ms=1000)
+    for req in [a for a in actions1 if isinstance(a, OrderRequest)]:
+        strat.on_order_placed(req, make_order(
+            f"ord-{req.side.value}", req.side, req.price,
+        ))
+
+    # Mid shifts, but we are still inside the requote interval.
+    book2 = make_book(bids=[("99.00", "5.0")], asks=[("100.00", "3.0")])
+    actions2 = strat.on_book_update(book2, timestamp_ms=1500)
+    assert len(actions2) == 0
+
+    # Once the interval expires, stale quotes are cancelled and replaced.
+    actions3 = strat.on_book_update(book2, timestamp_ms=2000)
+    cancels = [a for a in actions3 if isinstance(a, CancelRequest)]
+    new_orders = [a for a in actions3 if isinstance(a, OrderRequest)]
+    assert len(cancels) == 2
+    assert len(new_orders) == 2
+    print("PASS: requote interval holds live quotes until interval expires")
+
+
+def test_requote_interval_does_not_delay_position_limit_cancel():
+    strat = SymmetricMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("0.5"),
+        requote_interval_ms=1000,
+    )
+    book = make_book()
+
+    actions1 = strat.on_book_update(book, timestamp_ms=1000)
+    for req in [a for a in actions1 if isinstance(a, OrderRequest)]:
+        strat.on_order_placed(req, make_order(
+            f"ord-{req.side.value}", req.side, req.price,
+        ))
+
+    strat.position = Decimal("0.5")
+    actions2 = strat.on_book_update(book, timestamp_ms=1500)
+    cancels = [a for a in actions2 if isinstance(a, CancelRequest)]
+    assert len(cancels) == 1
+    assert cancels[0].order_id == "ord-buy"
+    print("PASS: requote interval does not delay risk-reducing cancels")
+
+
 def test_requote_after_fill():
     """After a fill, the filled side's order is done. Next book update replaces it."""
     strat = SymmetricMM(
@@ -365,6 +417,8 @@ if __name__ == "__main__":
     test_symmetric_quotes_around_mid()
     test_no_requote_when_prices_unchanged()
     test_requote_when_mid_changes()
+    test_requote_interval_holds_existing_quotes()
+    test_requote_interval_does_not_delay_position_limit_cancel()
     test_requote_after_fill()
     test_inventory_tracks_buys_and_sells()
     test_realized_pnl_and_fees()

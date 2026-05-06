@@ -8,10 +8,11 @@ horizon and compute a side-normalized price move:
 
 Positive values are favorable; negative values indicate adverse selection.
 """
+import statistics
 from bisect import bisect_left
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Iterable, List, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence
 
 from src.execution.order import Fill, OrderSide
 from src.replay.engine import BookSample
@@ -82,21 +83,35 @@ def compute_markouts(
     return results
 
 
-def summarize_markouts(markouts: Iterable[Markout]) -> Dict[str, Dict[str, Decimal | int]]:
-    """Aggregate markouts by horizon."""
+def summarize_markouts(markouts: Iterable[Markout]) -> Dict[str, Dict]:
+    """Aggregate markouts by horizon, including p25/p50/p75 when count >= 4."""
     grouped: Dict[str, List[Markout]] = {}
     for markout in markouts:
         grouped.setdefault(markout.horizon, []).append(markout)
 
-    summary: Dict[str, Dict[str, Decimal | int]] = {}
+    summary: Dict[str, Dict] = {}
     for horizon, rows in grouped.items():
         count = len(rows)
         total = sum((row.markout for row in rows), Decimal("0"))
         total_bps = sum((row.markout_bps for row in rows), Decimal("0"))
-        summary[horizon] = {
+
+        row_summary: Dict = {
             "count": count,
             "avg_markout": total / count,
             "avg_markout_bps": total_bps / count,
         }
+
+        if count >= 4:
+            bps_values = [float(row.markout_bps) for row in rows]
+            q25, q50, q75 = statistics.quantiles(bps_values, n=4)
+            row_summary["p25_markout_bps"] = Decimal(str(round(q25, 4)))
+            row_summary["p50_markout_bps"] = Decimal(str(round(q50, 4)))
+            row_summary["p75_markout_bps"] = Decimal(str(round(q75, 4)))
+        else:
+            row_summary["p25_markout_bps"] = None
+            row_summary["p50_markout_bps"] = None
+            row_summary["p75_markout_bps"] = None
+
+        summary[horizon] = row_summary
 
     return summary

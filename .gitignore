@@ -1,6 +1,7 @@
 data_raw/
 data_derived/
 reports/
+notebooks/project_brief_current_stage.md
 
 *.png
 *.log

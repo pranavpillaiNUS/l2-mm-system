@@ -1,17 +1,12 @@
 from datetime import datetime, timedelta
 from src.backtester.portfolio import Portfolio, Fill, Side
 
+
 def test_basic_trading():
-    print("TEST: Basic Trading")
-    
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1, 10, 0, 0)
-    
-    print(f"\n1. Initial state:")
-    print(f"   Cash: ${portfolio.cash:,.2f}")
-    print(f"   Position: {portfolio.position}")
 
-    buy_fill = Fill( # buy 1 BTC at $50,000
+    buy_fill = Fill(
         timestamp=now,
         side=Side.BUY,
         price=50_000,
@@ -22,17 +17,15 @@ def test_basic_trading():
     )
     portfolio.execute(buy_fill)
 
-    print(f"\n2. After BUY 1 BTC @ $50,000:")
-    print(f"   Cash: ${portfolio.cash:,.2f}")
-    print(f"   Position: {portfolio.position} BTC")
-    print(f"   Avg Entry: ${portfolio.avg_entry_price:,.2f}")
+    assert portfolio.cash == 49_925.0
+    assert portfolio.position == 1.0
+    assert portfolio.avg_entry_price == 50_000
 
     snapshot = portfolio.mark_to_market(now + timedelta(hours=1), price=51_000)
-    print(f"\n3. Mark-to-Market @ $51,000:")
-    print(f"   Equity: ${snapshot.equity:,.2f}")
-    print(f"   Unrealized P&L: ${snapshot.unrealized_pnl:,.2f}")
+    assert snapshot.equity == 100_925.0
+    assert snapshot.unrealized_pnl == 1_000.0
 
-    sell_fill = Fill( # selling the 1 BTC at $51,000
+    sell_fill = Fill(
         timestamp=now + timedelta(hours=2),
         side=Side.SELL,
         price=51_000,
@@ -43,26 +36,18 @@ def test_basic_trading():
     )
     portfolio.execute(sell_fill)
 
-    print(f"\n4. After SELL 1 BTC @ $51,000:")
-    print(f"   Cash: ${portfolio.cash:,.2f}")
-    print(f"   Position: {portfolio.position} BTC")
-    print(f"   Realized P&L: ${portfolio.realized_pnl:,.2f}")
+    assert portfolio.cash == 100_848.5
+    assert portfolio.position == 0
+    assert portfolio.realized_pnl == 1_000.0
+    assert portfolio.total_fees == 101.0
+    assert portfolio.total_slippage == 50.5
 
-    print(f"\n5. Summary:")
-    print(f"   {portfolio.summary()}")
-    print(f"   Total fees: ${portfolio.total_fees:.2f}")
-    print(f"   Total slippage: ${portfolio.total_slippage:.2f}")
-    
-    print("\nwow! Basic trading test passed!")
-    return True
 
 def test_short_selling():
-    print("\nTEST: Short Selling")
-
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1)
 
-    short_fill = Fill( #shorti 1 BTC at $50,000
+    short_fill = Fill(
         timestamp=now,
         side=Side.SELL,
         price=50_000,
@@ -72,9 +57,9 @@ def test_short_selling():
     )
     portfolio.execute(short_fill)
 
-    print(f"\n1. After SHORT 1 BTC @ $50,000:")
-    print(f"   Position: {portfolio.position} BTC (negative = short)")
-    print(f"   Cash: ${portfolio.cash:,.2f}")
+    assert portfolio.position == -1.0
+    assert portfolio.cash == 149_925.0
+    assert portfolio.avg_entry_price == 50_000
 
     cover_fill = Fill(
         timestamp=now + timedelta(hours=1),
@@ -86,21 +71,16 @@ def test_short_selling():
     )
     portfolio.execute(cover_fill)
 
-    print(f"\n2. After COVER @ $48,000:")
-    print(f"   Position: {portfolio.position} BTC")
-    print(f"   Realized P&L: ${portfolio.realized_pnl:,.2f}")
-    print(f"   (Profit from short: $50k - $48k = $2k minus costs)")
-    
-    print("\nslay! short selling test passed!")
-    return True
+    assert portfolio.position == 0
+    assert portfolio.cash == 101_853.0
+    assert portfolio.realized_pnl == 2_000.0
+
 
 def test_multiple_trades():
-    print("\nTEST: Multiple Trades (Averaging)")
-
     portfolio = Portfolio(initial_cash=100_000)
     now = datetime(2024, 1, 1)
 
-    portfolio.execute(Fill( #buy BTC; $50,000
+    portfolio.execute(Fill(
         timestamp=now,
         side=Side.BUY,
         price=50_000,
@@ -108,7 +88,8 @@ def test_multiple_trades():
         fee=50,
         slippage_cost=25,
     ))
-    print(f"\n1. Buy 1 BTC @ $50,000 → Avg entry: ${portfolio.avg_entry_price:,.2f}")
+    assert portfolio.position == 1.0
+    assert portfolio.avg_entry_price == 50_000
 
     portfolio.execute(Fill(
         timestamp=now + timedelta(hours=1),
@@ -118,8 +99,8 @@ def test_multiple_trades():
         fee=52,
         slippage_cost=26,
     ))
-    print(f"2. Buy 1 BTC @ $52,000 → Avg entry: ${portfolio.avg_entry_price:,.2f}")
-    print(f"   (Expected: ($50k + $52k) / 2 = $51,000)")
+    assert portfolio.position == 2.0
+    assert portfolio.avg_entry_price == 51_000
 
     portfolio.execute(Fill(
         timestamp=now + timedelta(hours=2),
@@ -129,13 +110,10 @@ def test_multiple_trades():
         fee=53,
         slippage_cost=26.5,
     ))
-    print(f"\n3. Sell 1 BTC @ $53,000:")
-    print(f"   Remaining position: {portfolio.position} BTC")
-    print(f"   Realized P&L: ${portfolio.realized_pnl:,.2f}")
-    print(f"   (Sold at $53k, avg entry was $51k → ~$2k profit minus costs)")
-    
-    print("\nmultiple trades test passed!")
-    return True
+    assert portfolio.position == 1.0
+    assert portfolio.avg_entry_price == 51_000
+    assert portfolio.realized_pnl == 2_000.0
+
 
 if __name__ == "__main__":
     print("\nPORTFOLIO MODULE TESTS")
@@ -144,4 +122,4 @@ if __name__ == "__main__":
     test_short_selling()
     test_multiple_trades()
     
-    print("\nALL TESTS PASSED! hooray!")
+    print("\nAll portfolio tests passed.")

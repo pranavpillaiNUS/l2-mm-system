@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Iterable, List, Tuple
 
 from scripts.compare_mm import (
-    _decimal_str,
     _parse_start,
     _run_session,
     _session_windows,

@@ -84,19 +84,20 @@ class Portfolio:
         old_position = self.position
         
         if fill.side == Side.BUY:
-            self.handle_buy(fill, old_position)
+            self._handle_buy(fill, old_position)
         else:
             self._handle_sell(fill, old_position)
 
-    def handle_buy(self, fill: Fill, old_position: float) -> None:
-        # Accountancy for buy orders
+    def _handle_buy(self, fill: Fill, old_position: float) -> None:
+        """Update position and average entry after a buy fill."""
         if old_position >= 0:
             # Adding to long or opening new long
             total_cost = self.avg_entry_price * old_position + fill.price * fill.quantity
             self.position = old_position + fill.quantity
             if self.position > 0:
                 self.avg_entry_price = total_cost / self.position
-        else: #coverting short positions
+        else:
+            # Covering an existing short position.
             cover_qty = min(fill.quantity, abs(old_position))
             self._realized_pnl += (self.avg_entry_price - fill.price) * cover_qty
             self.position = old_position + fill.quantity
@@ -107,7 +108,7 @@ class Portfolio:
                 self.avg_entry_price = 0.0
 
     def _handle_sell(self, fill: Fill, old_position: float) -> None:
-        # Accountancy for sell orders
+        """Update position and average entry after a sell fill."""
         if old_position <= 0:
             total_cost = abs(self.avg_entry_price * old_position) + fill.price * fill.quantity
             self.position = old_position - fill.quantity

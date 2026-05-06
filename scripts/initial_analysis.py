@@ -1,5 +1,5 @@
 """
-Initial data analysis for research notebook. wow amirite :)
+Initial exploratory analysis for BTCUSDT bar data.
 """
 
 import pandas as pd

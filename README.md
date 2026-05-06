@@ -101,31 +101,47 @@ Market orders walk available book levels greedily; unfilled remainder is cancell
 **`src/replay/engine.py`** — the main replay loop. Takes a list of depth and trade files, creates the event merger, drives the orderbook forward event by event, calls `simulator.on_book_update` and `simulator.on_trade`, dispatches to the strategy, and handles gap/resync (pauses strategy callbacks when a gap is detected, resumes after the next snapshot). Returns a `ReplayResult` with all fills and events.
 
 **`src/strategies/`**
-Base market-making strategy plumbing plus two quoting strategies:
+Base market-making strategy plumbing plus two quoting strategies. The base class
+owns order tracking, inventory accounting, position limits, tick rounding, and
+optional quote-throttling via `requote_interval_ms`.
 
 | Strategy | Quoting reference | What it adds |
 |---|---|---|
 | `SymmetricMM` | arithmetic mid | baseline — symmetric bid/ask around mid |
-| `MicropriceMM` | microprice | reduces adverse selection by quoting a better mid |
-| `InventorySkewMM` | microprice + skew | shifts quotes toward flat as inventory grows |
-| `VolAdaptiveMM` | microprice + skew + vol | widens spreads in high-volatility periods |
+| `MicropriceMM` | microprice | tests whether top-of-book imbalance improves fill quality |
+| `InventorySkewMM` | planned | shift quotes toward flat as inventory grows |
+| `VolAdaptiveMM` | planned | widen spreads in high-volatility periods |
 
 Strategies inherit from `BaseMMStrategy` with callbacks `on_book_update`, `on_trade`, `on_fill`, each returning a list of actions: `OrderRequest` to place orders or `CancelRequest` to cancel existing orders.
 
 **`src/analysis/markout.py`**
 Computes side-normalized fill markouts at 1s, 5s, 30s, 1m, and 5m horizons using recorded book samples from the replay engine. Positive markout means favorable post-fill movement; negative markout indicates adverse selection.
 
+**`src/analysis/pnl.py`**
+Decomposes replay P&L into spread capture, residual inventory P&L, and fees. Adverse selection is reported separately as a markout-based diagnostic rather than treated as part of the accounting identity.
+
 **`scripts/run_replay.py`**
 Runs a single L2 replay on local recorded data, prints event/execution/P&L/markout summaries, and can write `summary.json`, `fills.csv`, and `markouts.csv` under `results/replay/`.
+
+**`scripts/compare_mm.py`**
+Runs `SymmetricMM` and `MicropriceMM` across multiple L2 sessions, prints per-session and aggregate comparison tables, and writes CSV summaries under `results/compare/`.
+
+**`scripts/sweep_mm_quote_mechanics.py`**
+Runs a focused mini-sweep over half-spread and requote interval. This is deliberately narrower than a full parameter sweep: its job is to calibrate a credible passive baseline before adding more strategy complexity.
+
+### Current research status
+
+The first naive market-making setup (`half_spread=0.50`, no requote interval) was too reactive: it generated very low maker fill rates and heavy fee drag. A focused quote-mechanics sweep found that wider, slower quoting is much more credible. On one five-hour April 16 window, `half_spread=5.00` with `requote_interval_ms=5000` moved the baseline from large losses to slightly positive P&L with a maker rate around 34%.
+
+The adjacent five-hour window was still negative, so this is not yet a robust strategy. The current research task is to refine and validate quote mechanics across more windows before adding `InventorySkewMM` or `VolAdaptiveMM`.
 
 ### What's left to build
 
 **`src/analysis/`** — post-replay analysis:
-- `pnl.py` — P&L decomposition into spread capture, adverse selection cost, fees, and inventory P&L
-- `fill_rate.py` — fill probability by distance from mid, time of day, volatility regime
+- `fill_rate.py` — fill probability by distance from mid, quote age, time of day, volatility regime, and cancel/replace rate
 
 **`scripts/`**:
-- `sweep_mm_params.py` — parameter sweep over spread width, inventory limits, etc.
+- `sweep_mm_params.py` — broader parameter sweep after quote mechanics are stable
 - `walk_forward_mm.py` — same anchored-window framework as Phase 1, adapted for L2 time periods
 - `benchmark.py` — throughput, latency, and memory benchmarks (events/sec, ms/fill)
 
@@ -152,14 +168,16 @@ src/strategies/
 
 src/analysis/
 ├── markout.py        # adverse selection at multiple horizons                      ✓
-├── pnl.py            # P&L decomposition                                           [ ]
+├── pnl.py            # P&L decomposition                                           ✓
 └── fill_rate.py      # fill probability analysis                                   [ ]
 
 scripts/
-├── run_replay.py          # ✓
-├── sweep_mm_params.py     # [ ]
-├── walk_forward_mm.py     # [ ]
-└── benchmark.py           # [ ]
+├── run_replay.py                    # single replay session                         ✓
+├── compare_mm.py                    # multi-session strategy comparison              ✓
+├── sweep_mm_quote_mechanics.py      # focused spread/requote mini-sweep              ✓
+├── sweep_mm_params.py               # broader MM parameter sweep                     [ ]
+├── walk_forward_mm.py               # L2 walk-forward validation                     [ ]
+└── benchmark.py                     # performance benchmark                          [ ]
 ```
 
 ---
@@ -187,10 +205,10 @@ l2-mm-system/
 ├── src/
 │   ├── backtester/    # Phase 1 (complete)
 │   ├── recorder/      # live data recorders (run 24/7)
-│   ├── replay/        # Phase 2 data pipeline (partially complete)
+│   ├── replay/        # Phase 2 deterministic L2 replay engine
 │   ├── execution/     # Phase 2 execution simulator (complete)
-│   ├── strategies/    # Phase 2 MM strategies (not started)
-│   └── analysis/      # Phase 2 post-replay analysis (not started)
+│   ├── strategies/    # Phase 2 baseline MM strategies
+│   └── analysis/      # Phase 2 markout and P&L analysis
 ├── cpp/               # Phase 3 C++17 port (not started)
 ├── tests/             # one file per module, standalone (no pytest)
 ├── scripts/           # runnable analysis scripts
@@ -231,6 +249,7 @@ python tests/test_execution_simulator.py
 python tests/test_engine.py
 python tests/test_mm_strategies.py
 python tests/test_markout.py
+python tests/test_pnl.py
 ```
 
 Note: `test_depth_parser.py` and `test_trade_parser.py` include a smoke test against a real recorded file. These require data in `data/raw/` and are skipped automatically if the files are not present.

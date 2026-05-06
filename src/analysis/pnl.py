@@ -1,11 +1,11 @@
 """
 PnL decomposition for market-making replay sessions.
 
-Breaks net PnL into four components:
+Reports accounting PnL plus adverse-selection diagnostics:
   spread_capture    — gross edge captured relative to mid at fill time
   total_fees        — all maker/taker fees paid
-  adverse_selection — proxy from markouts at a chosen horizon (negative = cost)
-  inventory_pnl     — mark-to-market on the residual position at session end
+  inventory_pnl     — residual mid-price movement on open/offset inventory
+  adverse_selection — markout-based toxicity proxy (positive cost = adverse)
 
 Identity (approximate):
   net_pnl ≈ spread_capture - total_fees + inventory_pnl
@@ -40,10 +40,13 @@ class PnLDecomposition:
     adverse_selection_cost: Decimal
     adverse_selection_bps: Decimal
 
-    # Residual inventory mark-to-market at session end.
+    # Residual inventory state at session end.
     final_position: Decimal
     avg_entry_price: Decimal
     final_mid: Decimal
+
+    # Residual PnL after spread capture. This keeps the accounting identity
+    # honest for open inventory: spread capture is not counted twice.
     inventory_pnl: Decimal
 
     # Summary lines
@@ -82,8 +85,9 @@ def compute_pnl_decomposition(
     total_notional = zero
     total_fees = zero
     maker_fill_count = 0
-    running_qty = zero   # signed: positive = net long
-    running_cost = zero  # signed: tracks cost basis
+    running_qty = zero       # signed: positive = net long
+    avg_entry_price = zero   # average cost of the remaining open inventory
+    cash_pnl = zero          # sells add cash, buys spend cash
 
     for fill in fills:
         total_notional += fill.notional
@@ -102,11 +106,29 @@ def compute_pnl_decomposition(
 
         # Running cost basis for inventory PnL
         if fill.side == OrderSide.BUY:
-            running_qty += fill.quantity
-            running_cost += fill.price * fill.quantity
+            cash_pnl -= fill.notional
+            if running_qty >= zero:
+                total_cost = avg_entry_price * running_qty + fill.notional
+                running_qty += fill.quantity
+                avg_entry_price = total_cost / running_qty
+            else:
+                running_qty += fill.quantity
+                if running_qty > zero:
+                    avg_entry_price = fill.price
+                elif running_qty == zero:
+                    avg_entry_price = zero
         else:
-            running_qty -= fill.quantity
-            running_cost -= fill.price * fill.quantity
+            cash_pnl += fill.notional
+            if running_qty <= zero:
+                total_cost = avg_entry_price * abs(running_qty) + fill.notional
+                running_qty -= fill.quantity
+                avg_entry_price = total_cost / abs(running_qty)
+            else:
+                running_qty -= fill.quantity
+                if running_qty < zero:
+                    avg_entry_price = fill.price
+                elif running_qty == zero:
+                    avg_entry_price = zero
 
     # Adverse selection via markouts at the chosen horizon
     horizon_markouts = [m for m in markouts if m.horizon == adverse_selection_horizon]
@@ -114,15 +136,14 @@ def compute_pnl_decomposition(
         (m.markout * m.quantity for m in horizon_markouts), zero
     )
 
-    # Inventory PnL: residual position marked to final mid
+    # Inventory PnL is the residual after spread capture, not a second full
+    # mark-to-market from fill price. For an open buy below mid, the edge from
+    # fill price to fill-time mid belongs to spread_capture; only the movement
+    # from fill-time mid to final mid belongs to inventory_pnl.
     final_position = running_qty
     fm = final_mid or zero
-    if final_position != zero:
-        avg_entry_price = running_cost / final_position
-        inventory_pnl = (fm - avg_entry_price) * final_position
-    else:
+    if final_position == zero:
         avg_entry_price = zero
-        inventory_pnl = zero
 
     # bps denominators
     if total_notional > zero:
@@ -132,7 +153,8 @@ def compute_pnl_decomposition(
         spread_capture_bps = zero
         adverse_selection_bps = zero
 
-    gross_pnl = spread_capture + inventory_pnl
+    gross_pnl = cash_pnl + final_position * fm if final_mid is not None else cash_pnl
+    inventory_pnl = gross_pnl - spread_capture
     net_pnl = gross_pnl - total_fees
 
     return PnLDecomposition(

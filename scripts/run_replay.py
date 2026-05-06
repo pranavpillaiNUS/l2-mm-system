@@ -81,6 +81,7 @@ def _build_strategy(args):
         order_qty=Decimal(args.order_qty),
         max_position=Decimal(args.max_position),
         tick_size=Decimal(args.tick_size),
+        requote_interval_ms=args.requote_interval_ms,
     )
     if args.strategy == "symmetric":
         return SymmetricMM(**kwargs)
@@ -114,6 +115,7 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print(f"Half spread:      {args.half_spread}")
     print(f"Order qty:        {args.order_qty}")
     print(f"Max position:     {args.max_position}")
+    print(f"Requote interval: {args.requote_interval_ms}ms")
     print(f"Latency:          {args.latency_ms}ms +/- {args.jitter_ms}ms")
     print()
 
@@ -183,6 +185,7 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "half_spread": args.half_spread,
         "order_qty": args.order_qty,
         "max_position": args.max_position,
+        "requote_interval_ms": args.requote_interval_ms,
         "latency_ms": args.latency_ms,
         "jitter_ms": args.jitter_ms,
         "events": result.stats.__dict__,
@@ -269,6 +272,7 @@ def parse_args():
     parser.add_argument("--order-qty", default="0.001")
     parser.add_argument("--max-position", default="0.01")
     parser.add_argument("--tick-size", default="0.01")
+    parser.add_argument("--requote-interval-ms", type=int, default=0)
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)

@@ -73,7 +73,9 @@ def test_spread_capture_sell_fill():
 
 def test_inventory_pnl_long_position():
     # BUY 1 BTC at 99.50, session ends with mid at 100.50
-    # inventory_pnl = (100.50 - 99.50) × 1 = 1.00
+    # spread_capture = (100.00 - 99.50) × 1 = 0.50
+    # inventory_pnl = (100.50 - 100.00) × 1 = 0.50
+    # gross_pnl = (100.50 - 99.50) × 1 = 1.00
     fill = make_fill("f1", OrderSide.BUY, "99.50", qty="1.0", timestamp_ms=500)
     samples = [make_sample(500, "100.00")]
     markouts = compute_markouts([fill], samples, {"30s": 30000})
@@ -82,8 +84,10 @@ def test_inventory_pnl_long_position():
 
     assert decomp.final_position == Decimal("1.0")
     assert decomp.avg_entry_price == Decimal("99.50")
-    assert decomp.inventory_pnl == Decimal("1.00")
-    print("PASS: inventory PnL correct for long position")
+    assert decomp.spread_capture == Decimal("0.50")
+    assert decomp.inventory_pnl == Decimal("0.50")
+    assert decomp.gross_pnl == Decimal("1.00")
+    print("PASS: open inventory does not double-count spread capture")
 
 
 def test_zero_inventory_pnl_when_flat():
@@ -98,6 +102,30 @@ def test_zero_inventory_pnl_when_flat():
     assert decomp.final_position == Decimal("0")
     assert decomp.inventory_pnl == Decimal("0")
     print("PASS: inventory PnL is zero when position is flat")
+
+
+def test_avg_entry_after_partial_close_tracks_residual_inventory():
+    # Buy 1 @ 100, buy 1 @ 102 -> average entry 101.
+    # Sell 1 @ 103 closes one unit; the remaining long should still have
+    # average entry 101, not a cash-residual artifact.
+    fills = [
+        make_fill("f1", OrderSide.BUY, "100.00", qty="1.0", timestamp_ms=500),
+        make_fill("f2", OrderSide.BUY, "102.00", qty="1.0", timestamp_ms=600),
+        make_fill("f3", OrderSide.SELL, "103.00", qty="1.0", timestamp_ms=700),
+    ]
+    samples = [
+        make_sample(500, "100.50"),
+        make_sample(600, "102.50"),
+        make_sample(700, "102.50"),
+    ]
+    markouts = compute_markouts(fills, samples, {"30s": 30000})
+
+    decomp = compute_pnl_decomposition(fills, samples, markouts, Decimal("104.00"))
+
+    assert decomp.final_position == Decimal("1.0")
+    assert decomp.avg_entry_price == Decimal("101.00")
+    assert decomp.gross_pnl == Decimal("5.000")
+    print("PASS: avg entry remains correct after partial close")
 
 
 def test_adverse_selection_cost_sign():
@@ -146,6 +174,7 @@ if __name__ == "__main__":
     test_spread_capture_sell_fill()
     test_inventory_pnl_long_position()
     test_zero_inventory_pnl_when_flat()
+    test_avg_entry_after_partial_close_tracks_residual_inventory()
     test_adverse_selection_cost_sign()
     test_net_pnl_identity()
     test_fill_before_any_sample_contributes_zero_spread()

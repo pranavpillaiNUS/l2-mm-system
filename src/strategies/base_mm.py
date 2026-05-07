@@ -6,6 +6,7 @@ Handles the plumbing that every MM strategy needs:
   - Cancel/replace logic (cancel stale quotes, place new ones)
   - Inventory tracking (net position from fills)
   - Quoting throttle (don't requote if desired prices haven't changed)
+  - Post-only enforcement (never place a quote that would cross the spread)
 
 Subclasses only implement one method: compute_quotes(book, timestamp_ms),
 which returns the desired bid and ask prices. Everything else — deciding
@@ -60,6 +61,9 @@ class BaseMMStrategy(ABC):
         self.total_fees: Decimal = Decimal("0")
         self.fill_count: int = 0
 
+        # diagnostics — track how many quotes got suppressed by post-only
+        self.postonly_suppressed: int = 0
+
     # --- interface for subclasses ---
 
     @abstractmethod
@@ -93,6 +97,18 @@ class BaseMMStrategy(ABC):
             desired_bid = None  # already max long, don't buy more
         if self.position <= -self.max_position:
             desired_ask = None  # already max short, don't sell more
+
+        # Post-only: never place a quote that would cross the spread.
+        # A real exchange would reject these (post-only / maker-only flag).
+        # Without this check, the order arrives ~100ms later (next depth event),
+        # the book may have moved, and the simulator executes it as a taker.
+        # We prevent that by checking against the CURRENT book before submission.
+        if desired_bid is not None and desired_bid >= book.best_ask:
+            self.postonly_suppressed += 1
+            desired_bid = None
+        if desired_ask is not None and desired_ask <= book.best_bid:
+            self.postonly_suppressed += 1
+            desired_ask = None
 
         current_bid = self._live_price(self._bid_order)
         current_ask = self._live_price(self._ask_order)

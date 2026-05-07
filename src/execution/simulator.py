@@ -10,7 +10,8 @@ Key design decisions (all in design notes):
   - Trades drain queue_ahead from the front
   - Book qty decreases without a trade → proportional queue improvement
   - Market orders walk levels greedily; unfilled remainder is cancelled
-  - Aggressive limit orders (crossing spread) execute as takers immediately
+  - Aggressive limit orders: post_only=True cancels them (default),
+    post_only=False executes them as takers
 """
 import random
 from collections import defaultdict
@@ -33,6 +34,7 @@ class SimConfig:
     maker_bps: int         # fee rate for resting limit fills
     taker_bps: int         # fee rate for market orders and aggressive limits
     seed: int = 42
+    post_only: bool = True  # cancel limit orders that would cross the spread
 
     @property
     def maker_rate(self) -> Decimal:
@@ -62,6 +64,9 @@ class ExecutionSimulator:
         # qty traded at each price since the last on_book_update call
         # cleared in on_book_update, accumulated in on_trade
         self._traded_since_depth: Dict[Decimal, Decimal] = defaultdict(Decimal)
+
+        # diagnostics
+        self.postonly_rejects: int = 0
 
     # --- public interface ---
 
@@ -129,7 +134,15 @@ class ExecutionSimulator:
             elif order.order_type == OrderType.LIMIT:
                 order.status = OrderStatus.ACTIVE
                 if self._is_aggressive(order, book):
-                    fills.extend(self._execute_taker(order, book, timestamp_ms))
+                    if self.config.post_only:
+                        # post-only: reject instead of crossing the spread
+                        order.status = OrderStatus.CANCELLED
+                        self.postonly_rejects += 1
+                        self._log("cancelled", order.order_id, timestamp_ms, {
+                            "reason": "post_only_would_cross",
+                        })
+                    else:
+                        fills.extend(self._execute_taker(order, book, timestamp_ms))
                 else:
                     self._activate_limit(order, book, timestamp_ms)
 

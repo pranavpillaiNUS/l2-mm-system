@@ -217,3 +217,44 @@ SMA struggled in choppy months and only showed up for the Nov trend.
 - lessons learned document
 - README improvements
 - then exams (weeks 13-15), then summer L2 work
+
+---
+## 2026-05-06: Post-Only Fix and First Clean MM Baseline
+
+### Question
+Why was the maker fill rate only 34% with a $5 half-spread and 5-second requote interval? A passive market maker should be nearly 100% maker.
+
+### Investigation
+Wrote a diagnostic script that intercepted every order activation in the simulator and logged whether it was classified as aggressive (crossing the spread at arrival) or resting.
+
+Result: 831 orders activated as resting, 17 as aggressive. Only 2% of orders were aggressive. But those 17 aggressive orders produced 17 taker fills, while 831 resting orders produced only 7 maker fills. Taker fills are certain (immediate execution); maker fills are rare (need a trade to reach your deep-in-book level and drain the queue). So taker fills dominated by count even though aggressive orders were a tiny fraction.
+
+Root cause: orders are computed against the current book but only activate at the next depth event (~100ms later). In that window, the mid can move $5+ during volatile moments. A bid at `mid - 5` submitted during a calm moment arrives after a crash and is now above the best ask. The simulator was executing these as taker fills.
+
+### Fix
+Added `post_only=True` to `SimConfig`. When a limit order arrives and would cross the spread, the simulator now cancels it instead of executing as taker. This mimics real exchange post-only (maker-only) order behavior. After the fix: 100% maker fills.
+
+### Clean Baseline Results
+Re-ran the 5-hour comparison (2026-04-16 12:00-17:00) with `half_spread=5.00`, `requote_interval_ms=5000`, `post_only=True`:
+
+| Strategy | Fills | Maker % | Net PnL | Fees | Spread bps | Avg markout bps | AdvSel bps |
+|---|---|---|---|---|---|---|---|
+| symmetric | 78 | 100% | -3.22 | 0.46 | 0.45 | -1.52 | 1.47 |
+| microprice | 79 | 100% | -3.57 | 0.47 | 0.45 | -1.50 | 1.34 |
+
+Both strategies lose money. The previous +$1.56 result was an artifact of favorable taker fills.
+
+### What this means
+
+1. **Adverse selection is the dominant cost.** Average markout is -1.5 bps — the mid moves against you after each fill. Spread capture is only 0.45 bps. You're losing about 1 bps per fill to informed flow. Fees ($0.46 total) are negligible by comparison.
+
+2. **The fills that happen are the worst fills.** When your bid $5 below mid gets hit, it's because someone is selling aggressively through that level. The trade that fills you is informed — price keeps going. This is the fundamental adverse selection problem in market making.
+
+3. **Microprice doesn't help at this spread width.** At $5 from mid, the microprice vs arithmetic mid difference (usually a few cents) rounds to the same tick. In 3 of 5 sessions they produced identical fills and P&L.
+
+4. **The old profitability was fake.** Any conclusion drawn from the pre-fix results (34% maker rate) was contaminated by taker fills that happened to go in the right direction. The post-only fix makes the simulation honest.
+
+### Next
+- Try narrower spreads to increase fill count and spread capture, but expect more adverse selection
+- Investigate whether fills cluster at specific times (maybe all the losses come from a few fast moves)
+- Inventory skew might help — but only after establishing whether any spread width breaks even on a pure passive basis

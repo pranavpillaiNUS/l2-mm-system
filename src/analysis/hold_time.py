@@ -34,6 +34,7 @@ class OpenInventoryLot:
     open_price: Decimal
     quantity: Decimal
     open_mid: Optional[Decimal]
+    fee_remaining: Decimal
 
 
 @dataclass
@@ -56,6 +57,10 @@ class MatchedLot:
     open_spread_capture: Optional[Decimal]
     close_spread_capture: Optional[Decimal]
     inventory_pnl: Optional[Decimal]
+    open_fee: Decimal
+    close_fee: Decimal
+    total_fees: Decimal
+    net_pnl: Decimal
 
 
 @dataclass
@@ -64,6 +69,8 @@ class HoldTimeSummary:
     open_lots: List[OpenInventoryLot]
     total_matched_qty: Decimal
     realized_pnl: Decimal
+    matched_fees: Decimal
+    matched_net_pnl: Decimal
     matched_spread_capture: Optional[Decimal]
     matched_inventory_pnl: Optional[Decimal]
     residual_inventory: Decimal
@@ -94,6 +101,8 @@ class ReconciliationSummary:
     actual_inventory_pnl: Decimal
     matched_inventory_pnl: Optional[Decimal]
     matched_realized_pnl: Decimal
+    matched_fees: Decimal
+    matched_net_pnl: Decimal
     median_hold_time_ms: Optional[int]
     closest_horizon_to_median: Optional[str]
     best_reconciling_horizon: Optional[str]
@@ -197,6 +206,8 @@ def compute_hold_time_summary(
     open_lots = list(longs) + list(shorts)
     total_matched_qty = sum((lot.quantity for lot in matched), Decimal("0"))
     realized_pnl = sum((lot.realized_pnl for lot in matched), Decimal("0"))
+    matched_fees = sum((lot.total_fees for lot in matched), Decimal("0"))
+    matched_net_pnl = sum((lot.net_pnl for lot in matched), Decimal("0"))
     residual_inventory = (
         sum((lot.quantity for lot in longs), Decimal("0"))
         - sum((lot.quantity for lot in shorts), Decimal("0"))
@@ -218,6 +229,8 @@ def compute_hold_time_summary(
         open_lots=open_lots,
         total_matched_qty=total_matched_qty,
         realized_pnl=realized_pnl,
+        matched_fees=matched_fees,
+        matched_net_pnl=matched_net_pnl,
         matched_spread_capture=(
             sum(spread_values, Decimal("0")) if len(spread_values) == len(matched) else None
         ),
@@ -302,6 +315,8 @@ def compute_reconciliation_summary(
         actual_inventory_pnl=decomp.inventory_pnl,
         matched_inventory_pnl=hold_summary.matched_inventory_pnl,
         matched_realized_pnl=hold_summary.realized_pnl,
+        matched_fees=hold_summary.matched_fees,
+        matched_net_pnl=hold_summary.matched_net_pnl,
         median_hold_time_ms=median_hold,
         closest_horizon_to_median=closest,
         best_reconciling_horizon=best,
@@ -509,7 +524,9 @@ def _close_lots(
     while remaining > Decimal("0") and open_lots:
         lot = open_lots[0]
         qty = min(remaining, lot.quantity)
-        matched.append(_match_lot(lot, fill, qty, fill_mid))
+        open_fee = _take_lot_fee(lot, qty)
+        close_fee = _allocated_fill_fee(fill, qty)
+        matched.append(_match_lot(lot, fill, qty, fill_mid, open_fee, close_fee))
         lot.quantity -= qty
         remaining -= qty
         if lot.quantity <= Decimal("0"):
@@ -526,6 +543,7 @@ def _open_lot(fill: Fill, quantity: Decimal, open_mid: Optional[Decimal]) -> Ope
         open_price=fill.price,
         quantity=quantity,
         open_mid=open_mid,
+        fee_remaining=_allocated_fill_fee(fill, quantity),
     )
 
 
@@ -534,6 +552,8 @@ def _match_lot(
     close_fill: Fill,
     quantity: Decimal,
     close_mid: Optional[Decimal],
+    open_fee: Decimal,
+    close_fee: Decimal,
 ) -> MatchedLot:
     if lot.side == OrderSide.BUY:
         realized_pnl = (close_fill.price - lot.open_price) * quantity
@@ -550,6 +570,7 @@ def _match_lot(
     if open_spread is not None and close_spread is not None:
         inventory_pnl = realized_pnl - open_spread - close_spread
 
+    total_fees = open_fee + close_fee
     return MatchedLot(
         open_fill_id=lot.fill_id,
         close_fill_id=close_fill.fill_id,
@@ -569,7 +590,25 @@ def _match_lot(
         open_spread_capture=open_spread,
         close_spread_capture=close_spread,
         inventory_pnl=inventory_pnl,
+        open_fee=open_fee,
+        close_fee=close_fee,
+        total_fees=total_fees,
+        net_pnl=realized_pnl - total_fees,
     )
+
+
+def _allocated_fill_fee(fill: Fill, quantity: Decimal) -> Decimal:
+    if fill.quantity <= Decimal("0"):
+        return Decimal("0")
+    return fill.fee * quantity / fill.quantity
+
+
+def _take_lot_fee(lot: OpenInventoryLot, quantity: Decimal) -> Decimal:
+    if lot.quantity <= Decimal("0"):
+        return Decimal("0")
+    fee = lot.fee_remaining * quantity / lot.quantity
+    lot.fee_remaining -= fee
+    return fee
 
 
 def _weighted_average_hold_time(lots: Sequence[MatchedLot]) -> Optional[Decimal]:

@@ -14,13 +14,21 @@ from src.replay.trade_parser import TradeEvent
 
 # --- helpers ---
 
-def make_sim(base_latency_ms=10, jitter_ms=0, maker_bps=2, taker_bps=5, seed=42):
+def make_sim(
+    base_latency_ms=10,
+    jitter_ms=0,
+    maker_bps=2,
+    taker_bps=5,
+    seed=42,
+    post_only=True,
+):
     return ExecutionSimulator(SimConfig(
         base_latency_ms=base_latency_ms,
         jitter_ms=jitter_ms,
         maker_bps=maker_bps,
         taker_bps=taker_bps,
         seed=seed,
+        post_only=post_only,
     ))
 
 
@@ -166,6 +174,38 @@ def test_fill_when_queue_exhausted():
     print("PASS: order fills when trade exhausts queue_ahead")
 
 
+def test_queue_diagnostics_logged_without_changing_fill():
+    sim = make_sim()
+    book = make_book(bids=[("100.00", "2.0")])
+    order = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
+    sim.on_book_update(book, timestamp_ms=1010)
+
+    fills = sim.on_trade(make_trade("100", "3.0", is_buyer_maker=True, t=1020), book)
+
+    assert len(fills) == 1
+    assert fills[0].quantity == Decimal("0.5")
+    assert fills[0].price == Decimal("100")
+
+    queue_events = [
+        e for e in sim.events
+        if e.order_id == order.order_id and e.event_type == "queue_drain"
+    ]
+    assert len(queue_events) == 1
+    assert queue_events[0].detail["reason"] == "trade"
+    assert queue_events[0].detail["drained_qty"] == "2.0"
+    assert queue_events[0].detail["queue_before"] == "2.0"
+    assert queue_events[0].detail["queue_after"] == "0.0"
+
+    filled_event = [
+        e for e in sim.events
+        if e.order_id == order.order_id and e.event_type == "filled"
+    ][0]
+    assert filled_event.detail["queue_ahead_before_trade"] == "2.0"
+    assert filled_event.detail["queue_ahead_before_fill"] == "0.0"
+    assert filled_event.detail["fill_qty"] == "0.5"
+    print("PASS: queue diagnostics are logged without changing fill behavior")
+
+
 def test_partial_fill():
     sim = make_sim()
     book = make_book(bids=[("100.00", "0.0")])  # no queue ahead
@@ -232,8 +272,24 @@ def test_market_order_cancelled_if_insufficient_liquidity():
     print("PASS: market order cancelled when book has insufficient liquidity")
 
 
-def test_aggressive_limit_fills_as_taker():
+def test_post_only_aggressive_limit_is_cancelled():
     sim = make_sim()
+    # best ask = 101, limit buy at 102 would cross spread.
+    # With post_only=True (default), the exchange rejects it instead of
+    # allowing a taker fill.
+    book = make_book(asks=[("101.00", "5.0")])
+    order = sim.submit(buy_limit("102", qty="0.5"), current_time_ms=1000)
+
+    sim.on_book_update(book, timestamp_ms=1010)
+
+    assert order.status == OrderStatus.CANCELLED
+    assert len(sim.fills) == 0
+    assert sim.postonly_rejects == 1
+    print("PASS: post-only aggressive limit is cancelled, not filled as taker")
+
+
+def test_aggressive_limit_can_fill_as_taker_when_post_only_disabled():
+    sim = make_sim(post_only=False)
     # best ask = 101, limit buy at 102 → crosses spread → taker fill at 101
     book = make_book(asks=[("101.00", "5.0")])
     order = sim.submit(buy_limit("102", qty="0.5"), current_time_ms=1000)
@@ -244,7 +300,7 @@ def test_aggressive_limit_fills_as_taker():
     assert len(sim.fills) == 1
     assert sim.fills[0].price == Decimal("101.00")   # filled at ask, not at 102
     assert sim.fills[0].is_maker is False              # taker fee applies
-    print("PASS: aggressive limit (price >= best ask) fills as taker at best ask")
+    print("PASS: aggressive limit can fill as taker when post-only is disabled")
 
 
 def test_sell_limit_fills_on_market_buy():
@@ -332,6 +388,15 @@ def test_cancellation_reduces_queue_ahead():
     # cancel_frac = 3.0 / 10.0 = 0.30 → queue_ahead = 10.0 * 0.70 = 7.0
     expected = Decimal("10.0") * Decimal("0.7")
     assert order.queue_ahead == expected
+
+    queue_events = [
+        e for e in sim.events
+        if e.order_id == order.order_id and e.event_type == "queue_drain"
+    ]
+    assert len(queue_events) == 1
+    assert queue_events[0].detail["reason"] == "cancellation"
+    assert queue_events[0].detail["drained_qty"] == "3.00"
+    assert queue_events[0].detail["queue_after"] == str(expected)
     print(f"PASS: cancellation proportionally reduces queue_ahead ({order.queue_ahead})")
 
 
@@ -420,11 +485,13 @@ if __name__ == "__main__":
     test_jitter_different_seeds()
     test_trade_drains_queue_ahead()
     test_fill_when_queue_exhausted()
+    test_queue_diagnostics_logged_without_changing_fill()
     test_partial_fill()
     test_market_order_fills_at_best_ask()
     test_market_order_walks_levels()
     test_market_order_cancelled_if_insufficient_liquidity()
-    test_aggressive_limit_fills_as_taker()
+    test_post_only_aggressive_limit_is_cancelled()
+    test_aggressive_limit_can_fill_as_taker_when_post_only_disabled()
     test_sell_limit_fills_on_market_buy()
     test_wrong_side_trade_does_not_fill()
     test_cancel_pending_order()

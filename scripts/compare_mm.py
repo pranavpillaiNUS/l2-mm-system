@@ -17,6 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Iterable, List
 
+from src.analysis.fill_rate import compute_order_contexts
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition
 from src.execution.simulator import SimConfig
@@ -161,6 +162,11 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         final_mid,
         adverse_selection_horizon=args.adverse_horizon,
     )
+    contexts = compute_order_contexts(
+        result, markouts,
+        markout_horizon=args.adverse_horizon,
+        session_id=window.label,
+    )
 
     maker_fills = sum(1 for fill in result.fills if fill.is_maker)
     taker_fills = len(result.fills) - maker_fills
@@ -210,6 +216,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         "ending_position": decomp.final_position,
         "final_mid": final_mid,
         "net_pnl": decomp.net_pnl,
+        "_contexts": contexts,   # private; stripped before CSV write
     }
 
 
@@ -356,7 +363,12 @@ def _format_aggregate_table(rows: List[dict]) -> str:
 
 
 def _write_csv(path: Path, rows: Iterable[dict]) -> None:
-    rows = list(rows)
+    # Strip private keys (underscore-prefixed) so callers can attach
+    # non-serializable payloads (like OrderContext lists) to row dicts.
+    rows = [
+        {k: v for k, v in row.items() if not k.startswith("_")}
+        for row in rows
+    ]
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         return

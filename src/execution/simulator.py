@@ -146,7 +146,7 @@ class ExecutionSimulator:
                 else:
                     self._activate_limit(order, book, timestamp_ms)
 
-        self._process_cancellations(book)
+        self._process_cancellations(book, timestamp_ms)
         self._traded_since_depth.clear()
 
         return fills
@@ -281,13 +281,24 @@ class ExecutionSimulator:
         """
         fills = []
         remaining = trade_qty
+        queue_ahead_before_trade = order.queue_ahead
 
         if order.queue_ahead > Decimal("0"):
             drained = min(remaining, order.queue_ahead)
             order.queue_ahead -= drained
             remaining -= drained
+            if drained > Decimal("0"):
+                self._log("queue_drain", order.order_id, timestamp_ms, {
+                    "reason": "trade",
+                    "price": str(price),
+                    "trade_qty": str(trade_qty),
+                    "drained_qty": str(drained),
+                    "queue_before": str(queue_ahead_before_trade),
+                    "queue_after": str(order.queue_ahead),
+                })
 
         if remaining > Decimal("0") and order.queue_ahead <= Decimal("0"):
+            queue_ahead_before_fill = order.queue_ahead
             fill_qty = min(remaining, order.remaining_quantity)
             fee = fill_qty * price * self.config.maker_rate
             fills.append(self._create_fill(
@@ -303,17 +314,28 @@ class ExecutionSimulator:
 
             if order.remaining_quantity <= Decimal("0"):
                 order.status = OrderStatus.FILLED
-                self._log("filled", order.order_id, timestamp_ms, {})
+                self._log("filled", order.order_id, timestamp_ms, {
+                    "fill_qty": str(fill_qty),
+                    "fill_price": str(price),
+                    "trade_qty": str(trade_qty),
+                    "queue_ahead_before_trade": str(queue_ahead_before_trade),
+                    "queue_ahead_before_fill": str(queue_ahead_before_fill),
+                })
             else:
                 order.status = OrderStatus.PARTIAL
                 self._log("partial_fill", order.order_id, timestamp_ms, {
                     "filled": str(order.filled_quantity),
                     "remaining": str(order.remaining_quantity),
+                    "fill_qty": str(fill_qty),
+                    "fill_price": str(price),
+                    "trade_qty": str(trade_qty),
+                    "queue_ahead_before_trade": str(queue_ahead_before_trade),
+                    "queue_ahead_before_fill": str(queue_ahead_before_fill),
                 })
 
         return fills
 
-    def _process_cancellations(self, book: Orderbook) -> None:
+    def _process_cancellations(self, book: Orderbook, timestamp_ms: int) -> None:
         """
         Proportional queue improvement when book qty drops without a trade.
 
@@ -352,10 +374,23 @@ class ExecutionSimulator:
                             and order.side == OrderSide.BUY
                             and order.price == price
                             and order.queue_ahead is not None):
+                        queue_before = order.queue_ahead
                         order.queue_ahead = max(
                             Decimal("0"),
                             order.queue_ahead * (Decimal("1") - cancel_frac),
                         )
+                        drained = queue_before - order.queue_ahead
+                        if drained > Decimal("0"):
+                            self._log("queue_drain", order.order_id, timestamp_ms, {
+                                "reason": "cancellation",
+                                "price": str(price),
+                                "prev_book_qty": str(prev_qty),
+                                "new_book_qty": str(new_qty),
+                                "cancel_frac": str(cancel_frac),
+                                "drained_qty": str(drained),
+                                "queue_before": str(queue_before),
+                                "queue_after": str(order.queue_ahead),
+                            })
             self._prev_bid_qty[price] = new_qty
 
         for price in ask_prices:
@@ -369,10 +404,23 @@ class ExecutionSimulator:
                             and order.side == OrderSide.SELL
                             and order.price == price
                             and order.queue_ahead is not None):
+                        queue_before = order.queue_ahead
                         order.queue_ahead = max(
                             Decimal("0"),
                             order.queue_ahead * (Decimal("1") - cancel_frac),
                         )
+                        drained = queue_before - order.queue_ahead
+                        if drained > Decimal("0"):
+                            self._log("queue_drain", order.order_id, timestamp_ms, {
+                                "reason": "cancellation",
+                                "price": str(price),
+                                "prev_book_qty": str(prev_qty),
+                                "new_book_qty": str(new_qty),
+                                "cancel_frac": str(cancel_frac),
+                                "drained_qty": str(drained),
+                                "queue_before": str(queue_before),
+                                "queue_after": str(order.queue_ahead),
+                            })
             self._prev_ask_qty[price] = new_qty
 
     def _cancel_fraction(

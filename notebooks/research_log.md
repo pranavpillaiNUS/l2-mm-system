@@ -570,3 +570,200 @@ The benchmark for InventorySkewMM should be:
 2. Reduce residual inventory PnL dependence.
 3. Reduce average and tail absolute inventory.
 4. Avoid increasing order churn toward the bad 1s-like regime.
+
+---
+## 2026-05-08: Baseline CI Across Six 5-Hour Windows
+
+### Why this was run
+Before building `InventorySkewMM`, I wanted to avoid building strategy complexity on top of a fragile baseline. The previous two 5-hour windows from 2026-04-16 looked promising, but that was too little data.
+
+So I ran four more baseline windows on different days:
+
+- `2026-04-13T12` to `2026-04-13T17`
+- `2026-04-14T12` to `2026-04-14T17`
+- `2026-04-15T12` to `2026-04-15T17`
+- `2026-04-17T12` to `2026-04-17T17`
+
+All runs use:
+
+- Strategy: `microprice`
+- Half spread: `2.00`
+- Requote interval: `5000ms`
+- Order quantity: `0.001`
+- Max position: `0.01`
+- Latency: `10ms`
+- Jitter: `0`
+- Methodology: five independent 1-hour sessions per 5-hour block
+
+### New tooling
+Added:
+
+- `src/analysis/bootstrap.py`
+- `scripts/bootstrap_baseline_ci.py`
+- `tests/test_bootstrap.py`
+
+The bootstrap report samples at three levels:
+
+1. Matched lot level: useful, but optimistic because lots in the same hour are correlated.
+2. 1-hour session level: better for estimating session variability.
+3. 5-hour window level: most honest for comparing strategy variants across market regimes, though sample size is still small.
+
+### Window results
+
+| Window | Fills | Net PnL | Matched net PnL | Residual inv PnL | Median hold | Orders/fill |
+|---|---:|---:|---:|---:|---:|---:|
+| 2026-04-13 12-17 | 157 | -11.1816 | -3.2564 | -7.7503 | 475s | 42.5 |
+| 2026-04-14 12-17 | 167 | +1.9334 | -1.3870 | +3.5653 | 456s | 41.0 |
+| 2026-04-15 12-17 | 156 | +0.9215 | +0.7630 | +0.4210 | 914s | 42.3 |
+| 2026-04-16 12-17 | 157 | +1.8970 | +0.8357 | +1.2276 | 439s | 43.1 |
+| 2026-04-16 17-22 | 149 | +1.5244 | +0.5689 | +1.1796 | 542s | 43.9 |
+| 2026-04-17 12-17 | 155 | -6.7543 | +0.5427 | -7.0576 | 657s | 48.3 |
+
+### Bootstrap CI results
+
+Across all six 5-hour windows:
+
+| Unit | Metric | Mean | 95% CI |
+|---|---|---:|---:|
+| 5-hour window | Net PnL | -1.9433 | [-6.2409, +1.6844] |
+| 5-hour window | Matched net PnL | -0.3222 | [-1.6518, +0.7061] |
+| 5-hour window | Residual inventory PnL | -1.4024 | [-4.7769, +1.8566] |
+| 1-hour session | Net PnL | -0.3887 | [-1.2522, +0.3253] |
+| 1-hour session | Matched net PnL | -0.0644 | [-0.3368, +0.2180] |
+| 1-hour session | Residual inventory PnL | -0.2805 | [-1.1041, +0.3336] |
+| Matched lot | Net PnL per lot | -0.0027 | [-0.0083, +0.0031] |
+| Matched lot | Net PnL per BTC | -29.8368 | [-46.4057, -13.0804] |
+
+### Interpretation
+
+This overturns the previous "build InventorySkewMM next" decision.
+
+The two 2026-04-16 windows were not representative enough. After adding four more windows:
+
+- Total net PnL is negative on average.
+- Completed round-trip matched net PnL is negative on average.
+- Both window-level and session-level CIs cross zero.
+- Residual inventory PnL is large and unstable in both directions.
+- The matched-lot per-BTC result is clearly negative, but this unit is correlated and should be treated as a diagnostic rather than the main decision metric.
+
+The baseline is therefore not credible enough yet as a positive-edge passive strategy.
+
+### Updated decision
+
+Do not build `InventorySkewMM` yet.
+
+The next question is no longer:
+
+"Can skew reduce residual inventory dependence while preserving a positive matched edge?"
+
+The corrected question is:
+
+"Why does the same 2-dollar, 5s passive quote have positive matched edge in some windows and negative matched edge in others?"
+
+The likely next diagnostic should compare good and bad windows by:
+
+1. Drift/trend over the 5-hour window.
+2. Realized volatility and volatility shape.
+3. Fill side imbalance and inventory path.
+4. Queue diagnostics for profitable vs unprofitable matched lots.
+5. Whether half_spread=2 was only optimal on 2026-04-16 and should be re-swept across the new windows.
+
+This is a better research position than blindly adding inventory skew. It is less flattering, but more defensible.
+
+---
+## 2026-05-08: Microprice Predictiveness Test
+
+### Why this was run
+After the six-window baseline CI, the next question was whether the premise behind `MicropriceMM` is even true.
+
+The strategy assumes that:
+
+`microprice - mid` predicts future mid drift.
+
+If that premise is stable, then the signal exists and the current quoting strategy may simply harvest it inefficiently. If the premise is not stable, then adding `InventorySkewMM` or `VolAdaptiveMM` on top of microprice is premature.
+
+### Method
+Built:
+
+- `src/analysis/microprice_signal.py`
+- `scripts/analyze_microprice_signal.py`
+- `tests/test_microprice_signal.py`
+
+The script:
+
+1. Replays depth data only, with no strategy and no trade/fill simulation.
+2. Samples the book every 1 second using the latest book state at or before the sample time.
+3. Computes microprice deviation:
+   `(microprice - mid) / mid * 10000`
+4. Computes forward mid drift at `1s`, `10s`, `1m`, and `5m`:
+   `(mid[t+h] - mid[t]) / mid[t] * 10000`
+5. Regresses forward drift on microprice deviation per window and pooled.
+6. Uses HAC/Newey-West t-stats so overlapping forward returns do not make the t-stats too optimistic.
+
+Important: the script also reports `beta * x_std`, because a 1 bp microprice deviation is not realistic in this data. The actual standard deviation of microprice deviation is usually only `0.002-0.019 bps`.
+
+### Results
+
+One-second horizon:
+
+| Window | Matched net PnL | Beta | HAC t-stat | R2 | Signal std | Beta * signal std |
+|---|---:|---:|---:|---:|---:|---:|
+| 2026-04-13 12-17 | -3.2564 | -1.5252 | -0.39 | 0.00019 | 0.00857 | -0.0131 bps |
+| 2026-04-14 12-17 | -1.3870 | +4.1882 | +3.75 | 0.00224 | 0.01096 | +0.0459 bps |
+| 2026-04-15 12-17 | +0.7630 | +14.7303 | +3.08 | 0.00496 | 0.00357 | +0.0526 bps |
+| 2026-04-16 12-17 | +0.8357 | +3.8810 | +2.18 | 0.00152 | 0.00947 | +0.0367 bps |
+| 2026-04-16 17-22 | +0.5689 | +48.1848 | +3.44 | 0.01804 | 0.00188 | +0.0908 bps |
+| 2026-04-17 12-17 | +0.5427 | -0.0743 | -0.05 | 0.00000 | 0.01898 | -0.0014 bps |
+| Pooled | -0.3222 | +1.6210 | +1.12 | 0.00032 | 0.01049 | +0.0170 bps |
+
+Pooled across all windows:
+
+| Horizon | Beta | HAC t-stat | R2 | Beta * signal std |
+|---|---:|---:|---:|---:|
+| 1s | +1.6210 | +1.12 | 0.00032 | +0.0170 bps |
+| 10s | -2.1406 | -0.82 | 0.00005 | -0.0225 bps |
+| 1m | -6.3856 | -1.50 | 0.00006 | -0.0671 bps |
+| 5m | -8.2580 | -1.47 | 0.00002 | -0.0873 bps |
+
+### Interpretation
+
+Microprice is not a stable standalone signal across these windows.
+
+There is some short-horizon predictiveness in the better windows:
+
+- 2026-04-15
+- 2026-04-16 12-17
+- 2026-04-16 17-22
+
+But it is not stable enough to be the foundation for the next strategy:
+
+- 2026-04-13 is negative.
+- 2026-04-17 is basically zero at 1s and negative at longer horizons.
+- The pooled 1s t-stat is only `+1.12`.
+- The R2 is tiny in every case.
+- The actual economic effect size is tiny because the microprice deviation itself is tiny.
+
+The strongest-looking coefficient is 2026-04-16 17-22, but even there the one-standard-deviation predicted 1s drift is only about `0.09 bps`. That is information, but not enough by itself to pay maker fees or explain a market-making edge.
+
+The signal buckets reinforce this: almost all observations sit in the near-zero bucket `[-0.1, 0.1) bps`. Larger microprice deviations are rare, so a thresholded signal strategy would have very few opportunities unless the threshold is extremely low.
+
+### Updated decision
+
+Do not build `InventorySkewMM` yet.
+
+Do not treat microprice as a proven edge.
+
+The result is best described as:
+
+"Microprice has weak, regime-dependent short-horizon predictiveness in some windows, but it is not stable or economically large enough across the tested sample to justify strategy complexity by itself."
+
+Next research question:
+
+"What distinguishes the windows where microprice has positive 1s predictiveness and positive matched PnL from the windows where the passive baseline fails?"
+
+Likely next diagnostics:
+
+1. Compare good and bad windows by trend, realized volatility, and volatility shape.
+2. Compare fill side imbalance and inventory path.
+3. Re-run quote-mechanics sweeps across the added windows to see whether `half_spread=2` was only optimal on 2026-04-16.
+4. Test whether a microprice signal threshold improves fill quality, but only after confirming the threshold has enough observations.

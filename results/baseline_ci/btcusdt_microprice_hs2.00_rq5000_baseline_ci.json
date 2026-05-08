@@ -1,0 +1,184 @@
+{
+  "params": {
+    "symbol": "btcusdt",
+    "strategy": "microprice",
+    "half_spread": "2.00",
+    "requote_interval_ms": 5000,
+    "latency_ms": 10,
+    "jitter_ms": 0,
+    "session_hours": 1,
+    "iterations": 10000,
+    "seed": 7
+  },
+  "run_dirs": [
+    "btcusdt_microprice_20260413_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260414_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260415_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260416_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260416_17_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260417_12_5h_5sessions_hs2.00_rq5000"
+  ],
+  "counts": {
+    "windows": 6,
+    "sessions": 30,
+    "matched_lots": 722
+  },
+  "ci": {
+    "window": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "5h_window",
+        "n": 6,
+        "mean": "-1.943277350042718959838006762",
+        "ci_low": "-6.240850233067526559918671052",
+        "ci_high": "1.684419209804732494492102870",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "5h_window",
+        "n": 6,
+        "mean": "-0.3221665247118947773010197907",
+        "ci_low": "-1.651804009194956634992557652",
+        "ci_high": "0.7060822349208191988816703233",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "5h_window",
+        "n": 6,
+        "mean": "-1.402401866764098889128631344",
+        "ci_low": "-4.776859201907893001384910973",
+        "ci_high": "1.856593901522490088562832648",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "5h_window",
+        "n": 6,
+        "mean": "0.003262130448415211942585959552",
+        "ci_low": "0.002820042378929913649807140405",
+        "ci_high": "0.003668990405436953399814664683",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "5h_window",
+        "n": 6,
+        "mean": "43.51227677101664486108376345",
+        "ci_low": "41.99115076233292030995986145",
+        "ci_high": "45.59098006985822888843229915",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "session": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "1h_session",
+        "n": 30,
+        "mean": "-0.3886554700085437919676013523",
+        "ci_low": "-1.252150409612064237537133444",
+        "ci_high": "0.3252518917925000186822474123",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "1h_session",
+        "n": 30,
+        "mean": "-0.06443330494237895546020395817",
+        "ci_low": "-0.3367821299308455495809008254",
+        "ci_high": "0.2179555263577006653614463700",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "1h_session",
+        "n": 30,
+        "mean": "-0.2804803733528197778257262690",
+        "ci_low": "-1.104123845415993021760576666",
+        "ci_high": "0.3336002297718961377081115282",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "1h_session",
+        "n": 30,
+        "mean": "0.003262130448415211942585959551",
+        "ci_low": "0.002232244619767115243526312338",
+        "ci_high": "0.004379201403895633945296517100",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "1h_session",
+        "n": 30,
+        "mean": "48.4481725208796664699875602",
+        "ci_low": "43.03953683323022982735123014",
+        "ci_high": "54.81999150177538281873211182",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "matched_lot": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "matched_lot",
+        "n": 722,
+        "mean": "-0.002677284138880011999731466396",
+        "ci_low": "-0.008275091857040694349255798870",
+        "ci_high": "0.003051167793481266361769900830",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "gross_pnl": {
+        "metric": "gross_pnl",
+        "unit": "matched_lot",
+        "n": 722,
+        "mean": "0.004551424258936799677850840036",
+        "ci_low": "-0.001086930375759489972975617043",
+        "ci_high": "0.01035673790426395341220529211",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "fees": {
+        "metric": "fees",
+        "unit": "matched_lot",
+        "n": 722,
+        "mean": "0.007228708397816811677582306443",
+        "ci_low": "0.006728265182022005987362810172",
+        "ci_high": "0.007731681192751484418100487621",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "net_pnl_per_btc": {
+        "metric": "net_pnl_per_btc",
+        "unit": "matched_lot",
+        "n": 722,
+        "mean": "-29.83676741828254847645429363",
+        "ci_low": "-46.40566590020775623268698061",
+        "ci_high": "-13.08039106204986149584487535",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "hold_time_ms": {
+        "metric": "hold_time_ms",
+        "unit": "matched_lot",
+        "n": 722,
+        "mean": "789477.0997229916897506925208",
+        "ci_low": "740642.9599376731301939058172",
+        "ci_high": "839090.7569252077562326869806",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    }
+  }
+}

@@ -13,6 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import List
 
+from src.analysis.fill_rate import format_fill_rate_summary, summarize_fill_rate
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition, format_pnl_summary
 from src.execution.order import Fill
@@ -168,6 +169,10 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     if decomp is not None:
         print()
         print(format_pnl_summary(decomp))
+
+    fill_rate_summary = summarize_fill_rate(result, markouts)
+    print()
+    print(format_fill_rate_summary(fill_rate_summary))
 
 
 def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid, decomp=None) -> None:

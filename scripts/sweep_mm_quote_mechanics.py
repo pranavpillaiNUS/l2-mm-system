@@ -24,6 +24,7 @@ from scripts.compare_mm import (
     _sessions_from_end,
     _write_csv,
 )
+from src.analysis.fill_rate import FillRateBin, summarize_pooled_contexts
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,69 @@ def _weighted_avg(values_and_weights: Iterable[tuple[Decimal | None, int]]) -> D
     return total / Decimal(total_weight)
 
 
+def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
+    """
+    Pool OrderContexts by (strategy, half_spread, requote_interval) combo and
+    compute fill-rate breakdowns (overall + by distance/age/volatility).
+    Returns one flat row per (combo, axis, bin_label).
+    """
+    grouped: dict[Tuple[str, str, int], list] = {}
+    for row in detail_rows:
+        key = _combo_key(row)
+        grouped.setdefault(key, []).extend(row.get("_contexts", []))
+
+    out: List[dict] = []
+    for (strategy, half_spread, requote_interval_ms), contexts in grouped.items():
+        summary = summarize_pooled_contexts(contexts)
+
+        def _emit(axis: str, bin_obj: FillRateBin):
+            out.append({
+                "strategy": strategy,
+                "half_spread": half_spread,
+                "requote_interval_ms": requote_interval_ms,
+                "axis": axis,
+                "bin": bin_obj.label,
+                "n_orders": bin_obj.n_orders,
+                "n_filled": bin_obj.n_filled,
+                "fill_rate_pct": Decimal(str(round(bin_obj.fill_rate * 100, 4))),
+                "avg_markout_bps_given_filled": bin_obj.avg_markout_bps_given_filled,
+                "median_markout_bps_given_filled": bin_obj.median_markout_bps_given_filled,
+            })
+
+        _emit("overall", summary["overall"])
+        for b in summary["by_distance_bps"]:
+            _emit("distance_bps", b)
+        for b in summary["by_quote_age_ms"]:
+            _emit("quote_age_ms", b)
+        for b in summary["by_volatility_bps"]:
+            _emit("volatility_bps", b)
+
+    return out
+
+
+def _format_fill_rate_overview(fill_rate_rows: List[dict]) -> str:
+    """One-line-per-combo: overall fill rate + markout-given-fill, sorted."""
+    overall = [r for r in fill_rate_rows if r["axis"] == "overall"]
+    overall.sort(key=lambda r: (r["strategy"], Decimal(r["half_spread"]),
+                                int(r["requote_interval_ms"])))
+    if not overall:
+        return "No overall fill-rate rows."
+    lines = [
+        f"  {'strategy':<10} {'spread':>6} {'requote':>8} {'orders':>7} "
+        f"{'filled':>6} {'rate%':>7} {'mkout|filled':>14}"
+    ]
+    for r in overall:
+        markout = r["avg_markout_bps_given_filled"]
+        markout_str = f"{float(markout):+.2f} bps" if markout is not None else "n/a"
+        lines.append(
+            f"  {r['strategy']:<10} {r['half_spread']:>6} "
+            f"{r['requote_interval_ms']:>8} {r['n_orders']:>7} "
+            f"{r['n_filled']:>6} {float(r['fill_rate_pct']):>6.2f}%  "
+            f"{markout_str:>14}"
+        )
+    return "\n".join(lines)
+
+
 def _format_ranked_table(rows: List[dict]) -> str:
     if not rows:
         return "No aggregate rows."
@@ -254,16 +318,23 @@ def main():
                     print(f"  Skipping missing session: {exc}")
 
     aggregate_rows = _aggregate_sweep_rows(detail_rows)
+    fill_rate_rows = _aggregate_fill_rate_rows(detail_rows)
     detail_path = args.output_dir / "quote_mechanics_detail.csv"
     aggregate_path = args.output_dir / "quote_mechanics_aggregate.csv"
+    fill_rate_path = args.output_dir / "quote_mechanics_fill_rate.csv"
     _write_csv(detail_path, detail_rows)
     _write_csv(aggregate_path, aggregate_rows)
+    _write_csv(fill_rate_path, fill_rate_rows)
 
     print()
     print("Aggregate quote-mechanics ranking")
     print(_format_ranked_table(aggregate_rows))
+    print()
+    print("Pooled fill-rate overview (per combo)")
+    print(_format_fill_rate_overview(fill_rate_rows))
     print(f"\nWrote detail rows to {detail_path}")
     print(f"Wrote aggregate rows to {aggregate_path}")
+    print(f"Wrote fill-rate rows to {fill_rate_path}")
 
 
 if __name__ == "__main__":

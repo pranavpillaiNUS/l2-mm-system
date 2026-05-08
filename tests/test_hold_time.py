@@ -16,7 +16,7 @@ from src.execution.order import Fill, OrderEvent, OrderSide
 from src.replay.engine import BookSample, ReplayResult, ReplayStats
 
 
-def make_fill(fill_id, order_id, side, price, qty, t_ms):
+def make_fill(fill_id, order_id, side, price, qty, t_ms, fee="0"):
     return Fill(
         fill_id=fill_id,
         order_id=order_id,
@@ -25,7 +25,7 @@ def make_fill(fill_id, order_id, side, price, qty, t_ms):
         quantity=Decimal(qty),
         is_maker=True,
         timestamp_ms=t_ms,
-        fee=Decimal("0"),
+        fee=Decimal(fee),
     )
 
 
@@ -76,6 +76,8 @@ def test_one_buy_closed_by_one_sell():
 
     assert len(summary.matched_lots) == 1
     assert summary.realized_pnl == Decimal("2")
+    assert summary.matched_fees == Decimal("0")
+    assert summary.matched_net_pnl == Decimal("2")
     assert summary.residual_inventory == Decimal("0")
     assert summary.p50_hold_time_ms == 1000
     print("PASS: one buy closes against one sell")
@@ -160,6 +162,26 @@ def test_weighted_hold_time_percentiles():
     print("PASS: hold-time percentiles are quantity-weighted")
 
 
+def test_completed_round_trip_allocates_fees():
+    fills = [
+        make_fill("f1", "o1", OrderSide.BUY, "100", "2", 0, fee="0.20"),
+        make_fill("f2", "o2", OrderSide.SELL, "103", "1", 1000, fee="0.15"),
+    ]
+
+    summary = compute_hold_time_summary(fills)
+    lot = summary.matched_lots[0]
+
+    assert summary.realized_pnl == Decimal("3")
+    assert lot.open_fee == Decimal("0.10")
+    assert lot.close_fee == Decimal("0.15")
+    assert lot.total_fees == Decimal("0.25")
+    assert lot.net_pnl == Decimal("2.75")
+    assert summary.matched_fees == Decimal("0.25")
+    assert summary.matched_net_pnl == Decimal("2.75")
+    assert summary.open_lots[0].fee_remaining == Decimal("0.10")
+    print("PASS: completed round-trip fees are allocated by matched quantity")
+
+
 def test_reconciliation_uses_mid_to_mid_inventory_pnl():
     fills = [
         make_fill("f1", "o1", OrderSide.BUY, "99.50", "1", 0),
@@ -179,6 +201,8 @@ def test_reconciliation_uses_mid_to_mid_inventory_pnl():
     assert decomp.spread_capture == Decimal("1.00")
     assert decomp.inventory_pnl == Decimal("1.00")
     assert recon.actual_net_from_components == Decimal("2.00")
+    assert recon.matched_fees == Decimal("0")
+    assert recon.matched_net_pnl == Decimal("2.00")
     assert recon.horizons[0].proxy_inventory_pnl == Decimal("1.00")
     assert recon.horizons[0].proxy_net_pnl == Decimal("2.00")
     assert recon.horizons[0].net_error == Decimal("0.00")
@@ -206,6 +230,7 @@ if __name__ == "__main__":
     test_partial_leftover_inventory()
     test_short_inventory_closed_by_later_buy()
     test_weighted_hold_time_percentiles()
+    test_completed_round_trip_allocates_fees()
     test_reconciliation_uses_mid_to_mid_inventory_pnl()
     test_pre_fill_drift_decomposition()
     print("\nAll tests passed.")

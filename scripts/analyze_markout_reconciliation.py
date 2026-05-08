@@ -254,6 +254,9 @@ def _print_summary(args, window, result, decomp, hold, recon, drift_summary, que
     print(f"  Reported net PnL:      {decomp.net_pnl}")
     print(f"  Component net PnL:     {recon.actual_net_from_components}")
     print(f"  Actual inventory PnL:  {recon.actual_inventory_pnl}")
+    print(f"  Matched gross PnL:     {recon.matched_realized_pnl}")
+    print(f"  Matched fees:          {recon.matched_fees}")
+    print(f"  Matched net PnL:       {recon.matched_net_pnl}")
     print(f"  Closest hold horizon:  {recon.closest_horizon_to_median}")
     print(f"  Best PnL horizon:      {recon.best_reconciling_horizon}")
     print("  Horizon proxy:")
@@ -343,6 +346,12 @@ def _aggregate_summary(args, sessions: Sequence[AnalyzedSession]) -> dict:
         sum(matched_inventory_values, Decimal("0"))
         if len(matched_inventory_values) == len(sessions) else None
     )
+    matched_fees = sum(
+        (session.hold.matched_fees for session in sessions), Decimal("0")
+    )
+    matched_net_pnl = sum(
+        (session.hold.matched_net_pnl for session in sessions), Decimal("0")
+    )
     inventory_pnl = sum(
         (session.decomp.inventory_pnl for session in sessions), Decimal("0")
     )
@@ -370,6 +379,8 @@ def _aggregate_summary(args, sessions: Sequence[AnalyzedSession]) -> dict:
             inventory_pnl - matched_inventory_pnl
             if matched_inventory_pnl is not None else None
         ),
+        "matched_fees": matched_fees,
+        "matched_net_pnl": matched_net_pnl,
         "matched_realized_pnl": sum(
             (session.hold.realized_pnl for session in sessions), Decimal("0")
         ),
@@ -431,6 +442,9 @@ def _print_aggregate_summary(args, sessions: Sequence[AnalyzedSession], aggregat
     print(f"  Actual inventory PnL: {aggregate['inventory_pnl']}")
     print(f"  Matched inventory PnL:{aggregate['matched_inventory_pnl']}")
     print(f"  Residual inv PnL:     {aggregate['residual_inventory_pnl']}")
+    print(f"  Matched gross PnL:    {aggregate['matched_realized_pnl']}")
+    print(f"  Matched fees:         {aggregate['matched_fees']}")
+    print(f"  Matched net PnL:      {aggregate['matched_net_pnl']}")
     print(f"  Closest hold horizon: {aggregate['closest_horizon_to_median']}")
     print(f"  Best PnL horizon:     {aggregate['best_reconciling_horizon']}")
     print("  Horizon proxy:")
@@ -577,6 +591,9 @@ def main():
             "hold_time": {
                 "matched_lots": len(session.hold.matched_lots),
                 "matched_qty": session.hold.total_matched_qty,
+                "matched_gross_pnl": session.hold.realized_pnl,
+                "matched_fees": session.hold.matched_fees,
+                "matched_net_pnl": session.hold.matched_net_pnl,
                 "residual_inventory": session.hold.residual_inventory,
                 "avg_hold_time_ms": session.hold.avg_hold_time_ms,
                 "p25_hold_time_ms": session.hold.p25_hold_time_ms,

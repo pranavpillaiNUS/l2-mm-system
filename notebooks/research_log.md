@@ -487,3 +487,86 @@ Do not build InventorySkewMM yet. Next investigation:
 2. Add a metric that separates completed round-trip PnL from residual inventory mark-to-market.
 3. Compare `1s` vs `5s` requote through queue diagnostics.
 4. Only build InventorySkewMM if the baseline remains credible after this reconciliation pass.
+
+---
+## 2026-05-08: Round-Trip PnL And Second-Window Reconciliation
+
+### What changed
+Extended `hold_time.py` so FIFO matched lots now allocate fees proportionally:
+
+- `matched_gross_pnl`: completed round-trip PnL before fees.
+- `matched_fees`: opening and closing fees allocated by matched quantity.
+- `matched_net_pnl`: completed round-trip PnL after fees.
+- `residual_inventory_pnl`: remaining session inventory mark-to-market, separate from completed round trips.
+
+This directly answers the question: "Is the strategy making money on closed inventory cycles, or only because open inventory marks favorably at session end?"
+
+### Results
+
+All runs below use:
+
+- Strategy: `microprice`
+- Half spread: `2.00`
+- Order quantity: `0.001`
+- Max position: `0.01`
+- Latency: `10ms`
+- Jitter: `0`
+- Methodology: five independent 1-hour sessions per block
+
+| Window | Requote | Fills | Net PnL | Matched net PnL | Residual inv PnL | Median hold |
+|---|---:|---:|---:|---:|---:|---:|
+| 12-17 | 5000ms | 157 | +1.8970 | +0.8357 | +1.2276 | 439s |
+| 12-17 | 1000ms | 214 | -0.4571 | -0.8411 | +0.5640 | 377s |
+| 17-22 | 5000ms | 149 | +1.5244 | +0.5689 | +1.1796 | 542s |
+| 17-22 | 1000ms | 206 | +0.0074 | -1.1581 | +1.4324 | 339s |
+
+### Interpretation
+
+This is a big improvement over the previous state of knowledge.
+
+The 5s operating point is not only winning through residual inventory mark-to-market. It has positive completed-round-trip PnL in both tested blocks:
+
+- `+0.8357` from 12-17.
+- `+0.5689` from 17-22.
+
+Residual inventory still matters a lot, but the passive baseline is now more credible than it looked after the first reconciliation pass.
+
+The 1s setting is worse despite more fills:
+
+- 12-17: more fills, but matched net PnL is `-0.8411`.
+- 17-22: near-flat total net PnL, but matched net PnL is `-1.1581`.
+
+So the 1s strategy appears to rely even more on favorable residual inventory marks, while the 5s strategy has actual completed-cycle edge.
+
+### Queue comparison
+
+| Window | Requote | Orders | Filled orders | Avg initial queue | Avg queue before fill trade | Total trade drain | Total cancel drain |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 12-17 | 5000ms | 6,763 | 141 | 0.0441 | 0.0050 | 1.4811 | 17.6832 |
+| 12-17 | 1000ms | 17,537 | 205 | 0.0443 | 0.0055 | 2.9438 | 49.7568 |
+| 17-22 | 5000ms | 6,538 | 138 | 0.0201 | 0.0016 | 0.8604 | 22.4281 |
+| 17-22 | 1000ms | 14,158 | 199 | 0.0228 | 0.0025 | 4.3491 | 41.9586 |
+
+The queue evidence supports the current explanation:
+
+- 1s requote sends far more orders.
+- 1s gets more fills, but those fills are lower quality after fees.
+- 5s keeps fewer orders resting, but the completed round trips are profitable.
+- In every case, filled orders have much lower queue ahead by fill time than at entry.
+
+This supports the queue-position story more than a simple "more attempts is better" story.
+
+### Updated decision
+
+InventorySkewMM is now reasonable to build next, but with a specific goal:
+
+- Not "capture more spread."
+- Not "fix an unprofitable baseline."
+- Goal: reduce residual inventory dependence while preserving the positive completed-round-trip edge of the 5s passive baseline.
+
+The benchmark for InventorySkewMM should be:
+
+1. Keep matched net PnL positive.
+2. Reduce residual inventory PnL dependence.
+3. Reduce average and tail absolute inventory.
+4. Avoid increasing order churn toward the bad 1s-like regime.

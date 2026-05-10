@@ -14,7 +14,7 @@ the next snapshot. Affected events are flagged with has_gap=True.
 import gzip
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple
 
@@ -51,6 +51,7 @@ class DepthParser:
 
     def events(self) -> Iterator[DepthEvent]:
         prev_last_uid: Optional[int] = None
+        snapshot_last_uid: Optional[int] = None
 
         for filepath in self.files:
             with gzip.open(filepath, "rt", encoding="utf-8") as f:
@@ -63,11 +64,13 @@ class DepthParser:
                     recv_time = datetime.fromisoformat(record["recv_time"])
 
                     if "type" in record:
-                        # snapshot — REST API response, no exchange timestamp
+                        # Snapshot — REST API response, no exchange timestamp.
+                        # Treat recorded naive recv_time as UTC because the
+                        # recorder writes datetime.utcnow() without tzinfo.
                         data = record["data"]
                         yield DepthEvent(
                             recv_time=recv_time,
-                            exchange_time_ms=int(recv_time.timestamp() * 1000),
+                            exchange_time_ms=_epoch_ms_utc(recv_time),
                             event_type="snapshot",
                             first_update_id=None,
                             last_update_id=data["lastUpdateId"],
@@ -75,9 +78,11 @@ class DepthParser:
                             asks=data["asks"],
                             has_gap=False,
                         )
-                        # reset so the first diff after a snapshot isn't
-                        # incorrectly flagged as a gap
+                        # Binance snapshot recovery rule: drop all following
+                        # diffs with u <= lastUpdateId, then require the first
+                        # retained diff to bridge lastUpdateId + 1.
                         prev_last_uid = None
+                        snapshot_last_uid = data["lastUpdateId"]
 
                     else:
                         # diff — WebSocket depthUpdate message
@@ -85,10 +90,22 @@ class DepthParser:
                         first_uid = data["U"]
                         last_uid = data["u"]
 
-                        has_gap = (
-                            prev_last_uid is not None
-                            and first_uid != prev_last_uid + 1
-                        )
+                        if snapshot_last_uid is not None:
+                            if last_uid <= snapshot_last_uid:
+                                # Stale buffered diff already covered by the
+                                # snapshot. Applying it would roll the book
+                                # backwards.
+                                continue
+
+                            has_gap = not (
+                                first_uid <= snapshot_last_uid + 1 <= last_uid
+                            )
+                            snapshot_last_uid = None
+                        else:
+                            has_gap = (
+                                prev_last_uid is not None
+                                and first_uid != prev_last_uid + 1
+                            )
 
                         yield DepthEvent(
                             recv_time=recv_time,
@@ -101,3 +118,10 @@ class DepthParser:
                             has_gap=has_gap,
                         )
                         prev_last_uid = last_uid
+
+
+def _epoch_ms_utc(value: datetime) -> int:
+    """Epoch milliseconds, treating naive recorder timestamps as UTC."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.timestamp() * 1000)

@@ -16,7 +16,7 @@
   "aggregate": {
     "sessions": 5,
     "fills": 156,
-    "orders_submitted": 6593,
+    "orders_submitted": 6580,
     "spread_capture": "0.09738424453495516994142600641",
     "fees": "1.056389960785236364347398195",
     "inventory_pnl": "1.880456244583679184511172593",
@@ -82,13 +82,13 @@
       "avg_book_spread_bps_at_fill": "0.001784944094020704827635147321"
     },
     "queue": {
-      "orders": 6593,
+      "orders": 6580,
       "filled_orders": 133,
       "avg_initial_queue_ahead_filled": "0.04385195488721804511278195489",
       "avg_queue_before_trade_at_first_fill": "0.0005266932970885573364202073944",
       "avg_queue_before_fill_at_first_fill": "0.00000000000000000000000000000000000",
-      "total_trade_queue_drained": "0.3522902085127781257438875835",
-      "total_cancel_queue_drained": "27.23938938500831586362917595"
+      "total_trade_queue_drained": "0.3518802085127781257438875835",
+      "total_cancel_queue_drained": "27.30778255778016472431564841"
     }
   },
   "sessions": [
@@ -96,7 +96,7 @@
       "window": "2026-04-15 12:00",
       "hours": 1,
       "fills": 26,
-      "orders_submitted": 1060,
+      "orders_submitted": 1058,
       "final_mid": "74273.77500000",
       "strategy_position": "0.008936581875993640699523052466",
       "pnl": {
@@ -178,7 +178,7 @@
         "avg_book_spread_bps_at_fill": "0.001347186654406995493482116911"
       },
       "queue": {
-        "orders": 1060,
+        "orders": 1058,
         "filled_orders": 20,
         "avg_initial_queue_ahead_filled": "0.02716300",
         "avg_queue_before_trade_at_first_fill": "0.000768523414881494235539327591",
@@ -253,7 +253,7 @@
       "window": "2026-04-15 13:00",
       "hours": 1,
       "fills": 31,
-      "orders_submitted": 1261,
+      "orders_submitted": 1258,
       "final_mid": "74063.91500000",
       "strategy_position": "0.002509777813207775198832498170",
       "pnl": {
@@ -335,7 +335,7 @@
         "avg_book_spread_bps_at_fill": "0.001349613873719462674236156125"
       },
       "queue": {
-        "orders": 1261,
+        "orders": 1258,
         "filled_orders": 28,
         "avg_initial_queue_ahead_filled": "0.04555750",
         "avg_queue_before_trade_at_first_fill": "0.0002907442935041558873320619862",
@@ -410,7 +410,7 @@
       "window": "2026-04-15 14:00",
       "hours": 1,
       "fills": 35,
-      "orders_submitted": 1484,
+      "orders_submitted": 1478,
       "final_mid": "74151.80500000",
       "strategy_position": "0.004614310638663957274957292345",
       "pnl": {
@@ -492,13 +492,13 @@
         "avg_book_spread_bps_at_fill": "0.001347723986168581879432288785"
       },
       "queue": {
-        "orders": 1484,
+        "orders": 1478,
         "filled_orders": 31,
         "avg_initial_queue_ahead_filled": "0.04980064516129032258064516129",
         "avg_queue_before_trade_at_first_fill": "0.0006671285065191895954517227565",
         "avg_queue_before_fill_at_first_fill": "0.00000000000000000000000000000000000",
         "total_trade_queue_drained": "0.09357098370209487745900340546",
-        "total_cancel_queue_drained": "5.652165548738277554440350508"
+        "total_cancel_queue_drained": "5.720558721510126415126822964"
       },
       "book_spread_by_volatility": [
         {
@@ -567,7 +567,7 @@
       "window": "2026-04-15 15:00",
       "hours": 1,
       "fills": 27,
-      "orders_submitted": 1410,
+      "orders_submitted": 1408,
       "final_mid": "73844.07500000",
       "strategy_position": "-0.001401882916451687424860046293",
       "pnl": {
@@ -649,12 +649,12 @@
         "avg_book_spread_bps_at_fill": "0.003866336818552531900088240826"
       },
       "queue": {
-        "orders": 1410,
+        "orders": 1408,
         "filled_orders": 25,
         "avg_initial_queue_ahead_filled": "0.06142640",
         "avg_queue_before_trade_at_first_fill": "0.0004935727546009650976814184684",
         "avg_queue_before_fill_at_first_fill": "0.00000000000000000000000000000000",
-        "total_trade_queue_drained": "0.08562931886502412744203546170",
+        "total_trade_queue_drained": "0.08521931886502412744203546170",
         "total_cancel_queue_drained": "4.765808413509872155724320730"
       },
       "book_spread_by_volatility": [

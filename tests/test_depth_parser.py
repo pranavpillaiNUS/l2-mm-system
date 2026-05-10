@@ -6,7 +6,7 @@ Run with: python tests/test_depth_parser.py
 import gzip
 import json
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.replay.depth_parser import DepthParser, DepthEvent
@@ -92,6 +92,20 @@ def test_parse_snapshot():
     print("PASS: snapshot parsed correctly")
 
 
+def test_snapshot_naive_recv_time_is_treated_as_utc():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        write_gz([make_snapshot(last_update_id=999)], p)
+
+        event = list(DepthParser([p]).events())[0]
+
+        expected = int(
+            datetime(2026, 4, 21, 10, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+        )
+        assert event.exchange_time_ms == expected
+    print("PASS: naive snapshot recv_time is interpreted as UTC")
+
+
 def test_no_gap_in_continuous_sequence():
     # u=105, then next U=106 — continuous, no gap
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -149,6 +163,44 @@ def test_snapshot_resets_gap_tracking():
         assert events[1].has_gap is False   # snapshot
         assert events[2].has_gap is False   # diff after snapshot — reset, not flagged
     print("PASS: snapshot resets gap tracker, first diff after snapshot not flagged")
+
+
+def test_stale_diffs_after_snapshot_are_dropped_until_bridge():
+    # Binance snapshot recovery: ignore diffs whose u <= lastUpdateId, then
+    # apply the first diff that bridges lastUpdateId + 1.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        write_gz([
+            make_snapshot(last_update_id=200),
+            make_diff(U=190, u=199),
+            make_diff(U=200, u=200),
+            make_diff(U=201, u=205),
+        ], p)
+
+        events = list(DepthParser([p]).events())
+
+        assert len(events) == 2
+        assert events[0].event_type == "snapshot"
+        assert events[1].event_type == "diff"
+        assert events[1].first_update_id == 201
+        assert events[1].last_update_id == 205
+        assert events[1].has_gap is False
+    print("PASS: stale post-snapshot diffs are dropped until bridge diff")
+
+
+def test_first_non_stale_diff_after_snapshot_must_bridge():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        write_gz([
+            make_snapshot(last_update_id=200),
+            make_diff(U=205, u=210),
+        ], p)
+
+        events = list(DepthParser([p]).events())
+
+        assert len(events) == 2
+        assert events[1].has_gap is True
+    print("PASS: first non-stale post-snapshot diff must bridge snapshot")
 
 
 def test_gap_after_snapshot_detected():
@@ -224,6 +276,10 @@ def test_events_on_real_file():
     assert len(events) > 0
     # first event should be a snapshot (post-Apr-12 file)
     assert events[0].event_type == "snapshot"
+    # After stale post-snapshot diffs are dropped, yielded events should be
+    # monotonic by timestamp for the normal hourly files.
+    timestamps = [event.exchange_time_ms for event in events]
+    assert timestamps == sorted(timestamps)
     # all events have valid types
     assert all(e.event_type in ("snapshot", "diff") for e in events)
     # count gaps
@@ -234,10 +290,13 @@ def test_events_on_real_file():
 if __name__ == "__main__":
     test_parse_single_diff()
     test_parse_snapshot()
+    test_snapshot_naive_recv_time_is_treated_as_utc()
     test_no_gap_in_continuous_sequence()
     test_gap_detected_between_diffs()
     test_first_diff_never_flagged_as_gap()
     test_snapshot_resets_gap_tracking()
+    test_stale_diffs_after_snapshot_are_dropped_until_bridge()
+    test_first_non_stale_diff_after_snapshot_must_bridge()
     test_gap_after_snapshot_detected()
     test_multiple_files_gap_tracked_across()
     test_multiple_files_continuous_no_gap()

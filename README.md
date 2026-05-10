@@ -130,14 +130,13 @@ Runs a focused mini-sweep over half-spread and requote interval. This is deliber
 
 ### Current research status
 
-The first naive market-making setup (`half_spread=0.50`, no requote interval) was too reactive: it generated very low maker fill rates and heavy fee drag. A focused quote-mechanics sweep found that wider, slower quoting is much more credible. On one five-hour April 16 window, `half_spread=5.00` with `requote_interval_ms=5000` moved the baseline from large losses to slightly positive P&L with a maker rate around 34%.
+The first naive market-making setup produced misleading profitability because latency could turn intended passive limits into taker fills. The simulator now defaults to post-only behavior, and crossing limits are cancelled rather than filled as takers.
 
-The adjacent five-hour window was still negative, so this is not yet a robust strategy. The current research task is to refine and validate quote mechanics across more windows before adding `InventorySkewMM` or `VolAdaptiveMM`.
+A later audit found a replay correctness issue around naive UTC snapshot timestamps and stale post-snapshot diffs. The depth parser now treats recorder timestamps as UTC and drops stale diffs until the first Binance-valid bridge diff. Pre-fix strategy artifacts should be rerun before drawing research conclusions.
+
+The current research task is not to add `InventorySkewMM` or `VolAdaptiveMM`. It is to rerun the passive baseline under corrected replay, test microprice conditional on maker fills, and characterize the windows where passive MM fails.
 
 ### What's left to build
-
-**`src/analysis/`** — post-replay analysis:
-- `fill_rate.py` — fill probability by distance from mid, quote age, time of day, volatility regime, and cancel/replace rate
 
 **`scripts/`**:
 - `sweep_mm_params.py` — broader parameter sweep after quote mechanics are stable
@@ -168,12 +167,18 @@ src/strategies/
 src/analysis/
 ├── markout.py        # adverse selection at multiple horizons                      ✓
 ├── pnl.py            # P&L decomposition                                           ✓
-└── fill_rate.py      # fill probability analysis                                   [ ]
+├── fill_rate.py      # fill probability analysis                                   ✓
+├── hold_time.py      # FIFO matched-lot / hold-time reconciliation                 ✓
+├── bootstrap.py      # confidence intervals over chosen sampling units             ✓
+├── microprice_signal.py          # unconditional microprice drift tests             ✓
+└── microprice_fill_toxicity.py   # conditional-on-fill microprice toxicity          ✓
 
 scripts/
 ├── run_replay.py                    # single replay session                         ✓
 ├── compare_mm.py                    # multi-session strategy comparison              ✓
 ├── sweep_mm_quote_mechanics.py      # focused spread/requote mini-sweep              ✓
+├── analyze_microprice_signal.py     # unconditional microprice drift diagnostics      ✓
+├── analyze_microprice_fill_toxicity.py # conditional-on-fill microprice diagnostics  ✓
 ├── sweep_mm_params.py               # broader MM parameter sweep                     [ ]
 ├── walk_forward_mm.py               # L2 walk-forward validation                     [ ]
 └── benchmark.py                     # performance benchmark                          [ ]

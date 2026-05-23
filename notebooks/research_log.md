@@ -767,3 +767,112 @@ Likely next diagnostics:
 2. Compare fill side imbalance and inventory path.
 3. Re-run quote-mechanics sweeps across the added windows to see whether `half_spread=2` was only optimal on 2026-04-16.
 4. Test whether a microprice signal threshold improves fill quality, but only after confirming the threshold has enough observations.
+
+
+---
+
+## 2026-05-23 - Tail Diagnostics V1
+
+Built Tail Diagnostics V1:
+
+- `src/analysis/tail_diagnostics.py`
+- `scripts/analyze_mm_tail_diagnostics.py`
+- `tests/test_tail_diagnostics.py`
+
+Generated:
+
+- `results/tail_diagnostics/btcusdt_microprice_hs2.00_rq5000_anchor6/summary.json`
+- `window_summary.csv`
+- `fill_tail_rows.csv`
+- `matched_lot_tail_rows.csv`
+- `cluster_summary.csv`
+
+Inputs:
+
+- corrected six anchor windows
+- 921 fill toxicity rows at `30s`
+- 696 matched lots
+
+Core result:
+
+Fill toxicity and matched-lot PnL are telling different stories.
+
+Fill-level 30s toxicity:
+
+- mean: `-2.0175 bps`
+- median: `-1.6916 bps`
+- worst 5% explains `39.6%` of total adverse 30s movement
+- worst 10% explains `66.8%`
+
+Matched-lot net PnL per BTC:
+
+- mean: `-28.0814`
+- median: `-26.1867`
+- worst 5% explains `111.5%` of total matched-lot loss
+- worst 10% explains `176.6%`
+
+Interpretation:
+
+- Fill toxicity is broad and somewhat tail-heavy.
+- Matched-lot losses are strongly tail-dominated.
+- Apr 13 and Apr 14 have negative matched-lot body economics even after removing each window's worst 5%.
+- Apr 15, Apr 16 12-17, Apr 16 17-22, and Apr 17 have positive body economics.
+- Pooled body metrics can hide this heterogeneity.
+
+This changes the fee question. The right next step is not:
+
+```text
+Would a rebate fix the pooled result?
+```
+
+The right next step is:
+
+```text
+Which windows need what maker fee or rebate, and how stable is that requirement?
+```
+
+Matched-lot clustering:
+
+- pooled matched-lot 120s clusters: 14 clusters from 35 tail lots
+- pooled matched-lot 300s clusters: 11 clusters from 35 tail lots
+- worst 300s cluster: `matched_lot_pooled_pooled_300000_4`
+- time: Apr 14, 13:55:18 to 13:58:19 UTC
+- contents: 8 matched lots, 4 unique closing fills, 5 unique opening fills
+
+Correct description:
+
+> A short realization episode closed multiple toxic inventory lots.
+
+Do not call it 8 independent bad fills. FIFO matching can split one closing fill
+across multiple opening lots.
+
+Session-boundary caution:
+
+- The largest matched-lot cluster is within 30 minutes after US cash open.
+- Other large clusters do not show a consistent boundary pattern.
+- The anchor windows are not uniformly distributed across the day.
+- Boundary proximity is descriptive only until compared with a uniform-time
+  baseline.
+
+Small V1 patch:
+
+- Kept `cluster_share_of_total_metric_sum`.
+- Added `cluster_share_of_negative_metric_sum`.
+- Added `cluster_share_of_tail_metric_sum`.
+
+Reason:
+
+Some windows have positive total metric sums. In those windows, a negative worst
+cluster divided by positive total metric sum gives a negative share. That is
+mathematically valid but confusing in a writeup. The negative-denominator share
+is safer to quote.
+
+Tests:
+
+```text
+env PYTHONPATH=. pytest -q tests/test_tail_diagnostics.py
+7 passed
+
+env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+163 passed
+```

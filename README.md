@@ -119,6 +119,9 @@ Computes side-normalized fill markouts at 1s, 5s, 30s, 1m, and 5m horizons using
 **`src/analysis/pnl.py`**
 Decomposes replay P&L into spread capture, residual inventory P&L, and fees. Adverse selection is reported separately as a markout-based diagnostic rather than treated as part of the accounting identity.
 
+**`src/analysis/tail_diagnostics.py`**
+Summarizes whether losses are broad-based or concentrated in adverse tails. It reports pooled and per-window tail contribution, clusters worst-5% fill and matched-lot outcomes across 60s/120s/300s gaps, tags clusters by UTC session-boundary proximity, and separates fill-level toxicity from matched-lot realization episodes.
+
 **`scripts/run_replay.py`**
 Runs a single L2 replay on local recorded data, prints event/execution/P&L/markout summaries, and can write `summary.json`, `fills.csv`, and `markouts.csv` under `results/replay/`.
 
@@ -132,13 +135,24 @@ Runs a focused mini-sweep over half-spread and requote interval. This is deliber
 
 The first naive market-making setup produced misleading profitability because latency could turn intended passive limits into taker fills. The simulator now defaults to post-only behavior, and crossing limits are cancelled rather than filled as takers.
 
-A later audit found a replay correctness issue around naive UTC snapshot timestamps and stale post-snapshot diffs. The depth parser now treats recorder timestamps as UTC and drops stale diffs until the first Binance-valid bridge diff. Pre-fix strategy artifacts should be rerun before drawing research conclusions.
+A later audit found a replay correctness issue around naive UTC snapshot timestamps and stale post-snapshot diffs. The depth parser now treats recorder timestamps as UTC and drops stale diffs until the first Binance-valid bridge diff. The six-window baseline, bootstrap CI, unconditional microprice signal test, and conditional-on-fill microprice toxicity test have all been regenerated after this fix. The negative conclusion survived the replay correction, which is a robustness result rather than a footnote.
 
-The current research task is not to add `InventorySkewMM` or `VolAdaptiveMM`. It is to rerun the passive baseline under corrected replay, test microprice conditional on maker fills, and characterize the windows where passive MM fails.
+The corrected passive microprice baseline (`half_spread=2.00`, `requote_interval_ms=5000`, `maker_bps=2`) does not show a stable positive edge across six 5-hour anchor windows. Unconditional microprice drift is weak and regime-dependent, and conditional-on-fill microprice skew does not rescue the strategy.
+
+Tail Diagnostics V1 adds the sharper distributional picture:
+
+- Fill-level 30s toxicity is broad and somewhat tail-heavy: worst 5% of fills explain about 39.6% of total adverse 30s movement, and worst 10% explain about 66.8%.
+- Matched-lot losses are much more tail-dominated: worst 5% explain about 111.5% of total matched-lot loss, because the rest of the distribution offsets part of the damage.
+- The matched-lot body is heterogeneous across windows. Apr 13 and Apr 14 lose even after removing their worst 5%; the other four windows have positive body economics.
+- The largest matched-lot 300s cluster is an Apr 14 realization episode from 13:55:18 to 13:58:19 UTC: 8 matched lots from 4 unique closing fills and 5 unique opening fills, within 30 minutes after US cash open. This is descriptive only, not proof of a session-boundary effect.
+
+The current research task is not to add `InventorySkewMM`, `VolAdaptiveMM`, or OFI yet. The next step is per-window and pooled maker-fee break-even analysis: full strategy, full matched lots, tail-excluded matched lots, and body-only matched lots. Quantity-weighted net per BTC is the load-bearing economic measure; unweighted per-lot metrics are distribution diagnostics.
 
 ### What's left to build
 
 **`scripts/`**:
+- `analyze_fee_break_even.py` — per-window/pool maker-fee break-even for full strategy, full matched lots, tail-excluded matched lots, and body-only matched lots
+- `analyze_queue_sensitivity.py` — rerun the anchor windows under conservative queue-credit assumptions
 - `sweep_mm_params.py` — broader parameter sweep after quote mechanics are stable
 - `walk_forward_mm.py` — same anchored-window framework as Phase 1, adapted for L2 time periods
 - `benchmark.py` — throughput, latency, and memory benchmarks (events/sec, ms/fill)
@@ -171,7 +185,8 @@ src/analysis/
 ├── hold_time.py      # FIFO matched-lot / hold-time reconciliation                 ✓
 ├── bootstrap.py      # confidence intervals over chosen sampling units             ✓
 ├── microprice_signal.py          # unconditional microprice drift tests             ✓
-└── microprice_fill_toxicity.py   # conditional-on-fill microprice toxicity          ✓
+├── microprice_fill_toxicity.py   # conditional-on-fill microprice toxicity          ✓
+└── tail_diagnostics.py           # tail concentration and cluster diagnostics        ✓
 
 scripts/
 ├── run_replay.py                    # single replay session                         ✓
@@ -179,6 +194,7 @@ scripts/
 ├── sweep_mm_quote_mechanics.py      # focused spread/requote mini-sweep              ✓
 ├── analyze_microprice_signal.py     # unconditional microprice drift diagnostics      ✓
 ├── analyze_microprice_fill_toxicity.py # conditional-on-fill microprice diagnostics  ✓
+├── analyze_mm_tail_diagnostics.py   # adverse tail and cluster diagnostics           ✓
 ├── sweep_mm_params.py               # broader MM parameter sweep                     [ ]
 ├── walk_forward_mm.py               # L2 walk-forward validation                     [ ]
 └── benchmark.py                     # performance benchmark                          [ ]

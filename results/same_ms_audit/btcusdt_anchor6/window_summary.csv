@@ -1,0 +1,7 @@
+window,hours,run_dir,depth_diff_events,trade_events,same_ms_overlap_timestamps,same_ms_depth_events,same_ms_trade_events,total_fills,same_ms_overlap_fills,same_ms_overlap_fill_share_pct,same_ms_trade_price_touch_fill_candidates,wrong_attribution_cases,wrong_attribution_share_of_overlap_fills_pct,escalates
+2026-04-13 12:00,5,btcusdt_microprice_20260413_12_5h_5sessions_hs2.00_rq5000,179976,339339,1009,1009,2759,156,2,1.282051282051282051282051282,0,0,0,False
+2026-04-14 12:00,5,btcusdt_microprice_20260414_12_5h_5sessions_hs2.00_rq5000,179963,418038,1302,1302,3644,160,1,0.62500,0,0,0,False
+2026-04-15 12:00,5,btcusdt_microprice_20260415_12_5h_5sessions_hs2.00_rq5000,179970,261195,744,744,2203,156,0,0,0,0,0,False
+2026-04-16 12:00,5,btcusdt_microprice_20260416_12_5h_5sessions_hs2.00_rq5000,179964,328224,1082,1082,2253,156,0,0,0,0,0,False
+2026-04-16 17:00,5,btcusdt_microprice_20260416_17_5h_5sessions_hs2.00_rq5000,179994,233955,871,871,2119,149,1,0.6711409395973154362416107383,1,0,0,False
+2026-04-17 12:00,5,btcusdt_microprice_20260417_12_5h_5sessions_hs2.00_rq5000,179973,549385,1754,1754,4478,150,1,0.6666666666666666666666666667,0,0,0,False

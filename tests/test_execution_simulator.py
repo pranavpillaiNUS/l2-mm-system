@@ -21,6 +21,7 @@ def make_sim(
     taker_bps=5,
     seed=42,
     post_only=True,
+    queue_cancellation_mode="proportional",
 ):
     return ExecutionSimulator(SimConfig(
         base_latency_ms=base_latency_ms,
@@ -29,6 +30,7 @@ def make_sim(
         taker_bps=taker_bps,
         seed=seed,
         post_only=post_only,
+        queue_cancellation_mode=queue_cancellation_mode,
     ))
 
 
@@ -421,6 +423,46 @@ def test_cancellation_ignores_traded_volume():
     print(f"PASS: cancellation excludes already-traded volume (queue_ahead={order.queue_ahead})")
 
 
+def test_no_cancellation_credit_mode_preserves_queue_ahead():
+    sim = make_sim(queue_cancellation_mode="none")
+    book = make_book(bids=[("100.00", "10.0")])
+    order = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
+    sim.on_book_update(book, timestamp_ms=1010)
+
+    book.apply_diff(bids=[("100.00", "7.0")], asks=[], last_update_id=1001)
+    sim.on_book_update(book, timestamp_ms=1020)
+
+    assert order.queue_ahead == Decimal("10.0")
+    queue_events = [
+        e for e in sim.events
+        if e.order_id == order.order_id and e.event_type == "queue_drain"
+    ]
+    assert queue_events == []
+    print("PASS: none queue mode grants no cancellation-driven queue credit")
+
+
+def test_no_cancellation_credit_does_not_improve_fills():
+    def run(mode):
+        sim = make_sim(queue_cancellation_mode=mode)
+        book = make_book(bids=[("100.00", "1.0")])
+        order = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
+        sim.on_book_update(book, timestamp_ms=1010)
+        book.apply_diff(bids=[("100.00", "0.0")], asks=[], last_update_id=1001)
+        sim.on_book_update(book, timestamp_ms=1020)
+        sim.on_trade(make_trade("100", "0.5", is_buyer_maker=True, t=1030), book)
+        return order, sim.fills
+
+    proportional_order, proportional_fills = run("proportional")
+    none_order, none_fills = run("none")
+
+    assert proportional_order.status == OrderStatus.FILLED
+    assert len(proportional_fills) == 1
+    assert none_order.status == OrderStatus.ACTIVE
+    assert len(none_fills) == 0
+    assert len(none_fills) <= len(proportional_fills)
+    print("PASS: conservative queue mode does not improve fills")
+
+
 def test_fill_produces_correct_maker_fee():
     sim = make_sim(maker_bps=2, taker_bps=5)
     book = make_book(bids=[("100.00", "0.0")])
@@ -499,6 +541,8 @@ if __name__ == "__main__":
     test_cancel_filled_order_fails()
     test_cancellation_reduces_queue_ahead()
     test_cancellation_ignores_traded_volume()
+    test_no_cancellation_credit_mode_preserves_queue_ahead()
+    test_no_cancellation_credit_does_not_improve_fills()
     test_fill_produces_correct_maker_fee()
     test_fill_produces_correct_taker_fee()
     test_order_event_log()

@@ -47,6 +47,9 @@ class AnalyzedSession:
     final_mid: Decimal | None
     strategy_position: Decimal
     fills: int
+    maker_fills: int
+    taker_fills: int
+    postonly_rejects: int
     orders_submitted: int
     decomp: object
     hold: object
@@ -187,6 +190,7 @@ def _run_replay(args, window: SessionWindow):
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
+            queue_cancellation_mode=args.queue_cancellation_mode,
         ),
         record_book_samples=True,
     )
@@ -234,6 +238,7 @@ def _print_summary(args, window, result, decomp, hold, recon, drift_summary, que
     print(f"  Strategy:    {args.strategy}")
     print(f"  Half spread: {args.half_spread}")
     print(f"  Requote:     {args.requote_interval_ms}ms")
+    print(f"  Queue mode:  {args.queue_cancellation_mode}")
     print(f"  Fills:       {len(result.fills)}")
     print()
 
@@ -365,10 +370,25 @@ def _aggregate_summary(args, sessions: Sequence[AnalyzedSession]) -> dict:
     if horizons:
         best = min(horizons, key=lambda row: abs(row["net_error"]))["horizon"]
 
+    total_fills = sum(session.fills for session in sessions)
+    total_maker_fills = sum(session.maker_fills for session in sessions)
+    total_orders = sum(session.orders_submitted for session in sessions)
+
     return {
         "sessions": len(sessions),
-        "fills": sum(session.fills for session in sessions),
-        "orders_submitted": sum(session.orders_submitted for session in sessions),
+        "fills": total_fills,
+        "maker_fills": total_maker_fills,
+        "taker_fills": sum(session.taker_fills for session in sessions),
+        "maker_pct": (
+            Decimal(total_maker_fills) / Decimal(total_fills) * Decimal("100")
+            if total_fills else Decimal("0")
+        ),
+        "postonly_rejects": sum(session.postonly_rejects for session in sessions),
+        "orders_submitted": total_orders,
+        "orders_per_fill": (
+            Decimal(total_orders) / Decimal(total_fills)
+            if total_fills else None
+        ),
         "spread_capture": sum(
             (session.decomp.spread_capture for session in sessions), Decimal("0")
         ),
@@ -419,7 +439,11 @@ def _print_aggregate_summary(args, sessions: Sequence[AnalyzedSession], aggregat
     print(f"  Strategy:    {args.strategy}")
     print(f"  Half spread: {args.half_spread}")
     print(f"  Requote:     {args.requote_interval_ms}ms")
+    print(f"  Queue mode:  {args.queue_cancellation_mode}")
     print(f"  Fills:       {aggregate['fills']}")
+    print(f"  Maker %:     {_pct(aggregate['maker_pct'])}%")
+    print(f"  Orders/fill: {_pct(aggregate['orders_per_fill'])}")
+    print(f"  Post-only rejects: {aggregate['postonly_rejects']}")
     print()
 
     print("Inventory hold time")
@@ -495,6 +519,9 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--vol-window-ms", type=int, default=60_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
@@ -532,6 +559,9 @@ def main():
             final_mid=final_mid,
             strategy_position=strategy.position,
             fills=len(result.fills),
+            maker_fills=sum(1 for fill in result.fills if fill.is_maker),
+            taker_fills=sum(1 for fill in result.fills if not fill.is_maker),
+            postonly_rejects=engine.sim.postonly_rejects,
             orders_submitted=result.stats.orders_submitted,
             decomp=decomp,
             hold=hold,
@@ -550,6 +580,8 @@ def main():
         f"{first_window.start.strftime('%Y%m%d_%H')}_{total_hours}h_"
         f"{len(windows)}sessions_hs{args.half_spread}_rq{args.requote_interval_ms}"
     )
+    if args.queue_cancellation_mode != "proportional":
+        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
     run_dir = args.output_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -579,7 +611,18 @@ def main():
             "window": session.window.label,
             "hours": session.window.hours,
             "fills": session.fills,
+            "maker_fills": session.maker_fills,
+            "taker_fills": session.taker_fills,
+            "maker_pct": (
+                Decimal(session.maker_fills) / Decimal(session.fills) * Decimal("100")
+                if session.fills else Decimal("0")
+            ),
+            "postonly_rejects": session.postonly_rejects,
             "orders_submitted": session.orders_submitted,
+            "orders_per_fill": (
+                Decimal(session.orders_submitted) / Decimal(session.fills)
+                if session.fills else None
+            ),
             "final_mid": session.final_mid,
             "strategy_position": session.strategy_position,
             "pnl": {
@@ -622,6 +665,9 @@ def main():
             "requote_interval_ms": args.requote_interval_ms,
             "latency_ms": args.latency_ms,
             "jitter_ms": args.jitter_ms,
+            "maker_bps": args.maker_bps,
+            "taker_bps": args.taker_bps,
+            "queue_cancellation_mode": args.queue_cancellation_mode,
         },
         "aggregate": aggregate,
         "sessions": session_summaries,

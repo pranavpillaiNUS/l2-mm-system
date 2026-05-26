@@ -37,21 +37,22 @@ class SweepCombo:
         return f"half_spread={self.half_spread}, requote={self.requote_interval_ms}ms"
 
 
-def _combo_key(row: dict) -> Tuple[str, str, int]:
+def _combo_key(row: dict) -> Tuple[str, str, int, str]:
     return (
         row["strategy"],
         row["half_spread"],
         int(row["requote_interval_ms"]),
+        row.get("queue_cancellation_mode", "proportional"),
     )
 
 
 def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
-    grouped: dict[Tuple[str, str, int], List[dict]] = {}
+    grouped: dict[Tuple[str, str, int, str], List[dict]] = {}
     for row in rows:
         grouped.setdefault(_combo_key(row), []).append(row)
 
     aggregates: List[dict] = []
-    for (strategy, half_spread, requote_interval_ms), group_rows in grouped.items():
+    for (strategy, half_spread, requote_interval_ms, queue_mode), group_rows in grouped.items():
         total_fills = sum(row["fills"] for row in group_rows)
         maker_fills = sum(row["maker_fills"] for row in group_rows)
         total_notional = sum(
@@ -84,6 +85,7 @@ def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
             "strategy": strategy,
             "half_spread": half_spread,
             "requote_interval_ms": requote_interval_ms,
+            "queue_cancellation_mode": queue_mode,
             "sessions": len(group_rows),
             "fills": total_fills,
             "maker_fills": maker_fills,
@@ -152,13 +154,13 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
     compute fill-rate breakdowns (overall + by distance/age/volatility).
     Returns one flat row per (combo, axis, bin_label).
     """
-    grouped: dict[Tuple[str, str, int], list] = {}
+    grouped: dict[Tuple[str, str, int, str], list] = {}
     for row in detail_rows:
         key = _combo_key(row)
         grouped.setdefault(key, []).extend(row.get("_contexts", []))
 
     out: List[dict] = []
-    for (strategy, half_spread, requote_interval_ms), contexts in grouped.items():
+    for (strategy, half_spread, requote_interval_ms, queue_mode), contexts in grouped.items():
         summary = summarize_pooled_contexts(contexts)
 
         def _emit(axis: str, bin_obj: FillRateBin):
@@ -166,6 +168,7 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
                 "strategy": strategy,
                 "half_spread": half_spread,
                 "requote_interval_ms": requote_interval_ms,
+                "queue_cancellation_mode": queue_mode,
                 "axis": axis,
                 "bin": bin_obj.label,
                 "n_orders": bin_obj.n_orders,
@@ -272,6 +275,9 @@ def _parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,

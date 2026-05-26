@@ -118,6 +118,7 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print(f"Max position:     {args.max_position}")
     print(f"Requote interval: {args.requote_interval_ms}ms")
     print(f"Latency:          {args.latency_ms}ms +/- {args.jitter_ms}ms")
+    print(f"Queue mode:       {args.queue_cancellation_mode}")
     print()
 
     stats = result.stats
@@ -193,6 +194,9 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "requote_interval_ms": args.requote_interval_ms,
         "latency_ms": args.latency_ms,
         "jitter_ms": args.jitter_ms,
+        "maker_bps": args.maker_bps,
+        "taker_bps": args.taker_bps,
+        "queue_cancellation_mode": args.queue_cancellation_mode,
         "events": result.stats.__dict__,
         "fills": len(result.fills),
         "maker_fills": sum(1 for fill in result.fills if fill.is_maker),
@@ -282,6 +286,9 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--write-results", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=Path("results/replay"))
@@ -303,6 +310,7 @@ def main():
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
+            queue_cancellation_mode=args.queue_cancellation_mode,
         ),
         record_book_samples=True,
     )

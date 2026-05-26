@@ -92,6 +92,7 @@ def _run_window(args, start: datetime) -> dict:
             jitter_ms=0,
             maker_bps=0,
             taker_bps=0,
+            queue_cancellation_mode=args.queue_cancellation_mode,
         ),
         record_book_samples=True,
     )
@@ -201,6 +202,9 @@ def parse_args():
     parser.add_argument("--sample-interval-ms", type=int, default=1_000)
     parser.add_argument("--max-staleness-ms", type=int, default=1_000)
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("results/microprice_signal"))
@@ -248,6 +252,7 @@ def main():
             "sample_interval_ms": args.sample_interval_ms,
             "max_staleness_ms": args.max_staleness_ms,
             "max_future_lag_ms": args.max_future_lag_ms,
+            "queue_cancellation_mode": args.queue_cancellation_mode,
             "horizons_ms": DEFAULT_HORIZONS_MS,
         },
         "windows": [

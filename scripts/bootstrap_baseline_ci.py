@@ -49,6 +49,9 @@ def _matches_params(summary: dict, args) -> bool:
         and int(params["latency_ms"]) == args.latency_ms
         and int(params["jitter_ms"]) == args.jitter_ms
         and int(params["session_hours"]) == args.session_hours
+        and int(params.get("maker_bps", 2)) == args.maker_bps
+        and int(params.get("taker_bps", 5)) == args.taker_bps
+        and params.get("queue_cancellation_mode", "proportional") == args.queue_cancellation_mode
     )
 
 
@@ -184,6 +187,11 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--maker-bps", type=int, default=2)
+    parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--session-hours", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=7)
@@ -222,6 +230,9 @@ def main():
             "requote_interval_ms": args.requote_interval_ms,
             "latency_ms": args.latency_ms,
             "jitter_ms": args.jitter_ms,
+            "maker_bps": args.maker_bps,
+            "taker_bps": args.taker_bps,
+            "queue_cancellation_mode": args.queue_cancellation_mode,
             "session_hours": args.session_hours,
             "iterations": args.iterations,
             "seed": args.seed,
@@ -244,6 +255,8 @@ def main():
         f"{args.symbol.lower()}_{args.strategy}_hs{args.half_spread}_"
         f"rq{args.requote_interval_ms}_baseline_ci"
     )
+    if args.queue_cancellation_mode != "proportional":
+        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
     output_path = args.output_dir / f"{run_id}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=_jsonable)

@@ -49,6 +49,7 @@ class TailDiagnosticsResult:
     window_summary_rows: list[dict]
     fill_tail_rows: list[dict]
     matched_lot_tail_rows: list[dict]
+    cluster_summary_rows: list[dict]
     cluster_rows: list[dict]
 
 
@@ -493,6 +494,7 @@ def build_tail_diagnostics(
         window_summary_rows=window_summary_rows,
         fill_tail_rows=fill_prepared,
         matched_lot_tail_rows=lot_prepared,
+        cluster_summary_rows=cluster_rollups,
         cluster_rows=cluster_rows,
     )
 

@@ -1,7 +1,10 @@
 """
 Tests for market-making tail diagnostics.
 """
+import csv
 from decimal import Decimal
+from pathlib import Path
+import tempfile
 
 from src.analysis.tail_diagnostics import (
     DEFAULT_CLUSTER_GAPS_MS,
@@ -12,6 +15,7 @@ from src.analysis.tail_diagnostics import (
     tail_count,
     cluster_tail_rows,
 )
+from scripts.analyze_mm_tail_diagnostics import _write_dict_csv
 
 
 def test_tail_count_uses_nearest_integer_with_minimum_one():
@@ -211,7 +215,7 @@ def test_cluster_share_columns_include_negative_and_tail_denominators():
         if row["source"] == "matched_lot" and row["scope"] == "pooled"
     ][0]
     rollup = [
-        row for row in result.summary["cluster_rollups"]
+        row for row in result.cluster_summary_rows
         if row["source"] == "matched_lot" and row["scope"] == "pooled"
     ][0]
 
@@ -222,3 +226,24 @@ def test_cluster_share_columns_include_negative_and_tail_denominators():
     assert rollup["worst_cluster_share_of_negative_metric_sum"] == Decimal("1")
     assert rollup["worst_cluster_share_of_tail_metric_sum"] == Decimal("1")
     print("PASS: cluster shares expose total, negative, and tail denominators")
+
+
+def test_cluster_summary_csv_preserves_negative_share_column():
+    rows = [{
+        "source": "matched_lot",
+        "scope": "pooled",
+        "worst_cluster_id": "cluster-1",
+        "worst_cluster_share_of_total_metric_sum": Decimal("0.25"),
+        "worst_cluster_share_of_negative_metric_sum": Decimal("0.50"),
+        "worst_cluster_share_of_tail_metric_sum": Decimal("0.75"),
+    }]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "cluster_summary.csv"
+        _write_dict_csv(path, rows)
+        with path.open("r", encoding="utf-8", newline="") as f:
+            parsed = list(csv.DictReader(f))
+
+    assert "worst_cluster_share_of_negative_metric_sum" in parsed[0]
+    assert parsed[0]["worst_cluster_share_of_negative_metric_sum"] == "0.50"
+    print("PASS: cluster summary CSV preserves negative-share column")

@@ -1,0 +1,2 @@
+window,session,fill_id,order_id,timestamp_ms,side,price,quantity,same_side_trade_qty_at_price_ms,order_total_cancel_queue_drained,note
+2026-04-16 17:00,2026-04-16 21:00,fill-000015,2026-04-16 21:00:ord-000600,1776374940814,sell,74924.00000000,0.0003822280562624244627539680404,0.00134000,0.0002422280562624244627539680404,candidate only: queue_diagnostics is order-level and does not persist same-ms queue-drain timestamps

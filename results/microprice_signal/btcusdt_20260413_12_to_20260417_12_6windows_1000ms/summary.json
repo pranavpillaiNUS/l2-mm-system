@@ -13,6 +13,7 @@
     "sample_interval_ms": 1000,
     "max_staleness_ms": 1000,
     "max_future_lag_ms": 1000,
+    "queue_cancellation_mode": "proportional",
     "horizons_ms": {
       "1s": 1000,
       "10s": 10000,

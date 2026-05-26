@@ -136,7 +136,8 @@ def main():
     _write_dict_csv(run_dir / "fill_tail_rows.csv", result.fill_tail_rows)
     _write_dict_csv(run_dir / "matched_lot_tail_rows.csv",
                     result.matched_lot_tail_rows)
-    _write_dict_csv(run_dir / "cluster_summary.csv", result.cluster_rows)
+    _write_dict_csv(run_dir / "cluster_summary.csv", result.cluster_summary_rows)
+    _write_dict_csv(run_dir / "cluster_rows.csv", result.cluster_rows)
 
     print("Tail diagnostics V1")
     print(f"  Windows:       {len(window_rows)}")

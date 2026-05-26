@@ -26,7 +26,9 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2
 PyYAML==6.0.3
+requests==2.32.5
 six==1.17.0
+sortedcontainers==2.4.0
 structlog==25.5.0
 typing_extensions==4.15.0
 tzdata==2025.3

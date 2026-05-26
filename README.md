@@ -93,9 +93,9 @@ Data types for the execution layer: `OrderRequest` (strategy intent — side, ty
 **`src/execution/simulator.py`**
 The execution simulator. Takes `OrderRequest` objects from strategies, applies latency (`base + uniform(±jitter)` with seeded PRNG for determinism), and tracks each order through its full lifecycle.
 
-FIFO queue model: when a limit order arrives, `queue_ahead` is set to the book quantity at that price level. Trade events at the limit price drain `queue_ahead` from the front; once it reaches zero, the order starts filling. When book quantity at an active order's price decreases without a corresponding trade, the decrease is treated as cancellations and `queue_ahead` shrinks proportionally.
+FIFO queue model: when a limit order arrives, `queue_ahead` is set to the book quantity at that price level. Trade events at the limit price drain `queue_ahead` from the front; once it reaches zero, the order starts filling. The baseline uses `queue_cancellation_mode="proportional"`: when book quantity at an active order's price decreases without a corresponding trade, the decrease is treated as cancellations and `queue_ahead` shrinks proportionally. A conservative `queue_cancellation_mode="none"` disables cancellation-driven queue credit and allows only trade-driven queue drain.
 
-Market orders walk available book levels greedily; unfilled remainder is cancelled. Aggressive limit orders (price crosses the spread) execute immediately as takers. Fees are assigned per fill: maker rate for resting limit fills, taker rate for everything else.
+Market orders walk available book levels greedily; unfilled remainder is cancelled. Limit orders default to post-only behavior: if latency leaves a submitted limit crossing the spread at arrival, the simulator cancels it with `post_only_would_cross` rather than filling it as a taker. Fees are assigned per fill: maker rate for resting limit fills, taker rate for market orders and explicitly non-post-only aggressive limits.
 
 **`src/replay/engine.py`** — the main replay loop. Takes a list of depth and trade files, creates the event merger, drives the orderbook forward event by event, calls `simulator.on_book_update` and `simulator.on_trade`, dispatches to the strategy, and handles gap/resync (pauses strategy callbacks when a gap is detected, resumes after the next snapshot). Returns a `ReplayResult` with all fills and events.
 
@@ -135,9 +135,11 @@ Runs a focused mini-sweep over half-spread and requote interval. This is deliber
 
 The first naive market-making setup produced misleading profitability because latency could turn intended passive limits into taker fills. The simulator now defaults to post-only behavior, and crossing limits are cancelled rather than filled as takers.
 
+Current results assume post-only enforcement. Earlier pre-post-only results contained accidental taker fills and are superseded.
+
 A later audit found a replay correctness issue around naive UTC snapshot timestamps and stale post-snapshot diffs. The depth parser now treats recorder timestamps as UTC and drops stale diffs until the first Binance-valid bridge diff. The six-window baseline, bootstrap CI, unconditional microprice signal test, and conditional-on-fill microprice toxicity test have all been regenerated after this fix. The negative conclusion survived the replay correction, which is a robustness result rather than a footnote.
 
-The corrected passive microprice baseline (`half_spread=2.00`, `requote_interval_ms=5000`, `maker_bps=2`) does not show a stable positive edge across six 5-hour anchor windows. Unconditional microprice drift is weak and regime-dependent, and conditional-on-fill microprice skew does not rescue the strategy.
+The corrected passive microprice baseline (`half_spread=2.00`, `requote_interval_ms=5000`, `maker_bps=2`, `queue_cancellation_mode=proportional`) does not show a stable positive edge across six 5-hour anchor windows. Unconditional microprice drift is weak and regime-dependent, and conditional-on-fill microprice skew does not rescue the strategy.
 
 Tail Diagnostics V1 adds the sharper distributional picture:
 
@@ -146,13 +148,15 @@ Tail Diagnostics V1 adds the sharper distributional picture:
 - The matched-lot body is heterogeneous across windows. Apr 13 and Apr 14 lose even after removing their worst 5%; the other four windows have positive body economics.
 - The largest matched-lot 300s cluster is an Apr 14 realization episode from 13:55:18 to 13:58:19 UTC: 8 matched lots from 4 unique closing fills and 5 unique opening fills, within 30 minutes after US cash open. This is descriptive only, not proof of a session-boundary effect.
 
-The current research task is not to add `InventorySkewMM`, `VolAdaptiveMM`, or OFI yet. The next step is per-window and pooled maker-fee break-even analysis: full strategy, full matched lots, tail-excluded matched lots, and body-only matched lots. Quantity-weighted net per BTC is the load-bearing economic measure; unweighted per-lot metrics are distribution diagnostics.
+Fee break-even and queue-sensitivity diagnostics are now generated. The full-strategy result is negative under both queue modes and would require a rebate in pooled results, but matched-lot PnL is queue-mode conditional: negative under proportional cancellation credit and positive under `none`. Queue sensitivity therefore belongs in the headline interpretation, not a footnote.
+
+The same-millisecond depth/trade attribution audit is bounded and quantified. Across the six anchor windows, only 5 of 927 fills occurred at same-ms depth/trade overlaps (0.54%), with zero artifact-evidenced wrong-attribution cases. That is below the predefined escalation thresholds, so the depth-before-trade rule remains a documented design assumption.
+
+The current research task is not to add `InventorySkewMM`, `VolAdaptiveMM`, or OFI yet. The portfolio-facing writeup is `notebooks/research_writeup.md`; the current source-of-truth project brief is `notebooks/current_stage_brief.md`. Next research steps are more windows, queue-model validation, and OFI diagnostics before inventory/risk-control variants.
 
 ### What's left to build
 
 **`scripts/`**:
-- `analyze_fee_break_even.py` — per-window/pool maker-fee break-even for full strategy, full matched lots, tail-excluded matched lots, and body-only matched lots
-- `analyze_queue_sensitivity.py` — rerun the anchor windows under conservative queue-credit assumptions
 - `sweep_mm_params.py` — broader parameter sweep after quote mechanics are stable
 - `walk_forward_mm.py` — same anchored-window framework as Phase 1, adapted for L2 time periods
 - `benchmark.py` — throughput, latency, and memory benchmarks (events/sec, ms/fill)
@@ -195,6 +199,9 @@ scripts/
 ├── analyze_microprice_signal.py     # unconditional microprice drift diagnostics      ✓
 ├── analyze_microprice_fill_toxicity.py # conditional-on-fill microprice diagnostics  ✓
 ├── analyze_mm_tail_diagnostics.py   # adverse tail and cluster diagnostics           ✓
+├── analyze_fee_break_even.py        # maker-fee break-even by queue mode             ✓
+├── analyze_queue_sensitivity.py     # proportional vs no cancellation queue credit   ✓
+├── audit_same_ms_attribution.py     # bounded same-ms depth/trade tie diagnostic     ✓
 ├── sweep_mm_params.py               # broader MM parameter sweep                     [ ]
 ├── walk_forward_mm.py               # L2 walk-forward validation                     [ ]
 └── benchmark.py                     # performance benchmark                          [ ]

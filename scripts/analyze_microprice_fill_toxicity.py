@@ -67,6 +67,7 @@ def _run_session(args, block_label: str, window: SessionWindow) -> list[dict]:
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
+            queue_cancellation_mode=args.queue_cancellation_mode,
         ),
         record_book_samples=True,
     )
@@ -173,6 +174,9 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--max-staleness-ms", type=int, default=1_000)
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
@@ -206,6 +210,8 @@ def main():
         f"rq{args.requote_interval_ms}_{first}_to_{last}_"
         f"{len(args.starts)}blocks"
     )
+    if args.queue_cancellation_mode != "proportional":
+        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
     run_dir = args.output_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -227,6 +233,7 @@ def main():
             "jitter_ms": args.jitter_ms,
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
+            "queue_cancellation_mode": args.queue_cancellation_mode,
             "max_staleness_ms": args.max_staleness_ms,
             "max_future_lag_ms": args.max_future_lag_ms,
         },

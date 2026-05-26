@@ -35,6 +35,15 @@ class SimConfig:
     taker_bps: int         # fee rate for market orders and aggressive limits
     seed: int = 42
     post_only: bool = True  # cancel limit orders that would cross the spread
+    queue_cancellation_mode: str = "proportional"
+
+    def __post_init__(self) -> None:
+        valid_modes = {"proportional", "none"}
+        if self.queue_cancellation_mode not in valid_modes:
+            raise ValueError(
+                "queue_cancellation_mode must be one of "
+                f"{sorted(valid_modes)}"
+            )
 
     @property
     def maker_rate(self) -> Decimal:
@@ -427,6 +436,8 @@ class ExecutionSimulator:
         self, price: Decimal, prev_qty: Decimal, new_qty: Decimal
     ) -> Decimal:
         """Fraction of prev_qty that was cancelled (not traded)."""
+        if self.config.queue_cancellation_mode == "none":
+            return Decimal("0")
         if new_qty >= prev_qty or prev_qty <= Decimal("0"):
             return Decimal("0")
         decrease = prev_qty - new_qty

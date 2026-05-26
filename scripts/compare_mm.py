@@ -146,6 +146,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
+            queue_cancellation_mode=args.queue_cancellation_mode,
         ),
         record_book_samples=True,
     )
@@ -190,6 +191,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         "requote_interval_ms": args.requote_interval_ms,
         "maker_bps": args.maker_bps,
         "taker_bps": args.taker_bps,
+        "queue_cancellation_mode": args.queue_cancellation_mode,
         "total_events": result.stats.total_events,
         "depth_diffs": result.stats.depth_diffs,
         "snapshots": result.stats.snapshots,
@@ -324,6 +326,7 @@ def _aggregate_rows(rows: Iterable[dict]) -> List[dict]:
             "adverse_selection_bps": adverse_selection_bps,
             "avg_markout_bps": avg_markout_bps,
             "gaps_detected": sum(row["gaps_detected"] for row in strategy_rows),
+            "queue_cancellation_mode": strategy_rows[0]["queue_cancellation_mode"],
         })
 
     return sorted(aggregates, key=lambda row: row["strategy"])
@@ -408,6 +411,9 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-mode",
+                        choices=["proportional", "none"],
+                        default="proportional")
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/compare"))

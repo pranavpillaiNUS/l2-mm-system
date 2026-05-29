@@ -96,7 +96,7 @@ def make_result(fills, events, samples):
 
 
 def test_filled_order_has_correct_context():
-    # Bid placed at 99.95 when mid is 100.00 → 5 bps below mid
+    # Bid placed at 99.95 when mid is 100.00 -> 5 bps below mid
     samples = [make_sample(t, "100.00") for t in range(0, 60_000, 1000)]
     events = [
         make_placed("o1", 30_000, "buy", "99.95"),
@@ -239,7 +239,7 @@ def test_quote_age_binning():
 
 
 def test_volatility_computed_when_window_has_samples():
-    # Mids vary 99.5–100.5 in the last 60s before placement.
+    # Mids vary 99.5-100.5 in the last 60s before placement.
     samples = (
         [make_sample(t, "99.50") for t in range(0, 30_000, 1000)] +
         [make_sample(t, "100.50") for t in range(30_000, 60_000, 1000)]

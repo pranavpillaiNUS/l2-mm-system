@@ -40,7 +40,7 @@ def make_trade(exchange_time_ms: int, agg_trade_id: int = 1) -> TradeEvent:
 # --- tests ---
 
 def test_disjoint_streams_sorted_by_timestamp():
-    # depth at 100, 300; trades at 200, 400 — interleaved by time
+    # depth at 100, 300; trades at 200, 400 - interleaved by time
     depth = [make_depth(100), make_depth(300)]
     trades = [make_trade(200), make_trade(400)]
 
@@ -54,7 +54,7 @@ def test_disjoint_streams_sorted_by_timestamp():
 
 
 def test_depth_before_trade_on_equal_timestamp():
-    # both at t=500 — depth must come first
+    # both at t=500 - depth must come first
     depth = [make_depth(500)]
     trades = [make_trade(500)]
 
@@ -86,7 +86,7 @@ def test_empty_trade_stream():
 
     assert len(events) == 2
     assert all(isinstance(e, DepthEvent) for e in events)
-    print("PASS: empty trade stream — only depth events emitted")
+    print("PASS: empty trade stream - only depth events emitted")
 
 
 def test_empty_depth_stream():
@@ -95,13 +95,13 @@ def test_empty_depth_stream():
 
     assert len(events) == 2
     assert all(isinstance(e, TradeEvent) for e in events)
-    print("PASS: empty depth stream — only trade events emitted")
+    print("PASS: empty depth stream - only trade events emitted")
 
 
 def test_both_streams_empty():
     events = list(EventMerger(iter([]), iter([])).events())
     assert events == []
-    print("PASS: both streams empty — no events emitted")
+    print("PASS: both streams empty - no events emitted")
 
 
 def test_output_is_globally_sorted():
@@ -113,7 +113,7 @@ def test_output_is_globally_sorted():
 
     timestamps = [e.exchange_time_ms for e in events]
     assert timestamps == sorted(timestamps)
-    print(f"PASS: output is globally sorted — {timestamps}")
+    print(f"PASS: output is globally sorted - {timestamps}")
 
 
 def test_event_types_preserved():
@@ -159,7 +159,7 @@ def test_smoke_on_real_files():
             violations += 1
 
     assert violations == 0, f"{violations} tiebreaker violation(s) found"
-    print(f"PASS: real files — {len(events)} events ({n_depth} depth, {n_trade} trade), "
+    print(f"PASS: real files - {len(events)} events ({n_depth} depth, {n_trade} trade), "
           f"sorted, 0 tiebreaker violations")
 
 

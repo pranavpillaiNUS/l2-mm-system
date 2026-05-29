@@ -38,7 +38,7 @@ def test_apply_snapshot_basic():
 
 
 def test_apply_snapshot_drops_zero_qty():
-    # qty "0" in a snapshot means that level doesn't exist — skip it
+    # qty "0" in a snapshot means that level doesn't exist - skip it
     book = Orderbook()
     book.apply_snapshot(
         bids=[("83500.00", "1.0"), ("83499.00", "0.0")],
@@ -132,9 +132,9 @@ def test_bid_ask_level_ordering():
 
 def test_microprice_skews_toward_thin_side():
     # bid: 1 BTC @ 100, ask: 3 BTC @ 101
-    # More supply on ask → price more likely to move DOWN → microprice < mid
+    # More supply on ask -> price more likely to move DOWN -> microprice < mid
     # mid = 100.5
-    # microprice = (1 * 101 + 3 * 100) / (1 + 3) = 401 / 4 = 100.25 < 100.5 ✓
+    # microprice = (1 * 101 + 3 * 100) / (1 + 3) = 401 / 4 = 100.25 < 100.5
     book = Orderbook()
     book.apply_snapshot(
         bids=[("100.00", "1.0")],
@@ -143,12 +143,12 @@ def test_microprice_skews_toward_thin_side():
     )
     expected = (Decimal("1.0") * Decimal("101.00") + Decimal("3.0") * Decimal("100.00")) / Decimal("4.0")
     assert book.microprice == expected
-    assert book.microprice < book.mid  # more ask size → microprice below mid
-    print(f"PASS: microprice = {book.microprice} (mid = {book.mid}, more ask size → below mid)")
+    assert book.microprice < book.mid  # more ask size -> microprice below mid
+    print(f"PASS: microprice = {book.microprice} (mid = {book.mid}, more ask size -> below mid)")
 
 
 def test_microprice_equal_sizes_equals_mid():
-    # equal sizes on both sides → microprice == mid
+    # equal sizes on both sides -> microprice == mid
     book = Orderbook()
     book.apply_snapshot(
         bids=[("100.00", "2.0")],

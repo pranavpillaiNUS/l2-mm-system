@@ -4,11 +4,11 @@ time-sorted sequence.
 
 Both streams must already be sorted by exchange timestamp (which they are,
 since parsers yield in file order). This is a standard 2-way sorted merge
-using heapq.merge — O(log 2) = O(1) per event.
+using heapq.merge - O(log 2) = O(1) per event.
 
 Tiebreaker: when a depth event and a trade event share the same millisecond
 timestamp, depth comes first. The book update reflects the state after the
-matching engine processed that order — if you process the trade first, your
+matching engine processed that order - if you process the trade first, your
 execution simulator sees stale liquidity.
 """
 import heapq

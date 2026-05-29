@@ -5,10 +5,10 @@ Takes OrderRequests from strategies, applies latency, models FIFO queue
 position, and produces Fills as trades happen in the replayed data.
 
 Key design decisions (all in design notes):
-  - Latency uses seeded PRNG — determinism over realism
+  - Latency uses seeded PRNG - determinism over realism
   - queue_ahead set at order arrival = book qty at that price level
   - Trades drain queue_ahead from the front
-  - Book qty decreases without a trade → proportional queue improvement
+  - Book qty decreases without a trade -> proportional queue improvement
   - Market orders walk levels greedily; unfilled remainder is cancelled
   - Aggressive limit orders: post_only=True cancels them (default),
     post_only=False executes them as takers
@@ -31,7 +31,7 @@ from src.replay.trade_parser import TradeEvent
 @dataclass
 class SimConfig:
     base_latency_ms: int   # baseline one-way latency
-    jitter_ms: int         # arrival = base_latency ± uniform(jitter_ms)
+    jitter_ms: int         # arrival = base_latency +/- uniform(jitter_ms)
     maker_bps: int         # fee rate for resting limit fills
     taker_bps: int         # fee rate for market orders and aggressive limits
     seed: int = 42
@@ -180,8 +180,8 @@ class ExecutionSimulator:
         Accumulates the trade qty for cancellation detection, then drains
         the queue and fills any limit orders at the traded price.
 
-          is_buyer_maker=True  → market sell → bids hit → our BUY limits fill
-          is_buyer_maker=False → market buy  → asks hit → our SELL limits fill
+          is_buyer_maker=True  -> market sell -> bids hit -> our BUY limits fill
+          is_buyer_maker=False -> market buy  -> asks hit -> our SELL limits fill
         """
         fills = []
         self._traded_since_depth[trade.price] += trade.quantity
@@ -278,7 +278,7 @@ class ExecutionSimulator:
             order.status = OrderStatus.FILLED
             self._log("filled", order.order_id, timestamp_ms, {"fills": len(fills)})
         else:
-            # Book ran out of liquidity — cancel the unfilled remainder
+            # Book ran out of liquidity - cancel the unfilled remainder
             order.status = OrderStatus.CANCELLED
             self._log("cancelled", order.order_id, timestamp_ms, {
                 "reason": "insufficient_liquidity",
@@ -369,7 +369,7 @@ class ExecutionSimulator:
         Known approximation: at same-millisecond depth+trade ties, the depth
         event is processed first, so _traded_since_depth may not yet include
         the same-ms trade. This slightly overestimates cancellations at those
-        ties — a conservative bias (we think we move up the queue a bit faster
+        ties - a conservative bias (we think we move up the queue a bit faster
         than we actually do).
         """
         # Collect unique (side, price) pairs from active limit orders

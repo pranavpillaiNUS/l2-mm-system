@@ -2,13 +2,13 @@
 PnL decomposition for market-making replay sessions.
 
 Reports accounting PnL plus adverse-selection diagnostics:
-  spread_capture    — gross edge captured relative to mid at fill time
-  total_fees        — all maker/taker fees paid
-  inventory_pnl     — residual mid-price movement on open/offset inventory
-  adverse_selection — markout-based toxicity proxy (positive cost = adverse)
+  spread_capture    - gross edge captured relative to mid at fill time
+  total_fees        - all maker/taker fees paid
+  inventory_pnl     - residual mid-price movement on open/offset inventory
+  adverse_selection - markout-based toxicity proxy (positive cost = adverse)
 
 Identity (approximate):
-  net_pnl ≈ spread_capture - total_fees + inventory_pnl
+  net_pnl approx spread_capture - total_fees + inventory_pnl
   adverse_selection is a separate diagnostic, not a component of net_pnl
 """
 from bisect import bisect_right
@@ -34,7 +34,7 @@ class PnLDecomposition:
 
     total_fees: Decimal
 
-    # Adverse selection proxy: -sum(markout × qty) at the chosen horizon.
+    # Adverse selection proxy: -sum(markout x qty) at the chosen horizon.
     # Positive value = fills that moved against us afterward (a cost).
     adverse_selection_horizon: str
     adverse_selection_cost: Decimal
@@ -190,7 +190,7 @@ def format_pnl_summary(decomp: PnLDecomposition) -> str:
         f"  Adverse sel ({decomp.adverse_selection_horizon}):  "
         f"{_f(-decomp.adverse_selection_cost):>16}  ({_bps(-decomp.adverse_selection_bps)})",
         f"  Inventory PnL:      {_f(decomp.inventory_pnl):>16}",
-        f"  {'─' * 36}",
+        f"  {'-' * 36}",
         f"  Net PnL:            {_f(decomp.net_pnl):>16}",
     ]
     if decomp.final_position != Decimal("0"):

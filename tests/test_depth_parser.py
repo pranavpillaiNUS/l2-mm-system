@@ -107,7 +107,7 @@ def test_snapshot_naive_recv_time_is_treated_as_utc():
 
 
 def test_no_gap_in_continuous_sequence():
-    # u=105, then next U=106 — continuous, no gap
+    # u=105, then next U=106 - continuous, no gap
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([
@@ -122,7 +122,7 @@ def test_no_gap_in_continuous_sequence():
 
 
 def test_gap_detected_between_diffs():
-    # u=105, then next U=108 — gap (106 and 107 are missing)
+    # u=105, then next U=108 - gap (106 and 107 are missing)
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([
@@ -137,7 +137,7 @@ def test_gap_detected_between_diffs():
 
 
 def test_first_diff_never_flagged_as_gap():
-    # first diff in a file has no predecessor — can't be a gap
+    # first diff in a file has no predecessor - can't be a gap
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([make_diff(U=500, u=510)], p)
@@ -148,20 +148,20 @@ def test_first_diff_never_flagged_as_gap():
 
 
 def test_snapshot_resets_gap_tracking():
-    # diff → gap → snapshot → diff: the diff after the snapshot should NOT be flagged
+    # diff -> gap -> snapshot -> diff: the diff after the snapshot should NOT be flagged
     # even though its U doesn't follow from the pre-snapshot diff
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([
             make_diff(U=100, u=105),
             make_snapshot(last_update_id=200),   # reconnect, resync
-            make_diff(U=201, u=210),              # continues from snapshot — not a gap
+            make_diff(U=201, u=210),              # continues from snapshot - not a gap
         ], p)
 
         events = list(DepthParser([p]).events())
         assert events[0].has_gap is False   # first diff
         assert events[1].has_gap is False   # snapshot
-        assert events[2].has_gap is False   # diff after snapshot — reset, not flagged
+        assert events[2].has_gap is False   # diff after snapshot - reset, not flagged
     print("PASS: snapshot resets gap tracker, first diff after snapshot not flagged")
 
 
@@ -204,7 +204,7 @@ def test_first_non_stale_diff_after_snapshot_must_bridge():
 
 
 def test_gap_after_snapshot_detected():
-    # snapshot → diff → gap → diff: gap between diffs is still detected
+    # snapshot -> diff -> gap -> diff: gap between diffs is still detected
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([
@@ -220,7 +220,7 @@ def test_gap_after_snapshot_detected():
 
 
 def test_multiple_files_gap_tracked_across():
-    # gap across the file boundary (last diff in file1 → first diff in file2)
+    # gap across the file boundary (last diff in file1 -> first diff in file2)
     with tempfile.TemporaryDirectory() as tmpdir:
         p1 = Path(tmpdir) / "depth_0100.jsonl.gz"
         p2 = Path(tmpdir) / "depth_0200.jsonl.gz"
@@ -265,7 +265,7 @@ def test_snapshot_at_file_start_then_diffs():
 
 
 def test_events_on_real_file():
-    # smoke test against an actual recorded file — just check it doesn't crash
+    # smoke test against an actual recorded file - just check it doesn't crash
     # and yields reasonable-looking events
     real_file = Path("data/raw/btcusdt/btcusdt_depth_20260421_1900.jsonl.gz")
     if not real_file.exists():
@@ -284,7 +284,7 @@ def test_events_on_real_file():
     assert all(e.event_type in ("snapshot", "diff") for e in events)
     # count gaps
     gaps = sum(1 for e in events if e.has_gap)
-    print(f"PASS: real file — {len(events)} events, {gaps} gap(s)")
+    print(f"PASS: real file - {len(events)} events, {gaps} gap(s)")
 
 
 if __name__ == "__main__":

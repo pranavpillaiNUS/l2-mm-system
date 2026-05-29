@@ -80,25 +80,25 @@ def test_price_and_qty_are_decimal():
 
 
 def test_is_buyer_maker_true_means_market_sell():
-    # m=True → buyer was market maker → seller was aggressor → market sell
+    # m=True -> buyer was market maker -> seller was aggressor -> market sell
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "trades.jsonl.gz"
         write_gz([make_trade(agg_id=1, is_buyer_maker=True)], p)
 
         e = list(TradeParser([p]).events())[0]
         assert e.is_buyer_maker is True
-    print("PASS: is_buyer_maker=True preserved (market sell — seller was aggressor)")
+    print("PASS: is_buyer_maker=True preserved (market sell - seller was aggressor)")
 
 
 def test_is_buyer_maker_false_means_market_buy():
-    # m=False → buyer was aggressor → market buy
+    # m=False -> buyer was aggressor -> market buy
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "trades.jsonl.gz"
         write_gz([make_trade(agg_id=1, is_buyer_maker=False)], p)
 
         e = list(TradeParser([p]).events())[0]
         assert e.is_buyer_maker is False
-    print("PASS: is_buyer_maker=False preserved (market buy — buyer was aggressor)")
+    print("PASS: is_buyer_maker=False preserved (market buy - buyer was aggressor)")
 
 
 def test_no_gap_in_continuous_sequence():
@@ -168,7 +168,7 @@ def test_exchange_time_is_T_not_E():
 
         e = list(TradeParser([p]).events())[0]
         assert e.exchange_time_ms == 1776798000040
-        # E is T+5 in our helper — make sure we didn't accidentally use E
+        # E is T+5 in our helper - make sure we didn't accidentally use E
         assert e.exchange_time_ms != 1776798000045
     print("PASS: exchange_time_ms is T (trade timestamp), not E (event timestamp)")
 
@@ -186,7 +186,7 @@ def test_events_on_real_file():
     gaps = sum(1 for e in events if e.has_gap)
     buys = sum(1 for e in events if not e.is_buyer_maker)
     sells = sum(1 for e in events if e.is_buyer_maker)
-    print(f"PASS: real file — {len(events)} trades, {gaps} gap(s), {buys} market buys, {sells} market sells")
+    print(f"PASS: real file - {len(events)} trades, {gaps} gap(s), {buys} market buys, {sells} market sells")
 
 
 if __name__ == "__main__":

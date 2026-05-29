@@ -1,7 +1,7 @@
 """
 L2 orderbook backed by SortedDict.
 
-Stores aggregated volume per price level — not individual orders. That's what
+Stores aggregated volume per price level - not individual orders. That's what
 "L2" means. We see "83500.00: 2.3 BTC on the bid" but not who placed those
 orders or how many separate orders make up that quantity.
 
@@ -68,7 +68,7 @@ class Orderbook:
         Apply a single depth diff update.
 
         qty == "0" means remove that level entirely. Any other qty is a full
-        replacement of whatever was at that price before — Binance has already
+        replacement of whatever was at that price before - Binance has already
         aggregated all individual orders at that level for us.
         """
         for price_str, qty_str in bids:
@@ -137,9 +137,9 @@ class Orderbook:
 
         If 3 BTC is on the bid and only 0.1 BTC on the ask, the ask is much
         more likely to get hit next, so price will probably tick up. Microprice
-        captures this: more bid size → closer to ask price.
+        captures this: more bid size -> closer to ask price.
 
-            microprice = (bid_qty × ask + ask_qty × bid) / (bid_qty + ask_qty)
+            microprice = (bid_qty x ask + ask_qty x bid) / (bid_qty + ask_qty)
 
         This is a better short-term price predictor than arithmetic mid, and
         it's what we'll use as the quoting reference in the MM strategies.
@@ -170,7 +170,7 @@ class Orderbook:
     # --- sanity checks ---
 
     def is_crossed(self) -> bool:
-        """Best bid >= best ask — should never happen in clean data."""
+        """Best bid >= best ask - should never happen in clean data."""
         bid, ask = self.best_bid, self.best_ask
         if bid is None or ask is None:
             return False

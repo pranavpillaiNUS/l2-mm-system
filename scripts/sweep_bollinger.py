@@ -24,12 +24,12 @@ for i, (period, num_std) in enumerate(combos, 1):
     strategy = BollingerBandStrategy(period=period, num_std=num_std)
     result = engine.run(strategy, verbose=False)
     m = result.metrics
-    print(f"[{i}/{len(combos)}] BB({period}, {num_std}σ) sharpe={m.sharpe_ratio:.2f} return={m.total_return_pct:.1f}% trades={m.num_trades}")
+    print(f"[{i}/{len(combos)}] BB({period}, {num_std} std) sharpe={m.sharpe_ratio:.2f} return={m.total_return_pct:.1f}% trades={m.num_trades}")
 
     results.append({
         "period": period,
         "num_std": num_std,
-        "label": f"BB({period}, {num_std}σ)",
+        "label": f"BB({period}, {num_std} std)",
         "return_pct": m.total_return_pct,
         "sharpe": m.sharpe_ratio,
         "sortino": m.sortino_ratio,
@@ -45,16 +45,16 @@ df.to_csv(output_dir / "bollinger_sweep.csv", index=False)
 # print table
 print(f"\n{'Combo':<20} {'Return':>8} {'Sharpe':>8} {'MaxDD':>8} {'Trades':>8} {'WinRate':>8}")
 for _, r in df.iterrows():
-    print(f"BB({int(r['period'])}, {r['num_std']}σ){'':>7} {r['return_pct']:>7.1f}% {r['sharpe']:>8.2f} {r['max_dd']:>7.1f}% {int(r['trades']):>8} {r['win_rate']:>7.1f}%")
+    print(f"BB({int(r['period'])}, {r['num_std']} std){'':>7} {r['return_pct']:>7.1f}% {r['sharpe']:>8.2f} {r['max_dd']:>7.1f}% {int(r['trades']):>8} {r['win_rate']:>7.1f}%")
 
 best = df.loc[df["sharpe"].idxmax()]
-print(f"\nbest: BB({int(best['period'])}, {best['num_std']}σ) — sharpe {best['sharpe']:.2f}, ret {best['return_pct']:.1f}%, maxdd {best['max_dd']:.1f}%")
+print(f"\nbest: BB({int(best['period'])}, {best['num_std']} std) - sharpe {best['sharpe']:.2f}, ret {best['return_pct']:.1f}%, maxdd {best['max_dd']:.1f}%")
 
 # heatmap
 pivot = df.pivot_table(index="period", columns="num_std", values="sharpe")
 fig, ax = plt.subplots(figsize=(8, 4))
 sns.heatmap(pivot, annot=True, fmt=".2f", cmap="RdYlGn", center=0, ax=ax)
-ax.set_title("Bollinger Bands — Sharpe by period/num_std")
+ax.set_title("Bollinger Bands - Sharpe by period/num_std")
 ax.set_xlabel("Num std deviations")
 ax.set_ylabel("Period (hours)")
 plt.tight_layout()

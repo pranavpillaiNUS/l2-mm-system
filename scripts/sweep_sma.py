@@ -59,14 +59,14 @@ def sweep_sma():
         print(f"SMA({int(r['fast'])}/{int(r['slow'])}){'':<5} {r['return_pct']:>9.1f}% {r['sharpe']:>10.2f} {r['max_dd']:>9.1f}% {int(r['trades']):>10} {r['win_rate']:>9.1f}%")
 
     best = df.loc[df["sharpe"].idxmax()]
-    print(f"\nBest: SMA({int(best['fast'])}/{int(best['slow'])}) — Sharpe {best['sharpe']:.2f}, Return {best['return_pct']:.1f}%, MaxDD {best['max_dd']:.1f}%")
+    print(f"\nBest: SMA({int(best['fast'])}/{int(best['slow'])}) - Sharpe {best['sharpe']:.2f}, Return {best['return_pct']:.1f}%, MaxDD {best['max_dd']:.1f}%")
 
     # heatmap - pivot fast vs slow
     import seaborn as sns
     pivot = df.pivot_table(index="fast", columns="slow", values="sharpe")
     fig, ax = plt.subplots(figsize=(8, 4))
     sns.heatmap(pivot, annot=True, fmt=".2f", cmap="RdYlGn", center=0, ax=ax)
-    ax.set_title("SMA Crossover — Sharpe by fast/slow period")
+    ax.set_title("SMA Crossover - Sharpe by fast/slow period")
     ax.set_xlabel("Slow period (hours)")
     ax.set_ylabel("Fast period (hours)")
     plt.tight_layout()

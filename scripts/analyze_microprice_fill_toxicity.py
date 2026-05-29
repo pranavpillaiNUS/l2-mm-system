@@ -25,6 +25,11 @@ from src.analysis.microprice_fill_toxicity import (
     bucket_microprice_fill_toxicity,
     compute_microprice_fill_toxicity,
 )
+from src.execution.queue_credit import (
+    credit_from_legacy_mode,
+    parse_queue_credit,
+    queue_credit_suffix,
+)
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 
@@ -67,7 +72,7 @@ def _run_session(args, block_label: str, window: SessionWindow) -> list[dict]:
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
-            queue_cancellation_mode=args.queue_cancellation_mode,
+            queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
     )
@@ -174,16 +179,27 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--max-staleness-ms", type=int, default=1_000)
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("results/microprice_fill_toxicity"))
     parser.add_argument("--print-horizon", default="30s")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():
@@ -210,8 +226,7 @@ def main():
         f"rq{args.requote_interval_ms}_{first}_to_{last}_"
         f"{len(args.starts)}blocks"
     )
-    if args.queue_cancellation_mode != "proportional":
-        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
+    run_id = f"{run_id}{queue_credit_suffix(args.queue_cancellation_credit)}"
     run_dir = args.output_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -233,7 +248,7 @@ def main():
             "jitter_ms": args.jitter_ms,
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
-            "queue_cancellation_mode": args.queue_cancellation_mode,
+            "queue_cancellation_credit": args.queue_cancellation_credit,
             "max_staleness_ms": args.max_staleness_ms,
             "max_future_lag_ms": args.max_future_lag_ms,
         },

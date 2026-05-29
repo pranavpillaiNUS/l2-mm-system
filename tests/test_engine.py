@@ -525,7 +525,10 @@ def test_book_sampling_records_only_outside_gaps():
         timestamps = [sample.timestamp_ms for sample in result.book_samples]
         assert timestamps == [_BASE_MS, t_diff, _BASE_MS + 4000]
         assert result.book_samples[0].mid == Decimal("100.50")
+        assert result.book_samples[0].best_bid_qty == Decimal("5.0")
+        assert result.book_samples[0].best_ask_qty == Decimal("3.0")
         assert result.book_samples[1].best_bid == Decimal("100.50")
+        assert result.book_samples[1].best_bid_qty == Decimal("2.0")
         assert result.book_samples[2].mid == Decimal("102.50")
         print("PASS: book sampling records only usable book states")
 

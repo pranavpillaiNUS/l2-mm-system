@@ -21,6 +21,7 @@ from src.analysis.microprice_signal import (
     compute_microprice_signal_samples,
     regress_microprice_signal,
 )
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 
@@ -92,7 +93,7 @@ def _run_window(args, start: datetime) -> dict:
             jitter_ms=0,
             maker_bps=0,
             taker_bps=0,
-            queue_cancellation_mode=args.queue_cancellation_mode,
+            queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
     )
@@ -202,13 +203,24 @@ def parse_args():
     parser.add_argument("--sample-interval-ms", type=int, default=1_000)
     parser.add_argument("--max-staleness-ms", type=int, default=1_000)
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("results/microprice_signal"))
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():
@@ -252,7 +264,7 @@ def main():
             "sample_interval_ms": args.sample_interval_ms,
             "max_staleness_ms": args.max_staleness_ms,
             "max_future_lag_ms": args.max_future_lag_ms,
-            "queue_cancellation_mode": args.queue_cancellation_mode,
+            "queue_cancellation_credit": args.queue_cancellation_credit,
             "horizons_ms": DEFAULT_HORIZONS_MS,
         },
         "windows": [

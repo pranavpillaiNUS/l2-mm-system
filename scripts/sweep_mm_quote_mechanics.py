@@ -25,6 +25,7 @@ from scripts.compare_mm import (
     _write_csv,
 )
 from src.analysis.fill_rate import FillRateBin, summarize_pooled_contexts
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,7 @@ def _combo_key(row: dict) -> Tuple[str, str, int, str]:
         row["strategy"],
         row["half_spread"],
         int(row["requote_interval_ms"]),
-        row.get("queue_cancellation_mode", "proportional"),
+        str(row.get("queue_cancellation_credit", "1.0")),
     )
 
 
@@ -52,7 +53,7 @@ def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
         grouped.setdefault(_combo_key(row), []).append(row)
 
     aggregates: List[dict] = []
-    for (strategy, half_spread, requote_interval_ms, queue_mode), group_rows in grouped.items():
+    for (strategy, half_spread, requote_interval_ms, queue_credit), group_rows in grouped.items():
         total_fills = sum(row["fills"] for row in group_rows)
         maker_fills = sum(row["maker_fills"] for row in group_rows)
         total_notional = sum(
@@ -85,7 +86,7 @@ def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
             "strategy": strategy,
             "half_spread": half_spread,
             "requote_interval_ms": requote_interval_ms,
-            "queue_cancellation_mode": queue_mode,
+            "queue_cancellation_credit": queue_credit,
             "sessions": len(group_rows),
             "fills": total_fills,
             "maker_fills": maker_fills,
@@ -160,7 +161,7 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
         grouped.setdefault(key, []).extend(row.get("_contexts", []))
 
     out: List[dict] = []
-    for (strategy, half_spread, requote_interval_ms, queue_mode), contexts in grouped.items():
+    for (strategy, half_spread, requote_interval_ms, queue_credit), contexts in grouped.items():
         summary = summarize_pooled_contexts(contexts)
 
         def _emit(axis: str, bin_obj: FillRateBin):
@@ -168,7 +169,7 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
                 "strategy": strategy,
                 "half_spread": half_spread,
                 "requote_interval_ms": requote_interval_ms,
-                "queue_cancellation_mode": queue_mode,
+                "queue_cancellation_credit": queue_credit,
                 "axis": axis,
                 "bin": bin_obj.label,
                 "n_orders": bin_obj.n_orders,
@@ -275,15 +276,26 @@ def _parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("results/compare/quote_mechanics"))
     parser.add_argument("--skip-missing", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():

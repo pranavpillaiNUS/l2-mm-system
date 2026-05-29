@@ -15,6 +15,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Sequence
 
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.analysis.tail_diagnostics import tail_count
 
 
@@ -29,8 +30,13 @@ class ReconciliationRun:
     open_lots: list[dict]
 
     @property
-    def queue_mode(self) -> str:
-        return self.summary["params"].get("queue_cancellation_mode", "proportional")
+    def queue_credit(self) -> Decimal:
+        params = self.summary["params"]
+        if "queue_cancellation_credit" in params:
+            return parse_queue_credit(params["queue_cancellation_credit"])
+        return credit_from_legacy_mode(
+            params.get("queue_cancellation_mode", "proportional")
+        )
 
     @property
     def window(self) -> str:
@@ -59,9 +65,9 @@ def build_fee_break_even_rows(
         _validate_run(run, expected_maker_bps=expected_maker_bps)
         rows.extend(_rows_for_run(run))
 
-    for queue_mode in sorted({run.queue_mode for run in runs}):
-        queue_runs = [run for run in runs if run.queue_mode == queue_mode]
-        rows.extend(_rows_for_pooled_runs(queue_mode, queue_runs))
+    for queue_credit in sorted({run.queue_credit for run in runs}):
+        queue_runs = [run for run in runs if run.queue_credit == queue_credit]
+        rows.extend(_rows_for_pooled_runs(queue_credit, queue_runs))
 
     return rows
 
@@ -70,11 +76,11 @@ def _rows_for_run(run: ReconciliationRun) -> list[dict]:
     aggregate = run.summary["aggregate"]
     maker_bps = int(run.summary["params"]["maker_bps"])
     window = run.window
-    queue_mode = run.queue_mode
+    queue_credit = run.queue_credit
 
     rows = [
         _build_row(
-            queue_mode=queue_mode,
+            queue_credit=queue_credit,
             window=window,
             run_dir=run.run_dir.name,
             row_type="full_strategy",
@@ -89,7 +95,7 @@ def _rows_for_run(run: ReconciliationRun) -> list[dict]:
     ]
 
     rows.extend(_matched_rows(
-        queue_mode=queue_mode,
+        queue_credit=queue_credit,
         window=window,
         run_dir=run.run_dir.name,
         maker_bps=maker_bps,
@@ -98,13 +104,13 @@ def _rows_for_run(run: ReconciliationRun) -> list[dict]:
     return rows
 
 
-def _rows_for_pooled_runs(queue_mode: str, runs: Sequence[ReconciliationRun]) -> list[dict]:
+def _rows_for_pooled_runs(queue_credit: Decimal, runs: Sequence[ReconciliationRun]) -> list[dict]:
     if not runs:
         return []
 
     maker_bps_values = {int(run.summary["params"]["maker_bps"]) for run in runs}
     if len(maker_bps_values) != 1:
-        raise ValueError(f"Mixed maker_bps for pooled {queue_mode}: {maker_bps_values}")
+        raise ValueError(f"Mixed maker_bps for pooled credit {queue_credit}: {maker_bps_values}")
     maker_bps = maker_bps_values.pop()
 
     net_pnl = sum(
@@ -118,7 +124,7 @@ def _rows_for_pooled_runs(queue_mode: str, runs: Sequence[ReconciliationRun]) ->
 
     rows = [
         _build_row(
-            queue_mode=queue_mode,
+            queue_credit=queue_credit,
             window="pooled",
             run_dir="pooled",
             row_type="full_strategy",
@@ -136,7 +142,7 @@ def _rows_for_pooled_runs(queue_mode: str, runs: Sequence[ReconciliationRun]) ->
         lot for run in runs for lot in run.matched_lots
     ]
     rows.extend(_matched_rows(
-        queue_mode=queue_mode,
+        queue_credit=queue_credit,
         window="pooled",
         run_dir="pooled",
         maker_bps=maker_bps,
@@ -147,7 +153,7 @@ def _rows_for_pooled_runs(queue_mode: str, runs: Sequence[ReconciliationRun]) ->
 
 def _matched_rows(
     *,
-    queue_mode: str,
+    queue_credit: Decimal,
     window: str,
     run_dir: str,
     maker_bps: int,
@@ -172,7 +178,7 @@ def _matched_rows(
 
     return [
         _build_matched_row(
-            queue_mode=queue_mode,
+            queue_credit=queue_credit,
             window=window,
             run_dir=run_dir,
             row_type=row_type,
@@ -185,7 +191,7 @@ def _matched_rows(
 
 def _build_matched_row(
     *,
-    queue_mode: str,
+    queue_credit: Decimal,
     window: str,
     run_dir: str,
     row_type: str,
@@ -200,7 +206,7 @@ def _build_matched_row(
     current_fees = sum((_d(row["total_fees"]) for row in matched_lots), Decimal("0"))
     total_quantity = sum((_d(row["quantity"]) for row in matched_lots), Decimal("0"))
     return _build_row(
-        queue_mode=queue_mode,
+        queue_credit=queue_credit,
         window=window,
         run_dir=run_dir,
         row_type=row_type,
@@ -216,7 +222,7 @@ def _build_matched_row(
 
 def _build_row(
     *,
-    queue_mode: str,
+    queue_credit: Decimal,
     window: str,
     run_dir: str,
     row_type: str,
@@ -238,7 +244,7 @@ def _build_row(
         if break_even is not None else None
     )
     return {
-        "queue_cancellation_mode": queue_mode,
+        "queue_cancellation_credit": queue_credit,
         "window": window,
         "run_dir": run_dir,
         "row_type": row_type,
@@ -277,8 +283,8 @@ def _validate_run(run: ReconciliationRun, *, expected_maker_bps: int) -> None:
         raise ValueError(
             f"{run.run_dir} has maker_bps={maker_bps}; expected {expected_maker_bps}"
         )
-    if "queue_cancellation_mode" not in params:
-        raise ValueError(f"{run.run_dir} is missing queue_cancellation_mode in params")
+    if "queue_cancellation_credit" not in params and "queue_cancellation_mode" not in params:
+        raise ValueError(f"{run.run_dir} is missing queue-cancellation metadata")
 
 
 def _load_csv(path: Path) -> list[dict]:

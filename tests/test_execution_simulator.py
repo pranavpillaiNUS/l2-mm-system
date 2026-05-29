@@ -7,6 +7,10 @@ from decimal import Decimal
 from datetime import datetime
 
 from src.execution.order import OrderRequest, OrderSide, OrderStatus, OrderType
+from src.execution.queue_credit import (
+    credit_from_legacy_mode,
+    legacy_mode_from_credit,
+)
 from src.execution.simulator import ExecutionSimulator, SimConfig
 from src.replay.orderbook import Orderbook
 from src.replay.trade_parser import TradeEvent
@@ -397,8 +401,8 @@ def test_cancellation_reduces_queue_ahead():
     ]
     assert len(queue_events) == 1
     assert queue_events[0].detail["reason"] == "cancellation"
-    assert queue_events[0].detail["drained_qty"] == "3.00"
-    assert queue_events[0].detail["queue_after"] == str(expected)
+    assert Decimal(queue_events[0].detail["drained_qty"]) == Decimal("3.00")
+    assert Decimal(queue_events[0].detail["queue_after"]) == expected
     print(f"PASS: cancellation proportionally reduces queue_ahead ({order.queue_ahead})")
 
 
@@ -461,6 +465,36 @@ def test_no_cancellation_credit_does_not_improve_fills():
     assert len(none_fills) == 0
     assert len(none_fills) <= len(proportional_fills)
     print("PASS: conservative queue mode does not improve fills")
+
+
+def test_partial_queue_cancellation_credit_scales_queue_improvement():
+    sim = ExecutionSimulator(SimConfig(
+        base_latency_ms=10,
+        jitter_ms=0,
+        maker_bps=2,
+        taker_bps=5,
+        queue_cancellation_credit=Decimal("0.5"),
+    ))
+    book = make_book(bids=[("100.00", "10.0")])
+    order = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
+    sim.on_book_update(book, timestamp_ms=1010)
+
+    book.apply_diff(bids=[("100.00", "7.0")], asks=[], last_update_id=1001)
+    sim.on_book_update(book, timestamp_ms=1020)
+
+    # Full proportional credit would reduce queue from 10 to 7. Half credit
+    # applies half the cancellation fraction, so queue becomes 8.5.
+    assert order.queue_ahead == Decimal("8.50")
+    print("PASS: queue_cancellation_credit scales cancellation-driven queue credit")
+
+
+def test_legacy_queue_mode_mapping_is_explicit():
+    assert credit_from_legacy_mode("proportional") == Decimal("1.0")
+    assert credit_from_legacy_mode("none") == Decimal("0.0")
+    assert legacy_mode_from_credit(Decimal("1.0")) == "proportional"
+    assert legacy_mode_from_credit(Decimal("0.0")) == "none"
+    assert legacy_mode_from_credit(Decimal("0.5")) is None
+    print("PASS: legacy queue labels map only to endpoint credits")
 
 
 def test_fill_produces_correct_maker_fee():

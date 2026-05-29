@@ -99,6 +99,8 @@ class BookSample:
     mid: Decimal
     microprice: Optional[Decimal]
     spread: Decimal
+    best_bid_qty: Optional[Decimal] = None
+    best_ask_qty: Optional[Decimal] = None
 
 
 @dataclass
@@ -268,4 +270,6 @@ class ReplayEngine:
             mid=mid,
             microprice=self.book.microprice,
             spread=spread,
+            best_bid_qty=self.book.best_bid_qty,
+            best_ask_qty=self.book.best_ask_qty,
         ))

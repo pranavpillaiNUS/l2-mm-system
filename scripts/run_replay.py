@@ -17,6 +17,7 @@ from src.analysis.fill_rate import format_fill_rate_summary, summarize_fill_rate
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition, format_pnl_summary
 from src.execution.order import Fill
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 from src.strategies.microprice_mm import MicropriceMM
@@ -118,7 +119,7 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print(f"Max position:     {args.max_position}")
     print(f"Requote interval: {args.requote_interval_ms}ms")
     print(f"Latency:          {args.latency_ms}ms +/- {args.jitter_ms}ms")
-    print(f"Queue mode:       {args.queue_cancellation_mode}")
+    print(f"Queue credit:     {args.queue_cancellation_credit}")
     print()
 
     stats = result.stats
@@ -196,7 +197,7 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "jitter_ms": args.jitter_ms,
         "maker_bps": args.maker_bps,
         "taker_bps": args.taker_bps,
-        "queue_cancellation_mode": args.queue_cancellation_mode,
+        "queue_cancellation_credit": args.queue_cancellation_credit,
         "events": result.stats.__dict__,
         "fills": len(result.fills),
         "maker_fills": sum(1 for fill in result.fills if fill.is_maker),
@@ -286,13 +287,24 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--write-results", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=Path("results/replay"))
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():
@@ -310,7 +322,7 @@ def main():
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
-            queue_cancellation_mode=args.queue_cancellation_mode,
+            queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
     )

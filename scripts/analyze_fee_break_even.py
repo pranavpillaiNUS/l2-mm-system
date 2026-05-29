@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Sequence
 
 from scripts.compare_mm import _parse_start
+from src.execution.queue_credit import (
+    credit_from_legacy_mode,
+    legacy_mode_from_credit,
+    parse_queue_credit,
+    queue_credit_suffix,
+)
 from src.analysis.fee_break_even import (
     build_fee_break_even_rows,
     load_reconciliation_run,
@@ -31,7 +37,7 @@ DEFAULT_OUTPUT_ROOT = Path("results/fee_break_even")
 DEFAULT_RUN_ID = "btcusdt_microprice_hs2.00_rq5000_anchor6"
 
 
-def _run_dir_name(args, start_value: str, queue_mode: str) -> str:
+def _run_dir_name(args, start_value: str, queue_credit: Decimal) -> str:
     start = _parse_start(start_value)
     run_id = (
         f"{args.symbol.lower()}_{args.strategy}_"
@@ -39,28 +45,26 @@ def _run_dir_name(args, start_value: str, queue_mode: str) -> str:
         f"{args.hours // args.session_hours}sessions_"
         f"hs{args.half_spread}_rq{args.requote_interval_ms}"
     )
-    if queue_mode != "proportional":
-        run_id = f"{run_id}_q{queue_mode}"
-    return run_id
+    return f"{run_id}{queue_credit_suffix(queue_credit)}"
 
 
 def _load_runs(args):
     runs = []
-    for queue_mode in args.queue_modes:
+    for queue_credit in args.queue_credits:
         for start_value in args.starts:
-            run_dir = args.reconciliation_root / _run_dir_name(args, start_value, queue_mode)
+            run_dir = args.reconciliation_root / _run_dir_name(args, start_value, queue_credit)
             if not run_dir.exists():
                 raise FileNotFoundError(
                     f"Missing reconciliation artifact: {run_dir}. "
                     "Run scripts/analyze_markout_reconciliation.py for that "
-                    "start and queue mode first."
+                    "start and queue credit first."
                 )
             run = load_reconciliation_run(run_dir)
-            actual_mode = run.summary["params"].get("queue_cancellation_mode")
-            if actual_mode != queue_mode:
+            actual_credit = run.queue_credit
+            if actual_credit != queue_credit:
                 raise ValueError(
-                    f"{run_dir} reports queue_cancellation_mode={actual_mode}; "
-                    f"expected {queue_mode}"
+                    f"{run_dir} reports queue_cancellation_credit={actual_credit}; "
+                    f"expected {queue_credit}"
                 )
             runs.append(run)
     return runs
@@ -88,7 +92,8 @@ def _csv_value(value) -> str:
 
 def _write_rows(path: Path, rows: Sequence[dict]) -> None:
     fieldnames = [
-        "queue_cancellation_mode",
+        "queue_cancellation_credit",
+        "legacy_queue_cancellation_mode",
         "window",
         "run_dir",
         "row_type",
@@ -112,13 +117,20 @@ def _write_rows(path: Path, rows: Sequence[dict]) -> None:
             writer.writerow({key: _csv_value(row.get(key)) for key in fieldnames})
 
 
+def _annotate_legacy_labels(rows: Sequence[dict]) -> None:
+    for row in rows:
+        row["legacy_queue_cancellation_mode"] = legacy_mode_from_credit(
+            row["queue_cancellation_credit"]
+        )
+
+
 def _print_pooled(rows: Sequence[dict]) -> None:
     pooled = [row for row in rows if row["window"] == "pooled"]
     print("Fee break-even, pooled")
-    print(f"{'queue':<14} {'row_type':<35} {'net':>14} {'be_fee_bps':>12} {'rebate_bps':>12}")
+    print(f"{'credit':<8} {'row_type':<35} {'net':>14} {'be_fee_bps':>12} {'rebate_bps':>12}")
     for row in pooled:
         print(
-            f"{row['queue_cancellation_mode']:<14} "
+            f"{row['queue_cancellation_credit']:<8} "
             f"{row['row_type']:<35} "
             f"{_fmt(row['net_pnl']):>14} "
             f"{_fmt(row['break_even_maker_fee_bps']):>12} "
@@ -146,20 +158,29 @@ def parse_args():
     parser.add_argument("--half-spread", default="2.00")
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
     parser.add_argument("--maker-bps", type=int, default=2)
+    parser.add_argument("--queue-credits", nargs="+",
+                        default=["1.0", "0.0"],
+                        help="Queue cancellation credits to compare")
     parser.add_argument("--queue-modes", nargs="+",
                         choices=["proportional", "none"],
-                        default=["proportional", "none"])
+                        help=argparse.SUPPRESS)
     parser.add_argument("--reconciliation-root", type=Path,
                         default=Path("results/markout_reconciliation"))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_modes:
+        args.queue_credits = [credit_from_legacy_mode(mode) for mode in args.queue_modes]
+    else:
+        args.queue_credits = [parse_queue_credit(value) for value in args.queue_credits]
+    return args
 
 
 def main():
     args = parse_args()
     runs = _load_runs(args)
     rows = build_fee_break_even_rows(runs, expected_maker_bps=args.maker_bps)
+    _annotate_legacy_labels(rows)
 
     run_dir = args.output_root / args.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -175,7 +196,10 @@ def main():
             "half_spread": args.half_spread,
             "requote_interval_ms": args.requote_interval_ms,
             "maker_bps": args.maker_bps,
-            "queue_modes": args.queue_modes,
+            "queue_credits": args.queue_credits,
+            "legacy_queue_modes": [
+                legacy_mode_from_credit(credit) for credit in args.queue_credits
+            ],
             "row_types": sorted({row["row_type"] for row in rows}),
             "economic_measure": "quantity_weighted_net_per_btc",
             "full_strategy_endpoint_note": (

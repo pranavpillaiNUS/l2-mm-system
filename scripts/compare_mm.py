@@ -20,6 +20,7 @@ from typing import Iterable, List
 from src.analysis.fill_rate import compute_order_contexts
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 from src.strategies.microprice_mm import MicropriceMM
@@ -146,7 +147,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
             jitter_ms=args.jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
-            queue_cancellation_mode=args.queue_cancellation_mode,
+            queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
     )
@@ -191,7 +192,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         "requote_interval_ms": args.requote_interval_ms,
         "maker_bps": args.maker_bps,
         "taker_bps": args.taker_bps,
-        "queue_cancellation_mode": args.queue_cancellation_mode,
+        "queue_cancellation_credit": args.queue_cancellation_credit,
         "total_events": result.stats.total_events,
         "depth_diffs": result.stats.depth_diffs,
         "snapshots": result.stats.snapshots,
@@ -326,7 +327,7 @@ def _aggregate_rows(rows: Iterable[dict]) -> List[dict]:
             "adverse_selection_bps": adverse_selection_bps,
             "avg_markout_bps": avg_markout_bps,
             "gaps_detected": sum(row["gaps_detected"] for row in strategy_rows),
-            "queue_cancellation_mode": strategy_rows[0]["queue_cancellation_mode"],
+            "queue_cancellation_credit": strategy_rows[0]["queue_cancellation_credit"],
         })
 
     return sorted(aggregates, key=lambda row: row["strategy"])
@@ -411,15 +412,26 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/compare"))
     parser.add_argument("--skip-missing", action="store_true",
                         help="Skip sessions whose depth/trade files are missing")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():

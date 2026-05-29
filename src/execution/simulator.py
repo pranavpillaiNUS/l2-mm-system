@@ -15,7 +15,7 @@ Key design decisions (all in design notes):
 """
 import random
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
@@ -23,6 +23,7 @@ from src.execution.order import (
     Fill, Order, OrderEvent, OrderRequest,
     OrderSide, OrderStatus, OrderType,
 )
+from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.replay.orderbook import Orderbook
 from src.replay.trade_parser import TradeEvent
 
@@ -35,15 +36,27 @@ class SimConfig:
     taker_bps: int         # fee rate for market orders and aggressive limits
     seed: int = 42
     post_only: bool = True  # cancel limit orders that would cross the spread
-    queue_cancellation_mode: str = "proportional"
+    queue_cancellation_credit: Decimal | str | float | None = None
+    queue_cancellation_mode: InitVar[str | None] = None
 
-    def __post_init__(self) -> None:
-        valid_modes = {"proportional", "none"}
-        if self.queue_cancellation_mode not in valid_modes:
-            raise ValueError(
-                "queue_cancellation_mode must be one of "
-                f"{sorted(valid_modes)}"
+    def __post_init__(self, queue_cancellation_mode: str | None) -> None:
+        if self.queue_cancellation_credit is None:
+            self.queue_cancellation_credit = (
+                credit_from_legacy_mode(queue_cancellation_mode)
+                if queue_cancellation_mode is not None
+                else Decimal("1.0")
             )
+            return
+
+        credit = parse_queue_credit(self.queue_cancellation_credit)
+        if queue_cancellation_mode is not None:
+            legacy_credit = credit_from_legacy_mode(queue_cancellation_mode)
+            if credit != legacy_credit:
+                raise ValueError(
+                    "queue_cancellation_credit conflicts with legacy "
+                    "queue_cancellation_mode"
+                )
+        self.queue_cancellation_credit = credit
 
     @property
     def maker_rate(self) -> Decimal:
@@ -436,14 +449,14 @@ class ExecutionSimulator:
         self, price: Decimal, prev_qty: Decimal, new_qty: Decimal
     ) -> Decimal:
         """Fraction of prev_qty that was cancelled (not traded)."""
-        if self.config.queue_cancellation_mode == "none":
+        if self.config.queue_cancellation_credit == Decimal("0"):
             return Decimal("0")
         if new_qty >= prev_qty or prev_qty <= Decimal("0"):
             return Decimal("0")
         decrease = prev_qty - new_qty
         traded = self._traded_since_depth.get(price, Decimal("0"))
         cancellation = max(Decimal("0"), decrease - traded)
-        return cancellation / prev_qty
+        return (cancellation / prev_qty) * self.config.queue_cancellation_credit
 
     def _create_fill(
         self,

@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Iterable
 
 from src.analysis.bootstrap import BootstrapResult, bootstrap_mean_ci
+from src.execution.queue_credit import (
+    credit_from_legacy_mode,
+    legacy_mode_from_credit,
+    parse_queue_credit,
+)
 
 
 def _d(value) -> Decimal:
@@ -41,6 +46,7 @@ def _jsonable(value):
 
 def _matches_params(summary: dict, args) -> bool:
     params = summary["params"]
+    run_credit = _summary_queue_credit(params)
     return (
         params["symbol"] == args.symbol.lower()
         and params["strategy"] == args.strategy
@@ -51,7 +57,7 @@ def _matches_params(summary: dict, args) -> bool:
         and int(params["session_hours"]) == args.session_hours
         and int(params.get("maker_bps", 2)) == args.maker_bps
         and int(params.get("taker_bps", 5)) == args.taker_bps
-        and params.get("queue_cancellation_mode", "proportional") == args.queue_cancellation_mode
+        and run_credit == args.queue_cancellation_credit
     )
 
 
@@ -189,9 +195,11 @@ def parse_args():
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--session-hours", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=7)
@@ -199,7 +207,22 @@ def parse_args():
                         default=Path("results/markout_reconciliation"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("results/baseline_ci"))
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
+
+
+def _summary_queue_credit(params: dict) -> Decimal:
+    if "queue_cancellation_credit" in params:
+        return parse_queue_credit(params["queue_cancellation_credit"])
+    return credit_from_legacy_mode(params.get("queue_cancellation_mode", "proportional"))
 
 
 def main():
@@ -232,7 +255,10 @@ def main():
             "jitter_ms": args.jitter_ms,
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
-            "queue_cancellation_mode": args.queue_cancellation_mode,
+            "queue_cancellation_credit": args.queue_cancellation_credit,
+            "legacy_queue_cancellation_mode": legacy_mode_from_credit(
+                args.queue_cancellation_credit
+            ),
             "session_hours": args.session_hours,
             "iterations": args.iterations,
             "seed": args.seed,
@@ -255,8 +281,8 @@ def main():
         f"{args.symbol.lower()}_{args.strategy}_hs{args.half_spread}_"
         f"rq{args.requote_interval_ms}_baseline_ci"
     )
-    if args.queue_cancellation_mode != "proportional":
-        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
+    if args.queue_cancellation_credit != Decimal("1"):
+        run_id = f"{run_id}_qc{args.queue_cancellation_credit.normalize()}"
     output_path = args.output_dir / f"{run_id}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=_jsonable)

@@ -58,6 +58,7 @@ def test_break_even_fee_uses_gross_and_fee_notional():
     assert full_matched["break_even_maker_fee_bps"] == Decimal("1")
     assert full_matched["required_rebate_bps"] == Decimal("0")
     assert full_matched["quantity_weighted_net_per_btc"] == Decimal("-1")
+    assert full_matched["queue_cancellation_credit"] == Decimal("1.0")
     print("PASS: break-even fee uses gross before fees and implied notional")
 
 

@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Sequence
 
 from scripts.compare_mm import SessionWindow, _parse_start, _select_files
+from src.execution.queue_credit import (
+    credit_from_legacy_mode,
+    parse_queue_credit,
+    queue_credit_suffix,
+)
 from src.replay.depth_parser import DepthParser
 from src.replay.trade_parser import TradeParser
 
@@ -49,9 +54,7 @@ def _run_dir_name(args, start_value: str) -> str:
         f"{args.hours // args.session_hours}sessions_"
         f"hs{args.half_spread}_rq{args.requote_interval_ms}"
     )
-    if args.queue_cancellation_mode != "proportional":
-        run_id = f"{run_id}_q{args.queue_cancellation_mode}"
-    return run_id
+    return f"{run_id}{queue_credit_suffix(args.queue_cancellation_credit)}"
 
 
 def _pct(numerator: int, denominator: int) -> Decimal:
@@ -326,9 +329,11 @@ def parse_args():
     parser.add_argument("--session-hours", type=int, default=1)
     parser.add_argument("--half-spread", default="2.00")
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
+    parser.add_argument("--queue-cancellation-credit", default="1.0",
+                        help="Cancellation-driven queue credit in [0.0, 1.0]")
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
-                        default="proportional")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--overlap-fill-threshold-pct",
                         type=Decimal, default=Decimal("5"))
     parser.add_argument("--wrong-attribution-threshold-pct",
@@ -338,7 +343,16 @@ def parse_args():
                         default=Path("results/markout_reconciliation"))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.queue_cancellation_mode is not None:
+        args.queue_cancellation_credit = credit_from_legacy_mode(
+            args.queue_cancellation_mode
+        )
+    else:
+        args.queue_cancellation_credit = parse_queue_credit(
+            args.queue_cancellation_credit
+        )
+    return args
 
 
 def main():
@@ -375,7 +389,7 @@ def main():
             "hours": args.hours,
             "half_spread": args.half_spread,
             "requote_interval_ms": args.requote_interval_ms,
-            "queue_cancellation_mode": args.queue_cancellation_mode,
+            "queue_cancellation_credit": args.queue_cancellation_credit,
             "depth_trade_tie_rule": "depth_before_trade",
             "overlap_fill_threshold_pct": args.overlap_fill_threshold_pct,
             "wrong_attribution_threshold_pct": args.wrong_attribution_threshold_pct,

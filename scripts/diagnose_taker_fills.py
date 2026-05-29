@@ -39,7 +39,7 @@ config = ReplayConfig(
         jitter_ms=0,
         maker_bps=2,
         taker_bps=5,
-        queue_cancellation_mode="proportional",
+        queue_cancellation_credit="1.0",
     ),
 )
 

@@ -130,7 +130,7 @@ def test_jitter_is_deterministic():
     order2 = sim2.submit(buy_limit("100"), current_time_ms=1000)
 
     assert order1.arrival_time_ms == order2.arrival_time_ms
-    print(f"PASS: same seed → same arrival time ({order1.arrival_time_ms}ms)")
+    print(f"PASS: same seed -> same arrival time ({order1.arrival_time_ms}ms)")
 
 
 def test_jitter_different_seeds():
@@ -141,7 +141,7 @@ def test_jitter_different_seeds():
     arrivals2 = [sim2.submit(buy_limit("100"), t).arrival_time_ms for t in range(0, 500, 10)]
 
     assert arrivals1 != arrivals2
-    print("PASS: different seeds → different jitter sequences")
+    print("PASS: different seeds -> different jitter sequences")
 
 
 def test_trade_drains_queue_ahead():
@@ -219,14 +219,14 @@ def test_partial_fill():
     sim.on_book_update(book, timestamp_ms=1010)
     assert order.queue_ahead == Decimal("0.0")
 
-    # trade for 0.3 — only partially fills our 1.0 order
+    # trade for 0.3 - only partially fills our 1.0 order
     sim.on_trade(make_trade("100", "0.3", is_buyer_maker=True, t=1020), book)
     assert order.status == OrderStatus.PARTIAL
     assert order.filled_quantity == Decimal("0.3")
     assert order.remaining_quantity == Decimal("0.7")
     assert len(sim.fills) == 1
 
-    # trade for 0.7 — fills the rest
+    # trade for 0.7 - fills the rest
     sim.on_trade(make_trade("100", "0.7", is_buyer_maker=True, t=1030), book)
     assert order.status == OrderStatus.FILLED
     assert order.filled_quantity == Decimal("1.0")
@@ -251,7 +251,7 @@ def test_market_order_fills_at_best_ask():
 
 def test_market_order_walks_levels():
     sim = make_sim()
-    # ask side: 0.3 @ 101, 0.5 @ 102 — need 0.7 total
+    # ask side: 0.3 @ 101, 0.5 @ 102 - need 0.7 total
     book = make_book(asks=[("101.00", "0.3"), ("102.00", "0.5")])
     order = sim.submit(buy_market("0.7"), current_time_ms=1000)
 
@@ -296,7 +296,7 @@ def test_post_only_aggressive_limit_is_cancelled():
 
 def test_aggressive_limit_can_fill_as_taker_when_post_only_disabled():
     sim = make_sim(post_only=False)
-    # best ask = 101, limit buy at 102 → crosses spread → taker fill at 101
+    # best ask = 101, limit buy at 102 -> crosses spread -> taker fill at 101
     book = make_book(asks=[("101.00", "5.0")])
     order = sim.submit(buy_limit("102", qty="0.5"), current_time_ms=1000)
 
@@ -316,7 +316,7 @@ def test_sell_limit_fills_on_market_buy():
     order = sim.submit(sell_limit("101", qty="0.5"), current_time_ms=1000)
     sim.on_book_update(book, timestamp_ms=1010)
 
-    # market buy (is_buyer_maker=False) → hits asks → our SELL limit fills
+    # market buy (is_buyer_maker=False) -> hits asks -> our SELL limit fills
     trade = make_trade("101", "1.0", is_buyer_maker=False, t=1020)
     sim.on_trade(trade, book)
 
@@ -328,12 +328,12 @@ def test_sell_limit_fills_on_market_buy():
 
 def test_wrong_side_trade_does_not_fill():
     sim = make_sim()
-    # BUY limit at 100, but the trade is a market buy (is_buyer_maker=False → hits asks)
+    # BUY limit at 100, but the trade is a market buy (is_buyer_maker=False -> hits asks)
     book = make_book(bids=[("100.00", "0.0")])
     order = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
     sim.on_book_update(book, timestamp_ms=1010)
 
-    # market buy hits asks, not bids — our BUY limit should NOT fill
+    # market buy hits asks, not bids - our BUY limit should NOT fill
     trade = make_trade("100", "1.0", is_buyer_maker=False, t=1020)
     sim.on_trade(trade, book)
 
@@ -387,11 +387,11 @@ def test_cancellation_reduces_queue_ahead():
     sim.on_book_update(book, timestamp_ms=1010)
     assert order.queue_ahead == Decimal("10.0")
 
-    # Book qty at 100 drops from 10.0 to 7.0 with no trades — must be cancellations
+    # Book qty at 100 drops from 10.0 to 7.0 with no trades - must be cancellations
     book.apply_diff(bids=[("100.00", "7.0")], asks=[], last_update_id=1001)
     sim.on_book_update(book, timestamp_ms=1020)
 
-    # cancel_frac = 3.0 / 10.0 = 0.30 → queue_ahead = 10.0 * 0.70 = 7.0
+    # cancel_frac = 3.0 / 10.0 = 0.30 -> queue_ahead = 10.0 * 0.70 = 7.0
     expected = Decimal("10.0") * Decimal("0.7")
     assert order.queue_ahead == expected
 
@@ -550,7 +550,7 @@ def test_determinism():
     run1 = run_scenario(seed=42)
     run2 = run_scenario(seed=42)
     assert run1 == run2
-    print("PASS: identical seed + inputs → identical fills (determinism)")
+    print("PASS: identical seed + inputs -> identical fills (determinism)")
 
 
 if __name__ == "__main__":

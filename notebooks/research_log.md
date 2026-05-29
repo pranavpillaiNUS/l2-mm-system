@@ -60,7 +60,7 @@ How do Momentum and Mean Reversion compare across different parameters? Which pa
 - $100,000 capital
 - 10 bps taker fee (Binance spot)
 - 5 bps half-spread slippage
-- tested 3 lookbacks (12, 24, 48h) × 3 thresholds (1%, 2%, 3%) = 9 combos per strategy, 18 total
+- tested 3 lookbacks (12, 24, 48h) x 3 thresholds (1%, 2%, 3%) = 9 combos per strategy, 18 total
 
 ### Momentum results
 
@@ -91,8 +91,8 @@ How do Momentum and Mean Reversion compare across different parameters? Which pa
 | 48h      | 3%        | 8.6        | 0.10   | 21.8       | 64     | 57.1         | 2,761    |
 
 ### Best per strategy
-- Momentum: 24h lookback, 3% threshold → 40.7% return, 0.36 Sharpe, 119 trades
-- Mean Reversion: 12h lookback, 3% threshold → 36.0% return, 0.39 Sharpe, 47 trades
+- Momentum: 24h lookback, 3% threshold -> 40.7% return, 0.36 Sharpe, 119 trades
+- Mean Reversion: 12h lookback, 3% threshold -> 36.0% return, 0.39 Sharpe, 47 trades
 
 ### vs benchmark
 - buy & hold returned +116%
@@ -101,9 +101,9 @@ How do Momentum and Mean Reversion compare across different parameters? Which pa
 - no strategy beats buy & hold - expected in a strong trending year
 
 ### Takeaways
-1. threshold matters more than lookback. across both strategies, 1% threshold consistently loses money. 3% consistently does best. tighter threshold → more trades → more fees → worse results
+1. threshold matters more than lookback. across both strategies, 1% threshold consistently loses money. 3% consistently does best. tighter threshold -> more trades -> more fees -> worse results
 2. fees are the silent killer. Momentum(12h, 1%) paid $22k in fees on a $100k account and lost money. Momentum(24h, 3%) paid $5.2k and returned 40.7%. roughly 4x difference in fees between worst and best combos
-3. MeanReversion(12h, 3%) has best Sharpe but only 47 trades. 87% win rate looks amazing but 47 trades is thin. standard error of Sharpe ≈ 1/√47 ≈ 0.15, so true Sharpe could be anywhere from 0.24 to 0.54. Momentum(24h, 3%) with 119 trades is more trustworthy (SE ≈ 0.09)
+3. MeanReversion(12h, 3%) has best Sharpe but only 47 trades. 87% win rate looks amazing but 47 trades is thin. standard error of Sharpe is roughly 1/sqrt(47), or 0.15, so true Sharpe could be anywhere from 0.24 to 0.54. Momentum(24h, 3%) with 119 trades is more trustworthy (SE roughly 0.09)
 4. mean reversion has higher win rates but lower returns. MeanRev: 57-87% win rate. Momentum: 33-45%. but Momentum's best return (40.7%) beats MeanRev's best (36.0%). MeanRev wins many small trades but misses the big trending moves
 5. both strategies struggle in trends. BTC 2024 was a +116% year. Momentum keeps exiting and re-entering. Mean Reversion actively fights the trend
 
@@ -128,7 +128,7 @@ Main finding: the wider the gap between fast and slow periods, the better. Small
 ### Bollinger Bands
 SMA plus/minus N standard deviations. Bands get wider when volatility is high and tighter when its low. Buy when price drops below lower band, sell when it goes above upper band. Basically adaptive mean reversion.
 
-Tested 20 period/std combos. Best was BB(24, 2.5σ) with Sharpe 0.20, 20.0% return, 13.0% maxDD. Worst strategy so far. BB(12, 1.0σ) lost 40.8% with 848 trades - tight bands in a bull market is a disaster. BB(12, 3.0σ) only triggered 4 trades total so thats useless.
+Tested 20 period/std combos. Best was BB(24, 2.5 std) with Sharpe 0.20, 20.0% return, 13.0% maxDD. Worst strategy so far. BB(12, 1.0 std) lost 40.8% with 848 trades - tight bands in a bull market is a disaster. BB(12, 3.0 std) only triggered 4 trades total so thats useless.
 
 ### Ranking so far (best params for each)
 
@@ -137,7 +137,7 @@ Tested 20 period/std combos. Best was BB(24, 2.5σ) with Sharpe 0.20, 20.0% retu
 | SMA(24/72) | 0.39 | 22.8% | 10.4% | 132 |
 | MeanRev(12h, 3%) | 0.39 | 36.0% | 10.6% | 47 |
 | Momentum(24h, 3%) | 0.36 | 40.7% | 10.6% | 119 |
-| Bollinger(24, 2.5σ) | 0.20 | 20.0% | 13.0% | 159 |
+| Bollinger(24, 2.5 std) | 0.20 | 20.0% | 13.0% | 159 |
 
 ### Takeaways
 - trend following (SMA, Momentum) beats mean reversion (Bollinger, MeanRev) in a bull market. makes sense - mean reversion keeps selling into rallies
@@ -157,13 +157,13 @@ Tested 20 period/std combos. Best was BB(24, 2.5σ) with Sharpe 0.20, 20.0% retu
 Are the "best" params from the sweeps actually good, or did they just get lucky on 2024 data?
 
 ### Method
-Walk-forward analysis with anchored expanding windows. Train always starts from January, test is the next unseen month. 9 windows total (train→Mar test Apr, train→Apr test May, ... train→Nov test Dec). For each window, run the full param sweep on training data, pick the best Sharpe, then test those params on the next month. The test month is strictly out-of-sample - the optimizer never saw it.
+Walk-forward analysis with anchored expanding windows. Train always starts from January, test is the next unseen month. 9 windows total (train->Mar test Apr, train->Apr test May, ... train->Nov test Dec). For each window, run the full param sweep on training data, pick the best Sharpe, then test those params on the next month. The test month is strictly out-of-sample - the optimizer never saw it.
 
 Used the same param grids from the original sweeps:
-- Momentum: lookback [12,24,48] × threshold [1%,2%,3%]
+- Momentum: lookback [12,24,48] x threshold [1%,2%,3%]
 - MeanReversion: same grid
-- SMA: fast [12,24,48] × slow [48,72,96,120], skipping fast >= slow
-- Bollinger: period [12,24,36,48] × std [1.0,1.5,2.0,2.5,3.0]
+- SMA: fast [12,24,48] x slow [48,72,96,120], skipping fast >= slow
+- Bollinger: period [12,24,36,48] x std [1.0,1.5,2.0,2.5,3.0]
 
 ### Results
 
@@ -190,14 +190,14 @@ Bollinger jumped from last to second. SMA dropped from tied-first to last. This 
 
 ### Equity curves
 All four strategies ended profitable OOS (Apr-Dec):
-- Momentum: $100k → $128k
-- MeanReversion: $100k → $126k
-- Bollinger: $100k → $125k
-- SMA: $100k → $117k
+- Momentum: $100k -> $128k
+- MeanReversion: $100k -> $126k
+- Bollinger: $100k -> $125k
+- SMA: $100k -> $117k
 
 MeanReversion had the smoothest curve - stair-steps up with flat periods, never really dips. Momentum was flat Apr-Sep then ripped Oct-Nov. SMA and Bollinger somewhere in between.
 
-None beat buy & hold ($100k → ~$148k over same period). Still expected in a trending year.
+None beat buy & hold ($100k -> ~$148k over same period). Still expected in a trending year.
 
 ### Monthly breakdown
 Momentum is feast-or-famine: -5.5% in Aug, +16.5% in Nov. Returns concentrated in trending months (Jul, Oct, Nov).
@@ -209,7 +209,7 @@ SMA struggled in choppy months and only showed up for the Nov trend.
 1. parameter stability is a better predictor of robustness than raw in-sample Sharpe. SMA had the best in-sample Sharpe (tied) but worst OOS because its "best" params kept changing
 2. MeanReversion is genuinely robust. same params won every window, OOS Sharpe actually exceeded in-sample. these aren't overfit
 3. Momentum works but is regime-dependent. prints money in trends, bleeds in chop. you'd want some way to detect the regime before allocating to it
-4. Bollinger was underrated in-sample. its low Sharpe was partly because early windows hadn't settled on good params. once it locked onto (24, 2.5σ) it was consistently positive
+4. Bollinger was underrated in-sample. its low Sharpe was partly because early windows hadn't settled on good params. once it locked onto (24, 2.5 std) it was consistently positive
 5. a practical allocation would blend MeanReversion (consistent base) with Momentum (trend capture). diversification across strategy types, not just assets
 
 ### Next
@@ -263,28 +263,28 @@ Both strategies lose money. The previous +$1.56 result was an artifact of favora
 ## 2026-05-08: Prediction Before the Post-Only Quote-Mechanics Sweep
 
 ### Setup
-About to run the first uncontaminated quote-mechanics sweep with `post_only=True` and the new `fill_rate.py` lens. Grid: half_spread ∈ {1, 2, 3, 5, 8} dollars, requote ∈ {1, 5}s, both strategies, one window 2026-04-16T12–17. Five 1-hour sessions per combo. 100 sessions total.
+About to run the first uncontaminated quote-mechanics sweep with `post_only=True` and the new `fill_rate.py` lens. Grid: half_spread in {1, 2, 3, 5, 8} dollars, requote in {1, 5}s, both strategies, one window 2026-04-16T12-17. Five 1-hour sessions per combo. 100 sessions total.
 
 Writing predictions down now so the post-mortem is honest. The interview value of "I predicted X, found Y, here's why my intuition was off" is much higher than retrospective rationalization.
 
 ### The decomposition I'm thinking in
-session_pnl ≈ orders_submitted × P(fill) × E[pnl_per_fill | filled]
+session_pnl approx orders_submitted x P(fill) x E[pnl_per_fill | filled]
 
 Per fill, in bps of notional:
-E[pnl_per_fill_bps] ≈ spread_capture_bps − fee_bps − |markout_bps|
+E[pnl_per_fill_bps] approx spread_capture_bps - fee_bps - |markout_bps|
 
-At ~$100k BTC, $1 ≈ 1 bp. So half_spread ∈ {1, 2, 3, 5, 8} dollars ≈ {1, 2, 3, 5, 8} bps.
+At ~$100k BTC, $1 approx 1 bp. So half_spread in {1, 2, 3, 5, 8} dollars approx {1, 2, 3, 5, 8} bps.
 
 ### Predictions
 
-**Fill rate.** Drops monotonically with half_spread. Steeply. At half_spread=1 bp expecting ~5–10% fill rate; at half_spread=8 bps expecting <0.3%. Roughly inverse-quadratic in distance because price has to walk to deeper levels and walks are ~Gaussian over short horizons.
+**Fill rate.** Drops monotonically with half_spread. Steeply. At half_spread=1 bp expecting ~5-10% fill rate; at half_spread=8 bps expecting <0.3%. Roughly inverse-quadratic in distance because price has to walk to deeper levels and walks are ~Gaussian over short horizons.
 
 **E[pnl|fill].** Increases monotonically with half_spread, possibly plateauing at the wide end. Reasoning: spread_capture grows linearly with distance (1, 2, 3, 5, 8 bps) but |markout| should grow sublinearly because the Glosten-Milgrom toxicity bias *decreases* with distance - fills at deep levels are more likely uninformed flow that walked there, not informed traders crossing.
-- At half_spread=1 bp: expecting markout ~−2.5 bps → pnl ≈ 1 − 2 − 2.5 = −3.5 bps. Very negative.
-- At half_spread=5 bps: brief showed markout ~−1.5 bps → pnl ≈ 5 − 2 − 1.5 = +1.5 bps per fill.
-- At half_spread=8 bps: expecting markout ~−1.0 bps → pnl ≈ 8 − 2 − 1.0 = +5 bps per fill, but very few fills.
+- At half_spread=1 bp: expecting markout ~-2.5 bps -> pnl approx 1 - 2 - 2.5 = -3.5 bps. Very negative.
+- At half_spread=5 bps: brief showed markout ~-1.5 bps -> pnl approx 5 - 2 - 1.5 = +1.5 bps per fill.
+- At half_spread=8 bps: expecting markout ~-1.0 bps -> pnl approx 8 - 2 - 1.0 = +5 bps per fill, but very few fills.
 
-**Total session P&L.** Likely negative across the entire grid, with the *least negative* (or maybe slightly positive) point at half_spread = 5 or 8 bps. Reasoning: the brief already showed half_spread=5 was net −0.65/session over a 5-hour block. The arithmetic above suggests per-fill economics could be marginally positive at half_spread=5+, but the brief's negative aggregate result must come from a small number of bad fills dominating; the median fill might already be positive at half_spread=5. The fill_rate lens should make this distinction visible for the first time.
+**Total session P&L.** Likely negative across the entire grid, with the *least negative* (or maybe slightly positive) point at half_spread = 5 or 8 bps. Reasoning: the brief already showed half_spread=5 was net -0.65/session over a 5-hour block. The arithmetic above suggests per-fill economics could be marginally positive at half_spread=5+, but the brief's negative aggregate result must come from a small number of bad fills dominating; the median fill might already be positive at half_spread=5. The fill_rate lens should make this distinction visible for the first time.
 
 **Microprice vs symmetric.** Approximately tied at wide spreads (rounding makes their quotes identical). Microprice may show a small advantage at narrow spreads where the few-cents shift actually changes the rounded tick. If neither is profitable, microprice's advantage is in *less negative*, not in *positive*.
 
@@ -305,7 +305,7 @@ At ~$100k BTC, $1 ≈ 1 bp. So half_spread ∈ {1, 2, 3, 5, 8} dollars ≈ {1, 2
 ### Decision rule
 - If any combo has positive net P&L: that's the operating point. Build InventorySkewMM on top.
 - If no combo is positive but the *least negative* point has clearly positive E[pnl|fill] and the loss is just "too few fills": fill rate is the binding constraint, not edge per fill. Implication: distance is right, need queue-priority or a smarter quote-placement timing.
-- If *every* point has negative E[pnl|fill] after fees: passive at this asset/data is fundamentally unprofitable. Story becomes "why" - and that's what fill_rate.py's distance/vol breakdown answers. Steps 3–4 become "rescue" attempts; step 5 still has value (showing strategies fail consistently across windows is itself walk-forward evidence).
+- If *every* point has negative E[pnl|fill] after fees: passive at this asset/data is fundamentally unprofitable. Story becomes "why" - and that's what fill_rate.py's distance/vol breakdown answers. Steps 3-4 become "rescue" attempts; step 5 still has value (showing strategies fail consistently across windows is itself walk-forward evidence).
 
 ---
 ## 2026-05-08: Post-Only Sweep Results - Prediction Mostly Wrong

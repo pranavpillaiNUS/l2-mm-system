@@ -3,7 +3,7 @@ Parses hourly aggTrade .jsonl.gz files into TradeEvent objects.
 
 The m field is counterintuitive: m=True means the buyer was the market maker
 (i.e. the buyer's limit order was resting), which means the seller was the
-aggressor — a market sell. m=False means the buyer was the aggressor — a
+aggressor - a market sell. m=False means the buyer was the aggressor - a
 market buy.
 
 Gap detection: agg_trade_id (field "a") is sequential. If
@@ -11,7 +11,7 @@ current.agg_trade_id != prev.agg_trade_id + 1, some trades were missed.
 
 Use field T (trade timestamp) for event ordering, not E or recv_time.
 T is the Binance server time when the trade matched. E is when the WebSocket
-message was sent — slightly later.
+message was sent - slightly later.
 """
 import gzip
 import json
@@ -25,8 +25,8 @@ from typing import Iterator, List, Optional
 @dataclass
 class TradeEvent:
     recv_time: datetime
-    exchange_time_ms: int   # T field — use this for ordering with depth events
-    agg_trade_id: int       # a field — sequential, used for gap detection
+    exchange_time_ms: int   # T field - use this for ordering with depth events
+    agg_trade_id: int       # a field - sequential, used for gap detection
     price: Decimal
     quantity: Decimal
     is_buyer_maker: bool    # m field. True = seller was aggressor (market sell)

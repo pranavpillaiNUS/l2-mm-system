@@ -110,7 +110,7 @@ def calculate_trade_pnls(fills: List) -> List[float]:
                 buy_price, buy_qty, buy_costs = open_buys[0]
                 matched_qty = min(sell_remaining, buy_qty)
                 
-                # P&L = (sell - buy) × qty - costs
+                # P&L = (sell - buy) x qty - costs
                 cost_fraction = matched_qty / fill.quantity
                 pnl = (fill.price - buy_price) * matched_qty
                 pnl -= buy_costs * (matched_qty / buy_qty)

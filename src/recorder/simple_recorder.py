@@ -43,7 +43,7 @@ class SimpleRecorder:
     def _fetch_snapshot(self) -> Optional[dict]:
         """Fetch full orderbook snapshot from REST API.
         Returns the snapshot dict or None if it fails.
-        The snapshot has lastUpdateId, bids, and asks — this is
+        The snapshot has lastUpdateId, bids, and asks - this is
         the reference point we need to reconstruct the book from diffs."""
         url = f"{self.REST_URL}?symbol={self.symbol.upper()}&limit=1000"
         try:
@@ -123,7 +123,7 @@ class SimpleRecorder:
                     print("Connected! Recording...\n")
                     reconnect_delay = 1.0
                     
-                    # snapshot right after connecting — this is the anchor
+                    # snapshot right after connecting - this is the anchor
                     # for all diffs that follow until the next snapshot
                     now = datetime.utcnow()
                     self._rotate_file(now)

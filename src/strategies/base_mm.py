@@ -9,8 +9,8 @@ Handles the plumbing that every MM strategy needs:
   - Post-only enforcement (never place a quote that would cross the spread)
 
 Subclasses only implement one method: compute_quotes(book, timestamp_ms),
-which returns the desired bid and ask prices. Everything else — deciding
-when to cancel, building OrderRequests, tracking fills — lives here.
+which returns the desired bid and ask prices. Everything else - deciding
+when to cancel, building OrderRequests, tracking fills - lives here.
 """
 from abc import ABC, abstractmethod
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
@@ -32,7 +32,7 @@ class BaseMMStrategy(ABC):
 
     Parameters:
         order_qty: size of each quote (in base currency, e.g. BTC)
-        max_position: absolute position limit — stop quoting the side
+        max_position: absolute position limit - stop quoting the side
                       that would increase exposure beyond this
         tick_size: minimum price increment for rounding quotes
     """
@@ -49,7 +49,7 @@ class BaseMMStrategy(ABC):
         self.tick_size = tick_size
         self.requote_interval_ms = requote_interval_ms
 
-        # Order tracking — shared refs with the simulator, so status
+        # Order tracking - shared refs with the simulator, so status
         # updates (filled, cancelled) are visible here automatically.
         self._bid_order: Optional[Order] = None
         self._ask_order: Optional[Order] = None
@@ -61,7 +61,7 @@ class BaseMMStrategy(ABC):
         self.total_fees: Decimal = Decimal("0")
         self.fill_count: int = 0
 
-        # diagnostics — track how many quotes got suppressed by post-only
+        # diagnostics - track how many quotes got suppressed by post-only
         self.postonly_suppressed: int = 0
 
     # --- interface for subclasses ---

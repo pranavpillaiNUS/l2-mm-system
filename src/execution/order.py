@@ -2,8 +2,8 @@
 Data types for the execution simulator.
 
 Two separate types for orders:
-  OrderRequest — what a strategy submits (intent only, no lifecycle state)
-  Order        — what the simulator tracks (full lifecycle, mutable state)
+  OrderRequest - what a strategy submits (intent only, no lifecycle state)
+  Order        - what the simulator tracks (full lifecycle, mutable state)
 
 This separation keeps strategy code clean: strategies don't know about latency
 or queue position, they just express what they want to do.
@@ -38,7 +38,7 @@ class OrderRequest:
     What a strategy submits when it wants to place an order.
 
     The simulator receives this, applies latency, and creates a tracked Order.
-    Strategies never set arrival time or queue position — they only express
+    Strategies never set arrival time or queue position - they only express
     intent: side, type, price, quantity.
     """
     side: OrderSide
@@ -63,7 +63,7 @@ class Order:
     arrival_time_ms: int         # placed_time_ms + latency (when it reaches exchange)
     price: Optional[Decimal] = None
 
-    # mutable — updated by the simulator
+    # mutable - updated by the simulator
     status: OrderStatus = OrderStatus.PENDING
     filled_quantity: Decimal = field(default=Decimal("0"))
     queue_ahead: Optional[Decimal] = None   # volume ahead in FIFO queue at arrival
@@ -84,7 +84,7 @@ class Order:
 @dataclass
 class Fill:
     """
-    One fill event — either a full fill or one partial fill of an order.
+    One fill event - either a full fill or one partial fill of an order.
 
     A single order may produce multiple Fill records as it works through the
     queue. All fills for an order share the same order_id.
@@ -113,9 +113,9 @@ class OrderEvent:
     One record per state transition in an order's lifecycle.
 
     The full sequence for a limit order looks like:
-        placed → arrived → queued (queue_ahead=X) → [partial_fill, ...] → filled
+        placed -> arrived -> queued (queue_ahead=X) -> [partial_fill, ...] -> filled
     Or:
-        placed → arrived → queued → cancelled
+        placed -> arrived -> queued -> cancelled
 
     Used for audit logging and P&L decomposition.
     """

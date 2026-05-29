@@ -64,7 +64,7 @@ class DepthParser:
                     recv_time = datetime.fromisoformat(record["recv_time"])
 
                     if "type" in record:
-                        # Snapshot — REST API response, no exchange timestamp.
+                        # Snapshot - REST API response, no exchange timestamp.
                         # Treat recorded naive recv_time as UTC because the
                         # recorder writes datetime.utcnow() without tzinfo.
                         data = record["data"]
@@ -85,7 +85,7 @@ class DepthParser:
                         snapshot_last_uid = data["lastUpdateId"]
 
                     else:
-                        # diff — WebSocket depthUpdate message
+                        # diff - WebSocket depthUpdate message
                         data = record["data"]
                         first_uid = data["U"]
                         last_uid = data["u"]

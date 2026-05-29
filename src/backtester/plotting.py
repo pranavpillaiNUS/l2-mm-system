@@ -57,7 +57,7 @@ def plot_backtest_results(
     if save_path:
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"✅ Saved plot to {save_path}")
+        print(f"Saved plot to {save_path}")
         plt.close()
     else:
         plt.show()

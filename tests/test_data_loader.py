@@ -46,7 +46,7 @@ def test_bar_iteration():
     for i, bar in enumerate(loader.iter_bars("BTCUSDT")):
         if i >= 5:
             break
-        direction = "↑" if bar.is_bullish else "↓"
+        direction = "up" if bar.is_bullish else "down"
         print(f"  {bar.timestamp}: ${bar.close:,.0f} {direction}")
     
     print("\nTest passed")

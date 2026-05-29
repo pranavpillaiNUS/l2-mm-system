@@ -48,7 +48,7 @@ def test_zero_fills_returns_zero_decomp():
 
 
 def test_spread_capture_buy_fill():
-    # BUY at 99.50, mid at fill time = 100.00 → spread capture = 0.50 × qty
+    # BUY at 99.50, mid at fill time = 100.00 -> spread capture = 0.50 x qty
     fill = make_fill("f1", OrderSide.BUY, "99.50", qty="1.0", timestamp_ms=500)
     samples = [make_sample(500, "100.00")]
     markouts = compute_markouts([fill], samples, {"30s": 30000})
@@ -60,7 +60,7 @@ def test_spread_capture_buy_fill():
 
 
 def test_spread_capture_sell_fill():
-    # SELL at 100.50, mid at fill time = 100.00 → spread capture = 0.50 × qty
+    # SELL at 100.50, mid at fill time = 100.00 -> spread capture = 0.50 x qty
     fill = make_fill("f1", OrderSide.SELL, "100.50", qty="1.0", timestamp_ms=500)
     samples = [make_sample(500, "100.00")]
     markouts = compute_markouts([fill], samples, {"30s": 30000})
@@ -73,9 +73,9 @@ def test_spread_capture_sell_fill():
 
 def test_inventory_pnl_long_position():
     # BUY 1 BTC at 99.50, session ends with mid at 100.50
-    # spread_capture = (100.00 - 99.50) × 1 = 0.50
-    # inventory_pnl = (100.50 - 100.00) × 1 = 0.50
-    # gross_pnl = (100.50 - 99.50) × 1 = 1.00
+    # spread_capture = (100.00 - 99.50) x 1 = 0.50
+    # inventory_pnl = (100.50 - 100.00) x 1 = 0.50
+    # gross_pnl = (100.50 - 99.50) x 1 = 1.00
     fill = make_fill("f1", OrderSide.BUY, "99.50", qty="1.0", timestamp_ms=500)
     samples = [make_sample(500, "100.00")]
     markouts = compute_markouts([fill], samples, {"30s": 30000})
@@ -91,7 +91,7 @@ def test_inventory_pnl_long_position():
 
 
 def test_zero_inventory_pnl_when_flat():
-    # BUY then SELL same qty — net position = 0
+    # BUY then SELL same qty - net position = 0
     buy = make_fill("f1", OrderSide.BUY, "99.50", qty="1.0", timestamp_ms=500)
     sell = make_fill("f2", OrderSide.SELL, "100.50", qty="1.0", timestamp_ms=600)
     samples = [make_sample(500, "100.00"), make_sample(600, "100.00")]
@@ -129,8 +129,8 @@ def test_avg_entry_after_partial_close_tracks_residual_inventory():
 
 
 def test_adverse_selection_cost_sign():
-    # BUY at 100.00, 30s later mid drops to 99.00 → markout = -1.00 (adverse)
-    # adverse_selection_cost = -markout × qty = +1.00 × 1.0 = 1.00 (a cost)
+    # BUY at 100.00, 30s later mid drops to 99.00 -> markout = -1.00 (adverse)
+    # adverse_selection_cost = -markout x qty = +1.00 x 1.0 = 1.00 (a cost)
     fill = make_fill("f1", OrderSide.BUY, "100.00", qty="1.0", timestamp_ms=1000)
     samples = [
         make_sample(1000, "100.00"),  # mid at fill time
@@ -157,7 +157,7 @@ def test_net_pnl_identity():
 
 
 def test_fill_before_any_sample_contributes_zero_spread():
-    # Fill at t=100, first sample at t=500 → no sample before fill → spread = 0
+    # Fill at t=100, first sample at t=500 -> no sample before fill -> spread = 0
     fill = make_fill("f1", OrderSide.BUY, "99.50", qty="1.0", timestamp_ms=100)
     samples = [make_sample(500, "100.00")]
     markouts = compute_markouts([fill], samples, {"30s": 30000})

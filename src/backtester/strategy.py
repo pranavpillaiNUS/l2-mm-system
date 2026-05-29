@@ -164,7 +164,7 @@ class MeanReversionStrategy(BaseStrategy): # Strategy no. 2
         
         # Generate signal (OPPOSITE of momentum!)
         if deviation < -self.threshold and position < 1:
-            # Price BELOW average → expect reversion UP → BUY
+            # Price BELOW average -> expect reversion UP -> BUY
             return TradeSignal(
                 timestamp=timestamp,
                 signal=Signal.BUY,
@@ -173,7 +173,7 @@ class MeanReversionStrategy(BaseStrategy): # Strategy no. 2
                 reason=f"below_ma_{deviation:.2%}",
             )
         elif deviation > self.threshold and position > 0:
-            # Price ABOVE average → expect reversion DOWN → SELL
+            # Price ABOVE average -> expect reversion DOWN -> SELL
             return TradeSignal(
                 timestamp=timestamp,
                 signal=Signal.SELL,
@@ -217,7 +217,7 @@ class SMACrossoverStrategy(BaseStrategy): # Strategy no. 3
         signal = TradeSignal(timestamp, Signal.HOLD, reason="no_crossover")
         
         if self.prev_fast is not None and self.prev_slow is not None:
-            # golden cross: fast crosses above slow → buy
+            # golden cross: fast crosses above slow -> buy
             if self.prev_fast <= self.prev_slow and fast_sma > slow_sma and position < 1:
                 signal = TradeSignal(
                     timestamp=timestamp,
@@ -226,7 +226,7 @@ class SMACrossoverStrategy(BaseStrategy): # Strategy no. 3
                     target_quantity=0.5,
                     reason=f"golden_cross_fast={fast_sma:.0f}_slow={slow_sma:.0f}",
                 )
-            # death cross: fast crosses below slow → sell
+            # death cross: fast crosses below slow -> sell
             elif self.prev_fast >= self.prev_slow and fast_sma < slow_sma and position > 0:
                 signal = TradeSignal(
                     timestamp=timestamp,
@@ -244,7 +244,7 @@ class SMACrossoverStrategy(BaseStrategy): # Strategy no. 3
 class BollingerBandStrategy(BaseStrategy): # Strategy no. 4
     """
     Buy when price drops below lower band, sell when it rises above upper band.
-    Bands = SMA ± (num_std x standard deviation), so they adapt to volatility.
+    Bands = SMA +/- (num_std x standard deviation), so they adapt to volatility.
     
     Parameters:
         period: bars for moving average + std dev (default 24)
@@ -252,7 +252,7 @@ class BollingerBandStrategy(BaseStrategy): # Strategy no. 4
     """
     
     def __init__(self, period: int = 24, num_std: float = 2.0):
-        super().__init__(name=f"Bollinger({period}, {num_std}σ)")
+        super().__init__(name=f"Bollinger({period}, {num_std} std)")
         self.period = period
         self.num_std = num_std
     

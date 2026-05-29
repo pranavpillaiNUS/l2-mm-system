@@ -27,10 +27,10 @@ def compare_strategies():
     engine = BacktestEngine(config)
     
     # Define strategies to test
-    # Testing 3 lookback × 3 threshold combos per strategy = 18 runs
+    # Testing 3 lookback x 3 threshold combos per strategy = 18 runs
     # This gives enough coverage to spot trends without a full grid search
     strategies = [
-        # Momentum: short, medium, long lookback × tight, medium, wide threshold
+        # Momentum: short, medium, long lookback x tight, medium, wide threshold
         MomentumStrategy(lookback=12, threshold=0.01),
         MomentumStrategy(lookback=12, threshold=0.02),
         MomentumStrategy(lookback=12, threshold=0.03),

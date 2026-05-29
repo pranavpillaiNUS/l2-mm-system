@@ -2,7 +2,7 @@
 Fill-rate and quote-quality analysis.
 
 Decomposes P&L into the factoring:
-  session_pnl ≈ (orders submitted) × P(fill) × E[pnl_per_fill | filled]
+  session_pnl approx (orders submitted) x P(fill) x E[pnl_per_fill | filled]
 
 The aggregate "we lost X dollars" answer hides which factor matters. This
 module reconstructs per-order context (distance from mid at submission, quote
@@ -115,7 +115,7 @@ def compute_order_contexts(
         if placed is None:
             continue
         # Only limit orders make sense for fill-rate analysis. Market orders
-        # don't really "rest" — they fill immediately or fail.
+        # don't really "rest" - they fill immediately or fail.
         if placed.detail.get("type") != "limit":
             continue
 
@@ -359,7 +359,7 @@ def _rolling_vol_bps(
     Std of mid (as fraction of mean, in bps) over [target - window, target].
 
     Returns None if fewer than 2 samples in the window or mean is zero.
-    Float arithmetic is fine here — vol is a diagnostic, not for accounting.
+    Float arithmetic is fine here - vol is a diagnostic, not for accounting.
     """
     if not sample_times:
         return None

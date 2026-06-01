@@ -93,11 +93,15 @@ Data types for the execution layer: `OrderRequest` (strategy intent - side, type
 **`src/execution/simulator.py`**
 The execution simulator. Takes `OrderRequest` objects from strategies, applies latency (`base + uniform(+/-jitter)` with seeded PRNG for determinism), and tracks each order through its full lifecycle.
 
-FIFO queue model: when a limit order arrives, `queue_ahead` is set to the book quantity at that price level. Trade events at the limit price drain `queue_ahead` from the front; once it reaches zero, the order starts filling. The baseline uses `queue_cancellation_mode="proportional"`: when book quantity at an active order's price decreases without a corresponding trade, the decrease is treated as cancellations and `queue_ahead` shrinks proportionally. A conservative `queue_cancellation_mode="none"` disables cancellation-driven queue credit and allows only trade-driven queue drain.
+FIFO queue model: when a limit order arrives, `queue_ahead` is set to the book quantity at that price level. Trade events at the limit price drain `queue_ahead` from the front; once it reaches zero, the order starts filling. V2 uses `queue_cancellation_credit` in `[0.0, 1.0]`. Credit `1.0` preserves proportional shrinkage when displayed quantity falls without a matching trade. Credit `0.0` allows only trade-driven queue drain. Intermediate values are Phase C stress cases.
 
 Market orders walk available book levels greedily; unfilled remainder is cancelled. Limit orders default to post-only behavior: if latency leaves a submitted limit crossing the spread at arrival, the simulator cancels it with `post_only_would_cross` rather than filling it as a taker. Fees are assigned per fill: maker rate for resting limit fills, taker rate for market orders and explicitly non-post-only aggressive limits.
 
 **`src/replay/engine.py`** - the main replay loop. Takes a list of depth and trade files, creates the event merger, drives the orderbook forward event by event, calls `simulator.on_book_update` and `simulator.on_trade`, dispatches to the strategy, and handles gap/resync (pauses strategy callbacks when a gap is detected, resumes after the next snapshot). Returns a `ReplayResult` with all fills and events.
+
+New research replays default to `trade_gap_policy="pause_until_snapshot"`. An aggTrade gap now cancels open orders, pauses unreliable events, and resumes only after the next valid depth snapshot. The legacy `ignore` policy remains available only for explicit before/after robustness audits.
+
+The published six-anchor before/after audit is `results/replay_correctness/trade_gap_anchor6_delta.json`. All six anchors are trade-gap-clean and every reported old/new delta is exactly zero, so V1 was not a trade-gap artifact.
 
 **`src/strategies/`**
 Base market-making strategy plumbing plus two quoting strategies. The base class
@@ -108,6 +112,7 @@ optional quote-throttling via `requote_interval_ms`.
 |---|---|---|
 | `SymmetricMM` | arithmetic mid | baseline - symmetric bid/ask around mid |
 | `MicropriceMM` | microprice | tests whether top-of-book imbalance improves fill quality |
+| `OFIGatedMM` | microprice plus recent normalized OFI | suppresses only the quote side adverse to the OFI-predicted move; runnable only after the Phase B OFI support gate |
 | `InventorySkewMM` | planned | shift quotes toward flat as inventory grows |
 | `VolAdaptiveMM` | planned | widen spreads in high-volatility periods |
 
@@ -152,7 +157,35 @@ Fee break-even and queue-sensitivity diagnostics are now generated. The full-str
 
 The same-millisecond depth/trade attribution audit is bounded and quantified. Across the six anchor windows, only 5 of 927 fills occurred at same-ms depth/trade overlaps (0.54%), with zero artifact-evidenced wrong-attribution cases. That is below the predefined escalation thresholds, so the depth-before-trade rule remains a documented design assumption.
 
-The current research task is not to add `InventorySkewMM`, `VolAdaptiveMM`, or OFI yet. The portfolio-facing writeup is `notebooks/research_writeup.md`; the current source-of-truth project brief is `notebooks/current_stage_brief.md`. Next research steps are more windows, queue-model validation, and OFI diagnostics before inventory/risk-control variants.
+V2 is now scaffolded as evidence expansion, not strategy proliferation:
+
+- `scripts/build_l2_integrity_manifest.py` freezes hourly file integrity before `2026-06-01T00:00` UTC with checksums, gzip/JSON validation, snapshot bridging, and depth/trade gap reasons.
+- `scripts/select_l2_windows.py` caches one-hour depth descriptors, selects manifest-clean non-overlapping development and holdout panels, and computes one correlated regime-comparability screen before strategy holdout evaluation.
+- `scripts/run_l2_panel.py` remeasures Phase A at queue-credit endpoints `{0.0, 1.0}` and caches queue-invariant same-ms and OFI data-level work once.
+- `scripts/sweep_queue_credit.py` and `scripts/summarize_queue_credit_sweep.py` report queue-credit and latency stress using quantity-weighted matched net PnL per BTC.
+- `notebooks/holdout_protocol.md` is the required pre-commit lock record before any one-shot candidate holdout run.
+
+The current research task is Phase A baseline remeasurement, then OFI diagnostics. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
+
+Frozen manifest SHA-256: `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`.
+The strict inventory contains `89` clean non-overlapping development windows and
+`43` clean non-overlapping late-May holdout windows, so the planned `24 + 12`
+panel is available without relaxing eligibility rules.
+
+Frozen panel SHA-256: `760c55b7c0929b4a99657f6ca02eb723d930b9f48ebd3786d57bcb1a0f481122`.
+The selected panel contains `24` development and `12` holdout windows. The
+pre-strategy holdout screen is `regime-shifted`: drift medians remain inside
+development bands, but late-May volatility and jump descriptors exceed the
+absolute standardized mean-difference limit of `0.5`. A later holdout failure
+must therefore be framed as ambiguous between overfitting and regime change.
+
+Deterministic suite checkpoints:
+
+- Pre-V2 fixture-fix checkpoint: `178 passed in 9.57s`.
+- Current local V2 scaffold: `215 passed in 9.49s`.
+- Remote CI run ID: pending authenticated verification. This private repository
+  returns `404` from the unauthenticated GitHub Actions API in the current
+  environment, so no green remote run is claimed here.
 
 ### What's left to build
 
@@ -179,6 +212,7 @@ src/strategies/
 |--- base_mm.py        # BaseMMStrategy ABC
 |--- symmetric_mm.py   # quote symmetrically around mid
 |--- microprice_mm.py  # quote around microprice
+|--- ofi_gated_mm.py   # suppress the OFI-adverse quote side after Phase B support
 |--- inventory_skew.py # shift quotes toward flat                                    [ ]
 `--- vol_adaptive.py   # widen in high vol, tighten in low vol                       [ ]
 
@@ -199,9 +233,17 @@ scripts/
 |--- analyze_microprice_signal.py     # unconditional microprice drift diagnostics
 |--- analyze_microprice_fill_toxicity.py # conditional-on-fill microprice diagnostics
 |--- analyze_mm_tail_diagnostics.py   # adverse tail and cluster diagnostics
-|--- analyze_fee_break_even.py        # maker-fee break-even by queue mode
-|--- analyze_queue_sensitivity.py     # proportional vs no cancellation queue credit
+|--- analyze_fee_break_even.py        # maker-fee break-even by queue credit
+|--- analyze_queue_sensitivity.py     # legacy V1 endpoint comparison artifact
 |--- audit_same_ms_attribution.py     # bounded same-ms depth/trade tie diagnostic
+|--- audit_trade_gap_replay_delta.py  # old/new trade-gap replay robustness check
+|--- build_l2_integrity_manifest.py   # frozen hourly integrity inventory
+|--- select_l2_windows.py             # cached development and holdout panel selection
+|--- run_l2_panel.py                  # resumable V2 endpoint panel runner
+|--- sweep_queue_credit.py            # queue-credit and latency stress replays
+|--- summarize_queue_credit_sweep.py  # V2 queue-credit stress summary
+|--- run_ofigated_panel.py             # OFI-supported candidate replay only
+|--- build_strategy_gate_metrics.py    # per-window baseline/candidate gate adapter
 |--- sweep_mm_params.py               # broader MM parameter sweep                     [ ]
 |--- walk_forward_mm.py               # L2 walk-forward validation                     [ ]
 `--- benchmark.py                     # performance benchmark                          [ ]

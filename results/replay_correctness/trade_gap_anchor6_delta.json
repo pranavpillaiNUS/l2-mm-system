@@ -1,0 +1,218 @@
+{
+  "protocol": {
+    "old_policy": "ignore",
+    "new_policy": "pause_until_snapshot",
+    "metric_delta": "new_minus_old",
+    "starts": [
+      "2026-04-13T12",
+      "2026-04-14T12",
+      "2026-04-15T12",
+      "2026-04-16T12",
+      "2026-04-16T17",
+      "2026-04-17T12"
+    ],
+    "hours": 5,
+    "queue_cancellation_credit": "1.0"
+  },
+  "windows": [
+    {
+      "start": "2026-04-13T12",
+      "hours": 5,
+      "ignore": {
+        "fills": 156,
+        "matched_net_pnl": "-3.472174035360566871402258478",
+        "residual_inventory_pnl": "-7.726571363216730049387096657",
+        "net_pnl": "-11.37220505848764408798520268",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 156,
+        "matched_net_pnl": "-3.472174035360566871402258478",
+        "residual_inventory_pnl": "-7.726571363216730049387096657",
+        "net_pnl": "-11.37220505848764408798520268",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.00000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    },
+    {
+      "start": "2026-04-14T12",
+      "hours": 5,
+      "ignore": {
+        "fills": 160,
+        "matched_net_pnl": "-1.832986176838103249294802768",
+        "residual_inventory_pnl": "1.406262593481994247479385020",
+        "net_pnl": "-0.736617841596425501458861211",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 160,
+        "matched_net_pnl": "-1.832986176838103249294802768",
+        "residual_inventory_pnl": "1.406262593481994247479385020",
+        "net_pnl": "-0.736617841596425501458861211",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.000000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    },
+    {
+      "start": "2026-04-15T12",
+      "hours": 5,
+      "ignore": {
+        "fills": 156,
+        "matched_net_pnl": "0.7630404000411121466553357911",
+        "residual_inventory_pnl": "0.420992552994834916180809790",
+        "net_pnl": "0.9214505283333979901052004052",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 156,
+        "matched_net_pnl": "0.7630404000411121466553357911",
+        "residual_inventory_pnl": "0.420992552994834916180809790",
+        "net_pnl": "0.9214505283333979901052004052",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.0000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.0000000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    },
+    {
+      "start": "2026-04-16T12",
+      "hours": 5,
+      "ignore": {
+        "fills": 156,
+        "matched_net_pnl": "0.9125815891260463586205431527",
+        "residual_inventory_pnl": "1.225814746137632266934378437",
+        "net_pnl": "1.973867155882097032543890581",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 156,
+        "matched_net_pnl": "0.9125815891260463586205431527",
+        "residual_inventory_pnl": "1.225814746137632266934378437",
+        "net_pnl": "1.973867155882097032543890581",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.0000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.000000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    },
+    {
+      "start": "2026-04-16T17",
+      "hours": 5,
+      "ignore": {
+        "fills": 149,
+        "matched_net_pnl": "0.8537138544463947468004978762",
+        "residual_inventory_pnl": "1.157011960228253705778635466",
+        "net_pnl": "1.799668964080382563429156309",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 149,
+        "matched_net_pnl": "0.8537138544463947468004978762",
+        "residual_inventory_pnl": "1.157011960228253705778635466",
+        "net_pnl": "1.799668964080382563429156309",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.0000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.000000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    },
+    {
+      "start": "2026-04-17T12",
+      "hours": 5,
+      "ignore": {
+        "fills": 150,
+        "matched_net_pnl": "0.6164418689178726967030715240",
+        "residual_inventory_pnl": "-7.577583757230129776781608135",
+        "net_pnl": "-7.219022619795179517488824403",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "pause_until_snapshot": {
+        "fills": 150,
+        "matched_net_pnl": "0.6164418689178726967030715240",
+        "residual_inventory_pnl": "-7.577583757230129776781608135",
+        "net_pnl": "-7.219022619795179517488824403",
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0
+      },
+      "delta_new_minus_old": {
+        "fills": "0",
+        "matched_net_pnl": "0.0000000000000000000000000000",
+        "residual_inventory_pnl": "0.000000000000000000000000000",
+        "net_pnl": "0.000000000000000000000000000",
+        "gaps_detected": "0",
+        "depth_gaps_detected": "0",
+        "trade_gaps_detected": "0"
+      },
+      "exact_zero_delta": true
+    }
+  ],
+  "aggregate": {
+    "windows": 6,
+    "exact_zero_delta": true,
+    "anchors_trade_gap_clean": true,
+    "v1_was_not_a_trade_gap_artifact": true
+  },
+  "finding": "V1 was not a trade-gap artifact: all six anchors are trade-gap-clean and replay identically under ignore and pause_until_snapshot."
+}

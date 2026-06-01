@@ -18,6 +18,7 @@ from src.analysis.ofi_signal import (
     OFIFillToxicityBucket,
     OFIFillToxicityRow,
     OFIRegression,
+    OFISignalSample,
     bucket_forward_drift_by_ofi,
     bucket_ofi_fill_toxicity,
     compute_ofi_fill_toxicity,
@@ -101,16 +102,31 @@ def _run_depth_window(args, window: SessionWindow, ofi_interval_ms: int) -> dict
         max_staleness_ms=args.max_staleness_ms,
         max_future_lag_ms=args.max_future_lag_ms,
     )
+    return _signal_window(
+        window.label,
+        len(result.book_samples),
+        rows,
+        sample_interval_ms=args.sample_interval_ms,
+    )
+
+
+def _signal_window(
+    label: str,
+    book_samples: int,
+    rows: list[OFISignalSample],
+    *,
+    sample_interval_ms: int,
+) -> dict:
     regressions = [
         *regress_ofi_signal(rows, signal="normalized_ofi",
-                            sample_interval_ms=args.sample_interval_ms),
+                            sample_interval_ms=sample_interval_ms),
         *regress_ofi_signal(rows, signal="raw_ofi",
-                            sample_interval_ms=args.sample_interval_ms),
+                            sample_interval_ms=sample_interval_ms),
     ]
     buckets = bucket_forward_drift_by_ofi(rows, signal="normalized_ofi")
     return {
-        "label": window.label,
-        "book_samples": len(result.book_samples),
+        "label": label,
+        "book_samples": book_samples,
         "signal_samples": rows,
         "regressions": regressions,
         "buckets": buckets,
@@ -152,11 +168,80 @@ def _run_fill_session(args, block_label: str, window: SessionWindow,
     return out
 
 
-def _run_analysis(args, *, ofi_interval_ms: int) -> dict:
+def _load_or_build_signal_windows(args, *, ofi_interval_ms: int) -> list[dict]:
+    if args.unconditional_cache is None:
+        return _scan_signal_windows(args, ofi_interval_ms=ofi_interval_ms)
+
+    payload = {"analyses": {}}
+    if args.unconditional_cache.exists():
+        with args.unconditional_cache.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+    key = str(ofi_interval_ms)
+    expected_params = {
+        "symbol": args.symbol.lower(),
+        "starts": args.starts,
+        "hours": args.hours,
+        "sample_interval_ms": args.sample_interval_ms,
+        "ofi_interval_ms": ofi_interval_ms,
+        "max_staleness_ms": args.max_staleness_ms,
+        "max_future_lag_ms": args.max_future_lag_ms,
+        "data_root": str(args.data_root),
+    }
+    cached = payload["analyses"].get(key)
+    if cached is not None:
+        if cached["params"] != expected_params:
+            raise ValueError("OFI unconditional cache does not match requested analysis")
+        return [
+            _signal_window(
+                row["label"],
+                int(row["book_samples"]),
+                [_signal_sample_from_dict(sample) for sample in row["signal_samples"]],
+                sample_interval_ms=args.sample_interval_ms,
+            )
+            for row in cached["windows"]
+        ]
+
+    windows = _scan_signal_windows(args, ofi_interval_ms=ofi_interval_ms)
+    payload["analyses"][key] = {
+        "params": expected_params,
+        "windows": [
+            {
+                "label": row["label"],
+                "book_samples": row["book_samples"],
+                "signal_samples": row["signal_samples"],
+            }
+            for row in windows
+        ],
+    }
+    args.unconditional_cache.parent.mkdir(parents=True, exist_ok=True)
+    with args.unconditional_cache.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, default=_jsonable)
+    return windows
+
+
+def _scan_signal_windows(args, *, ofi_interval_ms: int) -> list[dict]:
     windows = []
     for idx, window in enumerate(_block_windows(args), start=1):
         print(f"[OFI {ofi_interval_ms}ms signal {idx}/{len(args.starts)}] {window.label}")
         windows.append(_run_depth_window(args, window, ofi_interval_ms))
+    return windows
+
+
+def _signal_sample_from_dict(row: dict) -> OFISignalSample:
+    values = dict(row)
+    for field in (
+        "mid",
+        "future_mid",
+        "raw_ofi",
+        "normalized_ofi",
+        "forward_drift_bps",
+    ):
+        values[field] = Decimal(values[field])
+    return OFISignalSample(**values)
+
+
+def _run_analysis(args, *, ofi_interval_ms: int) -> dict:
+    windows = _load_or_build_signal_windows(args, ofi_interval_ms=ofi_interval_ms)
 
     pooled_samples = [row for window in windows for row in window["signal_samples"]]
     pooled_regressions = [
@@ -308,6 +393,7 @@ def parse_args():
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/ofi_signal"))
+    parser.add_argument("--unconditional-cache", type=Path)
     return parser.parse_args()
 
 
@@ -362,7 +448,8 @@ def main():
             "fill_horizons_ms": DEFAULT_OFI_FILL_HORIZONS_MS,
             "five_second_fallback_rule": (
                 "run if at least one gate passes and every failed numeric gate "
-                "misses by less than 25%"
+                "misses by less than 25%; exclude conditional inconclusive_power "
+                "from numerical miss calculations"
             ),
         },
         "counts": {
@@ -388,7 +475,8 @@ def main():
 
     print("OFI diagnostics")
     print(f"  Output: {run_dir}")
-    print(f"  Gates pass: {analysis['gates'].all_pass}")
+    print(f"  Verdict: {analysis['gates'].overall_verdict}")
+    print(f"  Conditional status: {analysis['gates'].conditional_status}")
     print(f"  5s fallback run: {fallback is not None}")
 
 

@@ -13,6 +13,7 @@ from src.replay.engine import CancelRequest
 from src.replay.orderbook import Orderbook
 from src.replay.trade_parser import TradeEvent
 from src.strategies.microprice_mm import MicropriceMM
+from src.strategies.ofi_gated_mm import OFIGatedMM
 from src.strategies.symmetric_mm import SymmetricMM
 
 
@@ -346,6 +347,32 @@ def test_microprice_quotes_around_microprice():
     assert buy.price == Decimal("100.40")
     assert sell.price == Decimal("101.40")
     print("PASS: microprice MM quotes around book microprice")
+
+
+def test_ofi_gated_mm_suppresses_only_the_adverse_quote_side():
+    strat = OFIGatedMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("1.0"),
+        ofi_threshold=Decimal("0.25"),
+    )
+    book = make_book(
+        bids=[("100.00", "5.0")],
+        asks=[("101.00", "5.0")],
+    )
+
+    assert all(price is not None for price in strat.compute_quotes(book, 0))
+    book.apply_diff(bids=[("100.00", "10.0")], asks=[], last_update_id=1001)
+    bid, ask = strat.compute_quotes(book, 500)
+    assert strat.normalized_ofi > Decimal("0.25")
+    assert bid is not None
+    assert ask is None
+
+    book.apply_diff(bids=[("100.00", "1.0")], asks=[], last_update_id=1002)
+    bid, ask = strat.compute_quotes(book, 2_000)
+    assert strat.normalized_ofi < Decimal("-0.25")
+    assert bid is None
+    assert ask is not None
 
 
 # --- edge cases ---

@@ -63,13 +63,7 @@ def _pct(numerator: int, denominator: int) -> Decimal:
     return Decimal(numerator) / Decimal(denominator) * Decimal("100")
 
 
-def _audit_window(args, start_value: str) -> tuple[dict, list[dict]]:
-    window = _window_from_start(start_value, args.hours)
-    depth_files, trade_files = _select_files(args.data_root, args.symbol, window)
-    run_dir = args.reconciliation_root / _run_dir_name(args, start_value)
-    if not run_dir.exists():
-        raise FileNotFoundError(f"Missing reconciliation artifact: {run_dir}")
-
+def _build_data_overlap(depth_files, trade_files) -> dict:
     depth_counts_by_ts: dict[int, int] = defaultdict(int)
     depth_events = 0
     for event in DepthParser(depth_files).events():
@@ -90,6 +84,40 @@ def _audit_window(args, start_value: str) -> tuple[dict, list[dict]]:
         ] += trade.quantity
 
     overlap_timestamps = set(depth_counts_by_ts) & set(trade_counts_by_ts)
+    return {
+        "depth_diff_events": depth_events,
+        "trade_events": trade_events,
+        "same_ms_overlap_timestamps": len(overlap_timestamps),
+        "same_ms_depth_events": sum(depth_counts_by_ts[ts] for ts in overlap_timestamps),
+        "same_ms_trade_events": sum(trade_counts_by_ts[ts] for ts in overlap_timestamps),
+        "overlap_timestamps": sorted(overlap_timestamps),
+        "same_side_trade_qty": [
+            {
+                "timestamp_ms": timestamp_ms,
+                "side": side,
+                "price": price,
+                "quantity": quantity,
+            }
+            for (timestamp_ms, side, price), quantity in same_side_trade_qty.items()
+            if timestamp_ms in overlap_timestamps
+        ],
+    }
+
+
+def _audit_window(args, start_value: str, data_overlap: dict | None = None) -> tuple[dict, list[dict]]:
+    window = _window_from_start(start_value, args.hours)
+    if data_overlap is None:
+        depth_files, trade_files = _select_files(args.data_root, args.symbol, window)
+        data_overlap = _build_data_overlap(depth_files, trade_files)
+    run_dir = args.reconciliation_root / _run_dir_name(args, start_value)
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Missing reconciliation artifact: {run_dir}")
+
+    overlap_timestamps = set(data_overlap["overlap_timestamps"])
+    same_side_trade_qty = {
+        (int(row["timestamp_ms"]), row["side"], _d(row["price"])): _d(row["quantity"])
+        for row in data_overlap["same_side_trade_qty"]
+    }
     fills = _load_unique_fills(run_dir)
     queue_by_order = _load_queue_by_order(run_dir)
 
@@ -142,11 +170,11 @@ def _audit_window(args, start_value: str) -> tuple[dict, list[dict]]:
         "window": window.label,
         "hours": args.hours,
         "run_dir": run_dir.name,
-        "depth_diff_events": depth_events,
-        "trade_events": trade_events,
-        "same_ms_overlap_timestamps": len(overlap_timestamps),
-        "same_ms_depth_events": sum(depth_counts_by_ts[ts] for ts in overlap_timestamps),
-        "same_ms_trade_events": sum(trade_counts_by_ts[ts] for ts in overlap_timestamps),
+        "depth_diff_events": data_overlap["depth_diff_events"],
+        "trade_events": data_overlap["trade_events"],
+        "same_ms_overlap_timestamps": data_overlap["same_ms_overlap_timestamps"],
+        "same_ms_depth_events": data_overlap["same_ms_depth_events"],
+        "same_ms_trade_events": data_overlap["same_ms_trade_events"],
         "total_fills": total_fills,
         "same_ms_overlap_fills": len(overlap_fills),
         "same_ms_overlap_fill_share_pct": overlap_fill_share_pct,
@@ -156,6 +184,32 @@ def _audit_window(args, start_value: str) -> tuple[dict, list[dict]]:
         "escalates": escalates,
     }
     return summary, risk_candidate_rows
+
+
+def _load_or_build_data_cache(args) -> dict[str, dict] | None:
+    if args.data_overlap_cache is None:
+        return None
+    if args.data_overlap_cache.exists():
+        with args.data_overlap_cache.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if payload["starts"] != args.starts or int(payload["hours"]) != args.hours:
+            raise ValueError("same-ms data-overlap cache does not match requested windows")
+        return payload["windows"]
+
+    rows = {}
+    for idx, start_value in enumerate(args.starts, start=1):
+        print(f"[data overlap {idx}/{len(args.starts)}] {start_value}", flush=True)
+        window = _window_from_start(start_value, args.hours)
+        depth_files, trade_files = _select_files(args.data_root, args.symbol, window)
+        rows[start_value] = _build_data_overlap(depth_files, trade_files)
+    args.data_overlap_cache.parent.mkdir(parents=True, exist_ok=True)
+    with args.data_overlap_cache.open("w", encoding="utf-8") as f:
+        json.dump({
+            "starts": args.starts,
+            "hours": args.hours,
+            "windows": rows,
+        }, f, indent=2, default=_jsonable)
+    return rows
 
 
 def _load_unique_fills(run_dir: Path) -> dict[str, dict]:
@@ -343,6 +397,7 @@ def parse_args():
                         default=Path("results/markout_reconciliation"))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
+    parser.add_argument("--data-overlap-cache", type=Path)
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
@@ -359,10 +414,15 @@ def main():
     args = parse_args()
     window_rows: list[dict] = []
     candidate_rows: list[dict] = []
+    data_by_start = _load_or_build_data_cache(args)
 
     for idx, start_value in enumerate(args.starts, start=1):
         print(f"[{idx}/{len(args.starts)}] {start_value}", flush=True)
-        window_summary, candidates = _audit_window(args, start_value)
+        window_summary, candidates = _audit_window(
+            args,
+            start_value,
+            None if data_by_start is None else data_by_start[start_value],
+        )
         window_rows.append(window_summary)
         candidate_rows.extend(candidates)
 
@@ -398,6 +458,9 @@ def main():
                 "the depth-before-trade assumption; candidate rows are not "
                 "classified wrong because queue-drain timestamps are not "
                 "persisted in reconciliation artifacts"
+            ),
+            "data_overlap_cache": (
+                str(args.data_overlap_cache) if args.data_overlap_cache else None
             ),
         },
         "aggregate": aggregate,

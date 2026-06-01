@@ -56,6 +56,7 @@ class AnalyzedSession:
     taker_fills: int
     postonly_rejects: int
     orders_submitted: int
+    replay_stats: object
     decomp: object
     hold: object
     recon: object
@@ -198,6 +199,7 @@ def _run_replay(args, window: SessionWindow):
             queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
+        trade_gap_policy=args.trade_gap_policy,
     )
     engine = ReplayEngine(config)
     result = engine.run(strategy)
@@ -390,6 +392,16 @@ def _aggregate_summary(args, sessions: Sequence[AnalyzedSession]) -> dict:
         ),
         "postonly_rejects": sum(session.postonly_rejects for session in sessions),
         "orders_submitted": total_orders,
+        "gaps_detected": sum(session.replay_stats.gaps_detected for session in sessions),
+        "depth_gaps_detected": sum(
+            session.replay_stats.depth_gaps_detected for session in sessions
+        ),
+        "trade_gaps_detected": sum(
+            session.replay_stats.trade_gaps_detected for session in sessions
+        ),
+        "events_during_gap": sum(
+            session.replay_stats.events_during_gap for session in sessions
+        ),
         "orders_per_fill": (
             Decimal(total_orders) / Decimal(total_fills)
             if total_fills else None
@@ -509,7 +521,7 @@ def parse_args():
         description="Analyze markout horizons against realized inventory turnover"
     )
     parser.add_argument("--symbol", default="btcusdt")
-    parser.add_argument("--strategy", choices=["symmetric", "microprice"],
+    parser.add_argument("--strategy", choices=["symmetric", "microprice", "ofi_gated"],
                         default="microprice")
     parser.add_argument("--start", default="2026-04-16T12")
     parser.add_argument("--end", default="2026-04-16T17")
@@ -520,6 +532,8 @@ def parse_args():
     parser.add_argument("--max-position", default="0.01")
     parser.add_argument("--tick-size", default="0.01")
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
+    parser.add_argument("--ofi-interval-ms", type=int, default=1000)
+    parser.add_argument("--ofi-threshold", default="0.25")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
@@ -529,6 +543,9 @@ def parse_args():
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
                         help=argparse.SUPPRESS)
+    parser.add_argument("--trade-gap-policy",
+                        choices=["ignore", "pause_until_snapshot"],
+                        default="pause_until_snapshot")
     parser.add_argument("--vol-window-ms", type=int, default=60_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
@@ -579,6 +596,7 @@ def main():
             taker_fills=sum(1 for fill in result.fills if not fill.is_maker),
             postonly_rejects=engine.sim.postonly_rejects,
             orders_submitted=result.stats.orders_submitted,
+            replay_stats=result.stats,
             decomp=decomp,
             hold=hold,
             recon=recon,
@@ -634,6 +652,7 @@ def main():
             ),
             "postonly_rejects": session.postonly_rejects,
             "orders_submitted": session.orders_submitted,
+            "replay_stats": session.replay_stats,
             "orders_per_fill": (
                 Decimal(session.orders_submitted) / Decimal(session.fills)
                 if session.fills else None
@@ -678,11 +697,14 @@ def main():
             "order_qty": args.order_qty,
             "max_position": args.max_position,
             "requote_interval_ms": args.requote_interval_ms,
+            "ofi_interval_ms": args.ofi_interval_ms,
+            "ofi_threshold": args.ofi_threshold,
             "latency_ms": args.latency_ms,
             "jitter_ms": args.jitter_ms,
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
             "queue_cancellation_credit": args.queue_cancellation_credit,
+            "trade_gap_policy": args.trade_gap_policy,
         },
         "aggregate": aggregate,
         "sessions": session_summaries,

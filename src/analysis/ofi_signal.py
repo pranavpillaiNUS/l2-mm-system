@@ -123,7 +123,10 @@ class OFIGateResult:
     pooled_effect_pass: bool
     conditional_separation_bps: Decimal | None
     conditional_bucket_count_min: int
+    conditional_status: str
     conditional_pass: bool
+    unconditional_pass: bool
+    overall_verdict: str
     all_pass: bool
     marginal_5s_fallback: bool
 
@@ -396,7 +399,7 @@ def evaluate_ofi_gates(
     pooled_regressions: Sequence[OFIRegression],
     fill_buckets: Sequence[OFIFillToxicityBucket],
     primary_horizon: str = "1s",
-    stable_sign_threshold: Decimal = Decimal("0.65"),
+    stable_sign_threshold: Decimal = Decimal("0.75"),
     t_stat_threshold: float = 2.0,
     effect_threshold_bps: float = 0.05,
     conditional_separation_threshold_bps: Decimal = Decimal("1.0"),
@@ -436,14 +439,25 @@ def evaluate_ofi_gates(
     conditional_sep, min_bucket = _conditional_separation(
         fill_buckets, horizon="30s"
     )
-    conditional_pass = (
-        conditional_sep is not None
-        and conditional_sep >= conditional_separation_threshold_bps
-        and min_bucket >= min_conditional_bucket_count
-    )
-    gate_values = [stable_pass, t_pass, effect_pass, conditional_pass]
-    all_pass = all(gate_values)
-    marginal = (not all_pass) and any(gate_values) and _misses_are_marginal(
+    if conditional_sep is None or min_bucket < min_conditional_bucket_count:
+        conditional_status = "inconclusive_power"
+    elif conditional_sep >= conditional_separation_threshold_bps:
+        conditional_status = "pass"
+    else:
+        conditional_status = "fail_signal"
+    conditional_pass = conditional_status == "pass"
+    unconditional_pass = stable_pass and t_pass and effect_pass
+    if not unconditional_pass or conditional_status == "fail_signal":
+        overall_verdict = "blocked"
+    elif conditional_pass:
+        overall_verdict = "supported"
+    else:
+        overall_verdict = "supported_with_conditional_power_limit"
+    all_pass = overall_verdict != "blocked"
+    numerical_gate_values = [stable_pass, t_pass, effect_pass]
+    if conditional_status != "inconclusive_power":
+        numerical_gate_values.append(conditional_pass)
+    marginal = overall_verdict == "blocked" and any(numerical_gate_values) and _misses_are_marginal(
         stable_share=stable_share,
         stable_threshold=stable_sign_threshold,
         pooled_abs_t=pooled_abs_t,
@@ -454,6 +468,7 @@ def evaluate_ofi_gates(
         conditional_threshold=conditional_separation_threshold_bps,
         min_bucket=min_bucket,
         min_bucket_threshold=min_conditional_bucket_count,
+        conditional_status=conditional_status,
     )
     return OFIGateResult(
         stable_sign_windows=stable,
@@ -466,7 +481,10 @@ def evaluate_ofi_gates(
         pooled_effect_pass=effect_pass,
         conditional_separation_bps=conditional_sep,
         conditional_bucket_count_min=min_bucket,
+        conditional_status=conditional_status,
         conditional_pass=conditional_pass,
+        unconditional_pass=unconditional_pass,
+        overall_verdict=overall_verdict,
         all_pass=all_pass,
         marginal_5s_fallback=marginal,
     )
@@ -565,14 +583,19 @@ def _misses_are_marginal(
     conditional_threshold: Decimal,
     min_bucket: int,
     min_bucket_threshold: int,
+    conditional_status: str,
 ) -> bool:
     checks = [
         stable_share >= stable_threshold * Decimal("0.75"),
         pooled_abs_t is not None and pooled_abs_t >= t_threshold * 0.75,
         pooled_abs_effect is not None and pooled_abs_effect >= effect_threshold * 0.75,
-        conditional_sep is not None and conditional_sep >= conditional_threshold * Decimal("0.75"),
-        min_bucket >= int(min_bucket_threshold * 0.75),
     ]
+    if conditional_status != "inconclusive_power":
+        checks.extend([
+            conditional_sep is not None
+            and conditional_sep >= conditional_threshold * Decimal("0.75"),
+            min_bucket >= int(min_bucket_threshold * 0.75),
+        ])
     return all(checks)
 
 

@@ -48,3 +48,11 @@ The one-shot holdout passes only if, at both queue-credit endpoints:
 
 Emit `mixed` if economics improve but any guardrail or locked-bound check fails.
 Emit `fail` if either endpoint has non-positive per-BTC improvement.
+
+## Interpretation
+
+The holdout is `regime-shifted`: late-May volatility is lower than development.
+Report this regime label alongside the holdout verdict. A `pass` is encouraging
+but may reflect easier conditions. A `fail` or `mixed` result is consistent with
+an untested mechanism rather than a broken one. Do not over-update in either
+direction.

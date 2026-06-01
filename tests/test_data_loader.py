@@ -1,60 +1,54 @@
 from pathlib import Path
+
+import pytest
+
 from src.backtester.data_loader import DataLoader
 
 
-def test_load_data():
+def test_load_data(bar_data_dir: Path):
     """Test loading BTCUSDT data."""
-    print("TEST: Load Data")
-    
-    loader = DataLoader(Path("data/bars"))
-    
-    # List available
-    print(f"\nAvailable: {loader.list_available()}")
-    
-    # Load BTCUSDT
+    loader = DataLoader(bar_data_dir)
+
+    assert loader.list_available() == ["BTCUSDT_fixture"]
+
     df = loader.load("BTCUSDT")
-    print(f"\nLoaded BTCUSDT:")
-    print(f"  Bars: {len(df):,}")
-    print(f"  Date range: {df.index[0]} to {df.index[-1]}")
-    print(f"  Price range: ${df['low'].min():,.0f} - ${df['high'].max():,.0f}")
-    
-    print("\nTest passed")
+
+    assert len(df) == 120
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+    assert df.index.is_monotonic_increasing
 
 
-def test_date_filter():
+def test_date_filter(bar_data_dir: Path):
     """Test date filtering."""
-    print("\nTEST: Date Filtering")
-    
-    loader = DataLoader(Path("data/bars"))
-    
+    loader = DataLoader(bar_data_dir)
+
     full = loader.load("BTCUSDT")
-    q1 = loader.load("BTCUSDT", start="2024-01-01", end="2024-03-31")
-    
-    print(f"\nFull dataset: {len(full):,} bars")
-    print(f"Q1 only: {len(q1):,} bars")
-    
-    print("\nTest passed")
+    one_day = loader.load(
+        "BTCUSDT",
+        start="2024-01-02T00:00:00",
+        end="2024-01-02T23:00:00",
+    )
+
+    assert len(full) == 120
+    assert len(one_day) == 24
 
 
-def test_bar_iteration():
+def test_bar_iteration(bar_data_dir: Path):
     """Test bar-by-bar iteration."""
-    print("\nTEST: Bar Iteration")
-    
-    loader = DataLoader(Path("data/bars"))
-    
-    print("\nFirst 5 bars:")
-    for i, bar in enumerate(loader.iter_bars("BTCUSDT")):
-        if i >= 5:
-            break
-        direction = "up" if bar.is_bullish else "down"
-        print(f"  {bar.timestamp}: ${bar.close:,.0f} {direction}")
-    
-    print("\nTest passed")
+    loader = DataLoader(bar_data_dir)
+
+    bars = list(loader.iter_bars("BTCUSDT"))
+
+    assert len(bars) == 120
+    assert bars[0].close == 39_940
+    assert bars[0].is_bullish
+    assert bars[0].bar_range == 220
+
+
+def test_missing_data_directory_is_rejected(tmp_path: Path):
+    with pytest.raises(FileNotFoundError, match="Data directory not found"):
+        DataLoader(tmp_path / "missing")
 
 
 if __name__ == "__main__":
-    test_load_data()
-    test_date_filter()
-    test_bar_iteration()
-    
-    print("\nALL TESTS PASSED")
+    raise SystemExit("Run this file with pytest so its synthetic fixture is available.")

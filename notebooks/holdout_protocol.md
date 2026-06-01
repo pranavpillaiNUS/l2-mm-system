@@ -7,16 +7,18 @@ this file is filled, committed, and changed to `LOCKED`.**
 
 - Lock timestamp (UTC): `TBD`
 - Lock commit hash: `TBD`
-- Integrity manifest SHA-256: `TBD`
-- Development panel SHA-256: `TBD`
-- Regime-comparability label: `TBD`
+- Integrity manifest SHA-256: `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`
+- Frozen selected-panel SHA-256: `760c55b7c0929b4a99657f6ca02eb723d930b9f48ebd3786d57bcb1a0f481122`
+- Regime-comparability label: `regime-shifted`
 
 ## Candidate Strategy
 
 - Strategy: `OFIGatedMM`
 - OFI interval: `TBD`
 - OFI threshold: `TBD`
-- Quote behavior when gated: `TBD`
+- Quote behavior when gated: threshold-crossing positive normalized OFI
+  suppresses the ask; threshold-crossing negative normalized OFI suppresses
+  the bid; otherwise quote both eligible sides.
 - Queue-credit endpoints: `{0.0, 1.0}`
 - Retuning after lock: prohibited
 

@@ -1,12 +1,13 @@
 # BTCUSDT L2 Market-Making Research Note V2
 
-This V2 writeup supersedes the V1 six-window result in `notebooks/research_writeup.md` once the 24-window panel artifacts are generated. V1 is retained verbatim as a frozen reference showing the original corrected six-window conclusion and the reasoning that led to the expanded panel.
+This V2 writeup supersedes the V1 six-window result in `notebooks/research_writeup.md` once the 24-window Phase A result artifacts are generated. V1 is retained as a frozen reference showing the original corrected six-window conclusion and the reasoning that led to the expanded panel.
 
 ## Executive Summary
 
-Status: V2 protocol implemented, pending frozen manifest and Phase A panel generation.
+Status: V2 protocol implemented. The integrity manifest and selected panels are
+frozen. Phase A baseline remeasurement is pending.
 
-The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to up to 24 deterministic 5-hour BTCUSDT development windows. Final panel sizes are manifest-derived. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
+The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to 24 deterministic 5-hour BTCUSDT development windows. The selected size was derived from strict manifest-clean capacity. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
 
 ## Replay Correctness Protocol
 
@@ -38,8 +39,10 @@ Before candidate holdout evaluation, compare drift, realized volatility, jump co
 The pre-strategy screen labels the holdout `regime-shifted`. Drift medians are
 inside the development percentile bands, but late-May volatility and jump
 descriptors have absolute standardized mean differences above `0.5` (roughly
-`0.75` to `0.92`). A later candidate holdout failure is therefore ambiguous
-between overfitting and regime change.
+`0.75` to `0.92`). Report this regime label alongside any later holdout verdict.
+A `pass` is encouraging but may reflect easier conditions. A `fail` or `mixed`
+result is consistent with an untested mechanism rather than a broken one. Do
+not over-update in either direction.
 
 ## V1 To V2 Headline Comparison
 
@@ -80,4 +83,4 @@ The regime table is descriptive and for writeup context only. Do not select stra
 
 Queue stress reports credits `{0.0, 0.25, 0.5, 0.75, 1.0}` at `10ms` and endpoint latencies `{0, 10, 50}ms`. Candidate advancement uses paired five-hour quantity-weighted matched net PnL per BTC, not total matched PnL.
 
-The holdout remains sealed until `notebooks/holdout_protocol.md` is filled and committed with the lock timestamp, commit hash, manifest hash, candidate definition, development CI bounds, regime label, and no-retuning rule.
+The holdout remains sealed until `notebooks/holdout_protocol.md` is filled and committed with the lock timestamp, commit hash, candidate definition, development CI bounds, and no-retuning rule. The template already records the frozen manifest hash, selected-panel hash, `regime-shifted` label, and the pre-committed interpretation constraint.

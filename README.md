@@ -178,11 +178,17 @@ pre-strategy holdout screen is `regime-shifted`: drift medians remain inside
 development bands, but late-May volatility and jump descriptors exceed the
 absolute standardized mean-difference limit of `0.5`. A later holdout failure
 must therefore be framed as ambiguous between overfitting and regime change.
+Report the `regime-shifted` label alongside any holdout verdict. A `pass` is
+encouraging but may reflect easier conditions. A `fail` or `mixed` result is
+consistent with an untested mechanism rather than a broken one. Do not
+over-update in either direction.
 
 Deterministic suite checkpoints:
 
 - Pre-V2 fixture-fix checkpoint: `178 passed in 9.57s`.
-- Current local V2 scaffold: `215 passed in 9.49s`.
+- Initial local V2 scaffold: `215 passed in 9.49s`.
+- Current deterministic suite after synthetic bar-fixture hardening:
+  `216 passed in 5.14s`.
 - Remote CI run ID: pending authenticated verification. This private repository
   returns `404` from the unauthenticated GitHub Actions API in the current
   environment, so no green remote run is claimed here.

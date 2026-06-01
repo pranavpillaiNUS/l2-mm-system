@@ -398,6 +398,99 @@ def test_trades_skipped_during_gap():
         print("PASS: trades during gap are counted but not dispatched")
 
 
+def test_trade_gap_policy_rejects_unknown_value():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [])
+
+        try:
+            ReplayConfig(
+                depth_files=[depth_file],
+                trade_files=[],
+                sim_config=_sim_config(),
+                trade_gap_policy="unknown",
+            )
+        except ValueError as exc:
+            assert "trade_gap_policy" in str(exc)
+        else:
+            raise AssertionError("unknown trade-gap policy should fail")
+
+
+def test_trade_gap_policy_ignore_preserves_legacy_fill_behavior():
+    """Legacy mode records a trade gap but still dispatches the flagged trade."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000, U=101, u=101,
+                  bids=[], asks=[]),
+        ])
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:02+00:00", T=_BASE_MS + 2000,
+                   agg_id=1, price="99.00", qty="0.1", m=True),
+            _trade("2026-04-21T00:00:03+00:00", T=_BASE_MS + 3000,
+                   agg_id=3, price="100.00", qty="6.0", m=True),
+        ])
+
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(),
+            trade_gap_policy="ignore",
+        )).run(QuoteOnceStrategy())
+
+        assert result.stats.trade_gaps_detected == 1
+        assert result.stats.gaps_detected == 0
+        assert result.stats.fills == 1
+
+
+def test_trade_gap_policy_pauses_until_snapshot_and_cancels_orders():
+    """New research mode invalidates queue state until the next snapshot."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000, U=101, u=101,
+                  bids=[], asks=[]),
+            # This update is skipped while the engine waits for a snapshot.
+            _diff("2026-04-21T00:00:03.500000+00:00", E=_BASE_MS + 3500,
+                  U=102, u=102, bids=[["100.00", "1.0"]], asks=[]),
+            _snapshot("2026-04-21T00:00:04+00:00", last_update_id=200,
+                      bids=[["99.00", "4.0"]], asks=[["100.00", "2.0"]]),
+            _diff("2026-04-21T00:00:05+00:00", E=_BASE_MS + 5000, U=201, u=201,
+                  bids=[["99.00", "3.0"]], asks=[]),
+        ])
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:02+00:00", T=_BASE_MS + 2000,
+                   agg_id=1, price="99.00", qty="0.1", m=True),
+            _trade("2026-04-21T00:00:03+00:00", T=_BASE_MS + 3000,
+                   agg_id=3, price="100.00", qty="6.0", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        engine = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(),
+        ))
+        result = engine.run(strategy)
+
+        assert result.stats.trade_gaps_detected == 1
+        assert result.stats.depth_gaps_detected == 0
+        assert result.stats.gaps_detected == 1
+        assert result.stats.events_during_gap == 2
+        assert result.stats.fills == 0
+        assert result.stats.orders_cancelled == 2
+        assert all(order.status == OrderStatus.CANCELLED
+                   for order in strategy.orders.values())
+        assert engine.book.best_bid == Decimal("99.00")
+        assert engine.book.best_bid_qty == Decimal("3.0")
+
+
 def test_cancel_request_from_strategy():
     """Strategy can cancel the other side after a fill."""
     with tempfile.TemporaryDirectory() as tmpdir:

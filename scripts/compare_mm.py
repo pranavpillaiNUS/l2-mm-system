@@ -24,6 +24,7 @@ from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_cred
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 from src.strategies.microprice_mm import MicropriceMM
+from src.strategies.ofi_gated_mm import OFIGatedMM
 from src.strategies.symmetric_mm import SymmetricMM
 
 
@@ -132,6 +133,12 @@ def _build_strategy(strategy_name: str, args):
         return SymmetricMM(**kwargs)
     if strategy_name == "microprice":
         return MicropriceMM(**kwargs)
+    if strategy_name == "ofi_gated":
+        return OFIGatedMM(
+            **kwargs,
+            ofi_interval_ms=getattr(args, "ofi_interval_ms", 1_000),
+            ofi_threshold=Decimal(getattr(args, "ofi_threshold", "0.25")),
+        )
     raise ValueError(f"Unknown strategy: {strategy_name}")
 
 
@@ -401,7 +408,7 @@ def parse_args():
     parser.add_argument("--session-hours", type=int, default=1,
                         help="Hours per replay session")
     parser.add_argument("--strategies", nargs="+",
-                        choices=["symmetric", "microprice"],
+                        choices=["symmetric", "microprice", "ofi_gated"],
                         default=["symmetric", "microprice"])
     parser.add_argument("--half-spread", default="0.50")
     parser.add_argument("--order-qty", default="0.001")
@@ -410,6 +417,8 @@ def parse_args():
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--requote-interval-ms", type=int, default=0)
+    parser.add_argument("--ofi-interval-ms", type=int, default=1000)
+    parser.add_argument("--ofi-threshold", default="0.25")
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0",

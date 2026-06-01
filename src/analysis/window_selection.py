@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+import statistics
 from typing import Iterable, Sequence
+
+from src.analysis.bootstrap import percentile
 
 
 UTC_BUCKETS = (
@@ -42,6 +45,22 @@ class SelectedWindow:
     vol_tercile: str
     realized_vol_bps: Decimal
     mid_drift_bps: Decimal
+
+
+@dataclass(frozen=True)
+class WindowDescriptor:
+    start: datetime
+    hours: int
+    mid_drift_bps: Decimal
+    abs_mid_drift_bps: Decimal
+    realized_vol_1s_bps: Decimal
+    realized_vol_10s_bps: Decimal
+    realized_vol_1m_bps: Decimal
+    jump_count: int = 0
+
+    @property
+    def end(self) -> datetime:
+        return self.start + timedelta(hours=self.hours)
 
 
 def utc_bucket(hour: int) -> str:
@@ -131,6 +150,164 @@ def select_balanced_windows(
     return sorted(selected, key=lambda row: row.start)
 
 
+def build_window_descriptors(
+    hourly_second_mids: dict[datetime, Sequence[tuple[int, Decimal]]],
+    *,
+    hours: int,
+) -> list[WindowDescriptor]:
+    """Build rolling window descriptors from cached one-hour second samples."""
+    available = set(hourly_second_mids)
+    out = []
+    for start in sorted(available):
+        starts = [start + timedelta(hours=offset) for offset in range(hours)]
+        if not all(hour in available for hour in starts):
+            continue
+        samples = [
+            sample
+            for hour in starts
+            for sample in hourly_second_mids[hour]
+        ]
+        descriptor = describe_window(start, hours, samples)
+        if descriptor is not None:
+            out.append(descriptor)
+    return out
+
+
+def describe_window(
+    start: datetime,
+    hours: int,
+    second_mids: Sequence[tuple[int, Decimal]],
+    *,
+    jump_threshold_bps: Decimal | None = None,
+) -> WindowDescriptor | None:
+    """Summarize regularly sampled mids for one candidate window."""
+    mids = [mid for _, mid in sorted(second_mids)]
+    if len(mids) < 2 or mids[0] <= 0:
+        return None
+    drift = ((mids[-1] - mids[0]) / mids[0]) * Decimal("10000")
+    one_second_returns = _lag_returns(mids, 1)
+    jumps = (
+        sum(abs(value) > jump_threshold_bps for value in one_second_returns)
+        if jump_threshold_bps is not None else 0
+    )
+    return WindowDescriptor(
+        start=start,
+        hours=hours,
+        mid_drift_bps=drift,
+        abs_mid_drift_bps=abs(drift),
+        realized_vol_1s_bps=_rms(one_second_returns),
+        realized_vol_10s_bps=_rms(_lag_returns(mids, 10)),
+        realized_vol_1m_bps=_rms(_lag_returns(mids, 60)),
+        jump_count=jumps,
+    )
+
+
+def jump_threshold(
+    descriptors: Sequence[WindowDescriptor],
+    hourly_second_mids: dict[datetime, Sequence[tuple[int, Decimal]]],
+    *,
+    quantile: Decimal = Decimal("0.99"),
+) -> Decimal:
+    """Development-panel threshold for counting large absolute one-second moves."""
+    values = []
+    for descriptor in descriptors:
+        mids = [
+            mid
+            for offset in range(descriptor.hours)
+            for _, mid in hourly_second_mids[descriptor.start + timedelta(hours=offset)]
+        ]
+        values.extend(abs(value) for value in _lag_returns(mids, 1))
+    return percentile(values, quantile) or Decimal("0")
+
+
+def with_jump_count(
+    descriptor: WindowDescriptor,
+    hourly_second_mids: dict[datetime, Sequence[tuple[int, Decimal]]],
+    *,
+    threshold_bps: Decimal,
+) -> WindowDescriptor:
+    samples = [
+        sample
+        for offset in range(descriptor.hours)
+        for sample in hourly_second_mids[descriptor.start + timedelta(hours=offset)]
+    ]
+    updated = describe_window(
+        descriptor.start,
+        descriptor.hours,
+        samples,
+        jump_threshold_bps=threshold_bps,
+    )
+    if updated is None:
+        raise ValueError(f"Unable to rebuild descriptor for {descriptor.start}")
+    return updated
+
+
+def non_overlapping_capacity(
+    candidates: Sequence[WindowCandidate | WindowDescriptor],
+) -> int:
+    """Maximum capacity for fixed-width intervals using earliest-finish greediness."""
+    selected = []
+    for candidate in sorted(candidates, key=lambda row: row.start):
+        if not selected or candidate.start >= selected[-1].end:
+            selected.append(candidate)
+    return len(selected)
+
+
+def compare_regime_descriptors(
+    development: Sequence[WindowDescriptor],
+    holdout: Sequence[WindowDescriptor],
+    *,
+    max_abs_smd: Decimal = Decimal("0.5"),
+) -> dict:
+    """Compare holdout descriptors with a conservative development-band screen."""
+    fields = (
+        "mid_drift_bps",
+        "abs_mid_drift_bps",
+        "realized_vol_1s_bps",
+        "realized_vol_10s_bps",
+        "realized_vol_1m_bps",
+        "jump_count",
+    )
+    rows = []
+    for field in fields:
+        dev = [Decimal(str(getattr(row, field))) for row in development]
+        out = [Decimal(str(getattr(row, field))) for row in holdout]
+        dev_p10 = percentile(dev, Decimal("0.10"))
+        dev_p90 = percentile(dev, Decimal("0.90"))
+        holdout_median = percentile(out, Decimal("0.50"))
+        smd = _standardized_mean_difference(dev, out)
+        median_in_band = (
+            dev_p10 is not None
+            and dev_p90 is not None
+            and holdout_median is not None
+            and dev_p10 <= holdout_median <= dev_p90
+        )
+        smd_pass = smd is not None and abs(smd) <= max_abs_smd
+        rows.append({
+            "descriptor": field,
+            "development_p10": dev_p10,
+            "development_p90": dev_p90,
+            "holdout_median": holdout_median,
+            "standardized_mean_difference": smd,
+            "median_in_development_band": median_in_band,
+            "abs_smd_within_limit": smd_pass,
+            "passes": median_in_band and smd_pass,
+        })
+    return {
+        "label": (
+            "regime-comparable"
+            if rows and all(row["passes"] for row in rows)
+            else "regime-shifted"
+        ),
+        "max_abs_smd": max_abs_smd,
+        "note": (
+            "Descriptors are correlated context checks, not independent evidence "
+            "and not a strategy-tuning input."
+        ),
+        "descriptors": rows,
+    }
+
+
 def _cell_targets(total_windows: int) -> int:
     cells = len(UTC_BUCKETS) * 3
     return (total_windows + cells - 1) // cells
@@ -213,3 +390,33 @@ def _next_underrepresented_candidate(
             candidate.start,
         ),
     )
+
+
+def _lag_returns(mids: Sequence[Decimal], lag: int) -> list[Decimal]:
+    return [
+        ((mids[idx] - mids[idx - lag]) / mids[idx - lag]) * Decimal("10000")
+        for idx in range(lag, len(mids))
+        if mids[idx - lag] > 0
+    ]
+
+
+def _rms(values: Sequence[Decimal]) -> Decimal:
+    if not values:
+        return Decimal("0")
+    return Decimal(str(statistics.fmean(float(value * value) for value in values) ** 0.5))
+
+
+def _standardized_mean_difference(
+    left: Sequence[Decimal],
+    right: Sequence[Decimal],
+) -> Decimal | None:
+    if not left or not right:
+        return None
+    left_mean = statistics.fmean(float(value) for value in left)
+    right_mean = statistics.fmean(float(value) for value in right)
+    left_var = statistics.pvariance(float(value) for value in left) if len(left) > 1 else 0
+    right_var = statistics.pvariance(float(value) for value in right) if len(right) > 1 else 0
+    pooled_std = ((left_var + right_var) / 2) ** 0.5
+    if pooled_std == 0:
+        return Decimal("0") if left_mean == right_mean else None
+    return Decimal(str((right_mean - left_mean) / pooled_std))

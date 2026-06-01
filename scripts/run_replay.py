@@ -21,6 +21,7 @@ from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_cred
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 from src.strategies.microprice_mm import MicropriceMM
+from src.strategies.ofi_gated_mm import OFIGatedMM
 from src.strategies.symmetric_mm import SymmetricMM
 
 
@@ -89,6 +90,12 @@ def _build_strategy(args):
         return SymmetricMM(**kwargs)
     if args.strategy == "microprice":
         return MicropriceMM(**kwargs)
+    if args.strategy == "ofi_gated":
+        return OFIGatedMM(
+            **kwargs,
+            ofi_interval_ms=args.ofi_interval_ms,
+            ofi_threshold=Decimal(args.ofi_threshold),
+        )
     raise ValueError(f"Unknown strategy: {args.strategy}")
 
 
@@ -120,6 +127,7 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print(f"Requote interval: {args.requote_interval_ms}ms")
     print(f"Latency:          {args.latency_ms}ms +/- {args.jitter_ms}ms")
     print(f"Queue credit:     {args.queue_cancellation_credit}")
+    print(f"Trade-gap policy: {args.trade_gap_policy}")
     print()
 
     stats = result.stats
@@ -129,6 +137,8 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print(f"  Snapshots:      {stats.snapshots:,}")
     print(f"  Trades:         {stats.trade_events:,}")
     print(f"  Gaps detected:  {stats.gaps_detected:,}")
+    print(f"  Depth gaps:     {stats.depth_gaps_detected:,}")
+    print(f"  Trade gaps:     {stats.trade_gaps_detected:,}")
     print(f"  Gap events:     {stats.events_during_gap:,}")
     print()
 
@@ -198,6 +208,7 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "maker_bps": args.maker_bps,
         "taker_bps": args.taker_bps,
         "queue_cancellation_credit": args.queue_cancellation_credit,
+        "trade_gap_policy": args.trade_gap_policy,
         "events": result.stats.__dict__,
         "fills": len(result.fills),
         "maker_fills": sum(1 for fill in result.fills if fill.is_maker),
@@ -272,7 +283,7 @@ def _fill_row(fill: Fill) -> dict:
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run an L2 replay session")
-    parser.add_argument("--strategy", choices=["symmetric", "microprice"],
+    parser.add_argument("--strategy", choices=["symmetric", "microprice", "ofi_gated"],
                         default="symmetric")
     parser.add_argument("--symbol", default="btcusdt")
     parser.add_argument("--date", required=True, help="Replay date, YYYY-MM-DD")
@@ -283,6 +294,8 @@ def parse_args():
     parser.add_argument("--max-position", default="0.01")
     parser.add_argument("--tick-size", default="0.01")
     parser.add_argument("--requote-interval-ms", type=int, default=0)
+    parser.add_argument("--ofi-interval-ms", type=int, default=1000)
+    parser.add_argument("--ofi-threshold", default="0.25")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
     parser.add_argument("--maker-bps", type=int, default=2)
@@ -292,6 +305,9 @@ def parse_args():
     parser.add_argument("--queue-cancellation-mode",
                         choices=["proportional", "none"],
                         help=argparse.SUPPRESS)
+    parser.add_argument("--trade-gap-policy",
+                        choices=["ignore", "pause_until_snapshot"],
+                        default="pause_until_snapshot")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--write-results", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=Path("results/replay"))
@@ -325,6 +341,7 @@ def main():
             queue_cancellation_credit=args.queue_cancellation_credit,
         ),
         record_book_samples=True,
+        trade_gap_policy=args.trade_gap_policy,
     )
     engine = ReplayEngine(config)
     result = engine.run(strategy)

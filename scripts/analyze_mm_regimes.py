@@ -39,19 +39,30 @@ def _load_csv_by(path: Path, key: str) -> dict[str, dict]:
     return {row[key]: row for row in rows if row.get(key)}
 
 
-def _load_signal_metric(path: Path, signal: str = "microprice") -> dict[str, dict]:
-    if not path.exists():
+def _load_signal_metric(
+    path: Path,
+    signal: str = "microprice",
+    *,
+    artifact_suffix: str = "",
+) -> dict[str, dict]:
+    paths = [path] if path.is_file() else sorted(path.glob("*/regressions.csv"))
+    if artifact_suffix:
+        paths = [candidate for candidate in paths if candidate.parent.name.endswith(artifact_suffix)]
+    elif signal == "ofi":
+        paths = [candidate for candidate in paths if "_qc" not in candidate.parent.name]
+    if not paths:
         return {}
     out = {}
-    with path.open("r", encoding="utf-8", newline="") as f:
-        for row in csv.DictReader(f):
-            if row.get("window") == "pooled":
-                continue
-            if row.get("horizon") != "1s":
-                continue
-            if signal == "ofi" and row.get("signal") != "normalized_ofi":
-                continue
-            out[row["window"]] = row
+    for candidate in paths:
+        with candidate.open("r", encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                if row.get("window") == "pooled":
+                    continue
+                if row.get("horizon") != "1s":
+                    continue
+                if signal == "ofi" and row.get("signal") != "normalized_ofi":
+                    continue
+                out[row["window"]] = row
     return out
 
 
@@ -99,7 +110,11 @@ def _build_rows(args) -> list[dict]:
     windows = _load_windows(args.windows_csv)
     tail_by_window = _load_csv_by(args.tail_window_summary, "window")
     microprice_by_window = _load_signal_metric(args.microprice_regressions)
-    ofi_by_window = _load_signal_metric(args.ofi_regressions, signal="ofi")
+    ofi_by_window = _load_signal_metric(
+        args.ofi_regressions,
+        signal="ofi",
+        artifact_suffix=queue_credit_suffix(args.queue_cancellation_credit),
+    )
 
     rows = []
     for window in windows:
@@ -180,11 +195,9 @@ def parse_args():
                                      "btcusdt_microprice_hs2.00_rq5000_panel24/"
                                      "window_summary.csv"))
     parser.add_argument("--microprice-regressions", type=Path,
-                        default=Path("results/panels/btcusdt_l2_panel_v2/microprice_signal/"
-                                     "regressions.csv"))
+                        default=Path("results/panels/btcusdt_l2_panel_v2/microprice_signal"))
     parser.add_argument("--ofi-regressions", type=Path,
-                        default=Path("results/panels/btcusdt_l2_panel_v2/ofi_signal/"
-                                     "regressions.csv"))
+                        default=Path("results/panels/btcusdt_l2_panel_v2/ofi_signal"))
     parser.add_argument("--output-root", type=Path,
                         default=Path("results/panels/btcusdt_l2_panel_v2/regime"))
     return parser.parse_args()

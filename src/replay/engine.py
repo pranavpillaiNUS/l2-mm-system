@@ -11,10 +11,11 @@ The engine processes events in timestamp order:
   4. Fills from the simulator are dispatched to the strategy
 
 Gap handling: the engine starts in gap state (book uninitialized). A snapshot
-exits gap state and resyncs the book. A sequence gap in depth diffs re-enters
-gap state. During a gap, events are counted but not dispatched -- the book is
-unreliable and strategy callbacks would see stale data. All open orders are
-cancelled on gap entry because queue positions and pending intent are invalid.
+exits gap state and resyncs the book. A sequence gap in depth diffs, or an
+aggTrade gap under the strict policy, re-enters gap state. During a gap, events
+are counted but not dispatched -- the book is unreliable and strategy
+callbacks would see stale data. All open orders are cancelled on gap entry
+because queue positions and pending intent are invalid.
 
 Order management: strategies return Actions (OrderRequests or CancelRequests)
 from callbacks. The engine submits orders through the simulator and notifies
@@ -76,6 +77,13 @@ class ReplayConfig:
     sim_config: SimConfig
     checkpoint_interval: int = 1000  # book state hash every N events
     record_book_samples: bool = False
+    trade_gap_policy: str = "pause_until_snapshot"
+
+    def __post_init__(self) -> None:
+        if self.trade_gap_policy not in {"ignore", "pause_until_snapshot"}:
+            raise ValueError(
+                "trade_gap_policy must be 'ignore' or 'pause_until_snapshot'"
+            )
 
 
 @dataclass
@@ -85,6 +93,8 @@ class ReplayStats:
     snapshots: int = 0
     trade_events: int = 0
     gaps_detected: int = 0
+    depth_gaps_detected: int = 0
+    trade_gaps_detected: int = 0
     events_during_gap: int = 0
     orders_submitted: int = 0
     orders_cancelled: int = 0
@@ -197,6 +207,7 @@ class ReplayEngine:
 
         if event.has_gap and not self._in_gap:
             self._stats.gaps_detected += 1
+            self._stats.depth_gaps_detected += 1
             self._in_gap = True
             self._cancel_all(event.exchange_time_ms)
 
@@ -213,6 +224,14 @@ class ReplayEngine:
 
     def _on_trade(self, event: TradeEvent, strategy: Strategy) -> None:
         self._stats.trade_events += 1
+
+        if event.has_gap:
+            self._stats.trade_gaps_detected += 1
+            if self.config.trade_gap_policy == "pause_until_snapshot":
+                self._stats.gaps_detected += 1
+                if not self._in_gap:
+                    self._in_gap = True
+                    self._cancel_all(event.exchange_time_ms)
 
         if self._in_gap:
             self._stats.events_during_gap += 1

@@ -18,3 +18,5 @@ __pycache__/
 .env
 .venv/
 data/
+results/panels/*/status*/
+results/panels/*/hourly_depth_descriptors.json

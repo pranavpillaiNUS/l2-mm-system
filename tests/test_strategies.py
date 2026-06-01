@@ -7,8 +7,6 @@ test body or manual entry point.
 """
 from pathlib import Path
 
-import pytest
-
 from src.backtester.config import BacktestConfig
 from src.backtester.engine import BacktestEngine
 from src.backtester.strategy import (
@@ -63,12 +61,8 @@ def _print_summary(results) -> None:
         )
 
 
-def test_strategy_comparison_smoke() -> None:
-    data_path = Path("data/bars")
-    if not data_path.exists():
-        pytest.skip("data/bars not present; strategy comparison smoke test requires local bars")
-
-    results = _run_strategy_comparison(data_path, verbose=False)
+def test_strategy_comparison_smoke(bar_data_dir: Path) -> None:
+    results = _run_strategy_comparison(bar_data_dir, verbose=False)
 
     assert len(results) == 4
     assert all(not result.equity_series.empty for result in results)

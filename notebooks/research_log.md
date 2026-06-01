@@ -876,3 +876,145 @@ env PYTHONPATH=. pytest -q tests/test_tail_diagnostics.py
 env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
 163 passed
 ```
+
+---
+## 2026-06-02: V2 Evidence-Expansion Protocol Frozen
+
+### Why this was done
+
+The six-window V1 result was useful but too small to carry broader claims. V2
+expands evidence before adding strategy complexity and treats replay
+correctness, clean-data inventory, queue-model dependence, and holdout handling
+as explicit protocol items.
+
+### Replay correctness
+
+Added `trade_gap_policy` with legacy `ignore` and strict
+`pause_until_snapshot`. Strict mode cancels open orders, pauses unreliable
+events, and resumes after the next valid depth snapshot.
+
+Generated:
+
+- `results/replay_correctness/trade_gap_anchor6_delta.json`
+
+Result:
+
+- all six V1 anchors are trade-gap-clean
+- every old/new delta is exactly zero
+- V1 was not a trade-gap artifact
+
+### Frozen integrity inventory and panels
+
+Generated:
+
+- `results/panels/btcusdt_l2_panel_v2/integrity_manifest.json`
+- `results/panels/btcusdt_l2_panel_v2/window_selection_summary.json`
+
+Semantic hashes:
+
+```text
+Integrity manifest: a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61
+Selected panel:     760c55b7c0929b4a99657f6ca02eb723d930b9f48ebd3786d57bcb1a0f481122
+```
+
+Strict capacity:
+
+```text
+Frozen hours: 1193
+Valid hours:   775
+Invalid hours: 418
+```
+
+| Range | Valid Hours | Candidate 5h Starts | Non-Overlapping Capacity |
+|---|---:|---:|---:|
+| Development before `2026-05-20T00:00` | 512 | 377 | 89 |
+| Holdout from `2026-05-20T00:00` to `2026-06-01T00:00` | 263 | 185 | 43 |
+
+Frozen selection:
+
+```text
+Development: 24 windows
+Holdout:     12 windows
+```
+
+### Holdout interpretation
+
+The pre-strategy screen labels the holdout `regime-shifted`: late-May realized
+volatility and jump-count descriptors are lower than development. This is one
+correlated context screen, not several independent confirmations.
+
+The protocol now pre-commits to reporting that label alongside the eventual
+verdict. A `pass` is encouraging but may reflect easier conditions. A `fail` or
+`mixed` result is consistent with an untested mechanism rather than a broken
+one. Do not over-update in either direction.
+
+### Implemented V2 path
+
+- Phase A baseline remeasurement at queue credits `{0.0, 1.0}`
+- endpoint verdict ladder plus explicit queue-model-dependent headline
+- Phase B OFI tri-state conditional-power handling
+- Phase C queue-credit and latency stress
+- narrow `OFIGatedMM` candidate
+- paired per-window matched-net-PnL-per-BTC strategy gate
+- locked one-shot holdout gate
+
+### Verification
+
+```text
+env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+215 passed in 9.49s
+```
+
+Remote CI remains pending authenticated verification. No green remote run is
+claimed.
+
+### Next action
+
+Run Phase A on the frozen 24-window development panel. Keep the candidate
+holdout sealed until `notebooks/holdout_protocol.md` is filled, locked, and
+committed.
+
+---
+## 2026-06-02: CI Bar-Fixture Hardening
+
+### Problem
+
+The GitHub deterministic suite runs on a clean checkout without local
+`data/bars`. Module-level `BacktestEngine` construction in
+`tests/test_strategies.py` had already been removed, but the bar-loader tests
+still read `data/bars` directly and the strategy smoke test skipped when local
+bars were absent.
+
+### Fix
+
+- Added a shared deterministic synthetic OHLCV fixture in `tests/conftest.py`.
+- Changed `tests/test_data_loader.py` to load and assert against the synthetic
+  CSV instead of untracked local market data.
+- Changed `tests/test_strategies.py` to run its smoke comparison against the
+  fixture, so CI exercises all four original bar strategies instead of
+  skipping them.
+- Kept the manual `python tests/test_strategies.py` entry point tied to local
+  bars for exploratory use.
+
+### Verification
+
+Affected tests run from `/tmp`, outside the repository and without visibility
+into local `data/bars`:
+
+```text
+5 passed in 0.29s
+```
+
+Full deterministic suite from the repository:
+
+```text
+env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+216 passed in 5.14s
+```
+
+Full deterministic suite from `/tmp`, without visibility into the repository
+`data/` tree:
+
+```text
+216 passed in 1.26s
+```

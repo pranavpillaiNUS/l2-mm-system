@@ -1,5 +1,10 @@
 # BTCUSDT L2 Market-Making Research Note
 
+Status: frozen V1 six-window artifact. V2 scaffolding, the frozen 24-window
+development panel, and the sealed 12-window holdout are documented in
+`notebooks/research_writeup_v2.md`. This note remains intentionally focused on
+the corrected V1 result.
+
 ## Executive Summary
 
 This project builds a deterministic L2 replay and execution simulator for BTCUSDT passive market-making research. The goal is not to present a strategy demo. The goal is to show a credible research workflow: reconstruct the book, model execution frictions, find and remove backtest artifacts, and explain why the tested baseline does or does not have edge.
@@ -35,6 +40,11 @@ Two corrections changed the interpretation of the project.
 First, early profitability contained accidental taker fills. Latency could leave intended passive limit orders crossing the spread at arrival, and the simulator filled those orders as takers. The simulator now defaults to post-only enforcement. Crossing limits are cancelled with `post_only_would_cross`, and current results supersede earlier pre-post-only results.
 
 Second, a replay correctness issue existed around naive UTC snapshot timestamps and stale post-snapshot diffs. The depth parser now treats recorder `recv_time` values as UTC and drops stale diffs until the first Binance-valid bridge diff. The six-window baseline, bootstrap CI, microprice signal diagnostics, fill-toxicity diagnostics, and tail diagnostics were regenerated after this fix.
+
+Third, V2 added an explicit trade-gap replay policy. The six anchors were
+replayed under both legacy `ignore` and strict `pause_until_snapshot` behavior.
+All anchors are trade-gap-clean and every old/new delta is exactly zero, so V1
+was not a trade-gap artifact.
 
 These corrections moved the project in the right direction: away from attractive contaminated results and toward a reviewable negative-result artifact.
 

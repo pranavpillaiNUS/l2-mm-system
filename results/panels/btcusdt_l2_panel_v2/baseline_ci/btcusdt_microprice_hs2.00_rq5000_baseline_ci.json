@@ -1,0 +1,206 @@
+{
+  "params": {
+    "symbol": "btcusdt",
+    "strategy": "microprice",
+    "half_spread": "2.00",
+    "requote_interval_ms": 5000,
+    "latency_ms": 10,
+    "jitter_ms": 0,
+    "maker_bps": 2,
+    "taker_bps": 5,
+    "queue_cancellation_credit": "1.0",
+    "legacy_queue_cancellation_mode": "proportional",
+    "session_hours": 1,
+    "iterations": 10000,
+    "seed": 7
+  },
+  "run_dirs": [
+    "btcusdt_microprice_20260412_09_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260412_15_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260413_02_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260413_07_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260413_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260414_02_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260414_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260415_00_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260415_05_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260415_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260416_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260416_17_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260417_05_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260417_12_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260418_13_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260418_19_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260419_13_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260420_03_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260420_13_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260506_18_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260507_16_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260508_07_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260509_07_5h_5sessions_hs2.00_rq5000",
+    "btcusdt_microprice_20260509_13_5h_5sessions_hs2.00_rq5000"
+  ],
+  "counts": {
+    "windows": 24,
+    "sessions": 120,
+    "matched_lots": 1457
+  },
+  "ci": {
+    "window": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-1.043068588000559480465108625",
+        "ci_low": "-2.331630129898383466492775573",
+        "ci_high": "-0.03227232963581809532950586259",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-0.3577259591596565321799684135",
+        "ci_low": "-0.7990467270152076764090612638",
+        "ci_high": "0.06016096718758745350799903536",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-0.5337350116702204236078913388",
+        "ci_low": "-1.564795649327965358830325451",
+        "ci_high": "0.2149562590237720484929612752",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "0.002228702973097760655500853096",
+        "ci_low": "0.001802005846317677772098347905",
+        "ci_high": "0.002683913363362183613523155038",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "62.24304532633453873009124021",
+        "ci_low": "56.36945530323730365389152875",
+        "ci_high": "68.04455450949507287093738115",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "session": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.2086137176001118960930217248",
+        "ci_low": "-0.4429622355630287357504033228",
+        "ci_high": "-0.003650618202564964113457535103",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.07154519183193130643599368272",
+        "ci_low": "-0.1656462249325294654759186633",
+        "ci_high": "0.02252547790975508894949253388",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.1067470023340440847215782678",
+        "ci_low": "-0.3152303101026274617792914555",
+        "ci_high": "0.05552643063243230035556358258",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "0.002228702973097760655500853095",
+        "ci_low": "0.001865680631336411081759422840",
+        "ci_high": "0.002618886003813790799001440698",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "78.58954048231221708306925137",
+        "ci_low": "67.16224973121720491350426658",
+        "ci_high": "92.72431125549143516184913089",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "matched_lot": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "matched_lot",
+        "n": 1457,
+        "mean": "-0.005892534673872173488208127612",
+        "ci_low": "-0.009744166255518660416404622233",
+        "ci_high": "-0.002164814209813099731790890183",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "gross_pnl": {
+        "metric": "gross_pnl",
+        "unit": "matched_lot",
+        "n": 1457,
+        "mean": "0.001595185038996143345806501824",
+        "ci_low": "-0.002223797803403573805719482554",
+        "ci_high": "0.005366332208917268559536319172",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "fees": {
+        "metric": "fees",
+        "unit": "matched_lot",
+        "n": 1457,
+        "mean": "0.007487719712868316834014629423",
+        "ci_low": "0.007125283002116155710881056753",
+        "ci_high": "0.007868602797781946823904440021",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "net_pnl_per_btc": {
+        "metric": "net_pnl_per_btc",
+        "unit": "matched_lot",
+        "n": 1457,
+        "mean": "-31.68669494941243957881829750",
+        "ci_low": "-42.26926213271213202105683114",
+        "ci_high": "-21.46607536825319813865005922",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "hold_time_ms": {
+        "metric": "hold_time_ms",
+        "unit": "matched_lot",
+        "n": 1457,
+        "mean": "850684.1228551818805765271105",
+        "ci_low": "814285.0205902539464653397392",
+        "ci_high": "887381.1073610157858613589568",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    }
+  }
+}

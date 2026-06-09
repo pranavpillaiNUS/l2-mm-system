@@ -1,0 +1,206 @@
+{
+  "params": {
+    "symbol": "btcusdt",
+    "strategy": "microprice",
+    "half_spread": "2.00",
+    "requote_interval_ms": 5000,
+    "latency_ms": 10,
+    "jitter_ms": 0,
+    "maker_bps": 2,
+    "taker_bps": 5,
+    "queue_cancellation_credit": "0.0",
+    "legacy_queue_cancellation_mode": "none",
+    "session_hours": 1,
+    "iterations": 10000,
+    "seed": 7
+  },
+  "run_dirs": [
+    "btcusdt_microprice_20260412_09_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260412_15_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260413_02_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260413_07_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260413_12_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260414_02_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260414_12_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260415_00_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260415_05_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260415_12_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260416_12_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260416_17_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260417_05_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260417_12_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260418_13_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260418_19_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260419_13_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260420_03_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260420_13_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260506_18_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260507_16_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260508_07_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260509_07_5h_5sessions_hs2.00_rq5000_qc0",
+    "btcusdt_microprice_20260509_13_5h_5sessions_hs2.00_rq5000_qc0"
+  ],
+  "counts": {
+    "windows": 24,
+    "sessions": 120,
+    "matched_lots": 1021
+  },
+  "ci": {
+    "window": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-0.6857533116716666666666666667",
+        "ci_low": "-1.883280381338104166666666667",
+        "ci_high": "0.2896161717125208333333333333",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-0.10743244454000000000",
+        "ci_low": "-0.4503123280130625000000000000",
+        "ci_high": "0.2525732866387500000000000000",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "-0.4294332833333333333333333333",
+        "ci_low": "-1.514975411562500000000000000",
+        "ci_high": "0.4144021853125000000",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "0.002186333333333333333333333333",
+        "ci_low": "0.001736650000000000000000000000",
+        "ci_high": "0.002677177083333333333333333334",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "5h_window",
+        "n": 24,
+        "mean": "79.44016110679736186199100754",
+        "ci_low": "72.18185840481421454020737968",
+        "ci_high": "86.70702268358168490191626255",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "session": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.1371506623343333333333333333",
+        "ci_low": "-0.3540153786971791666666666667",
+        "ci_high": "0.05566047491921666666666666667",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "matched_net_pnl": {
+        "metric": "matched_net_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.02148648890800000000",
+        "ci_low": "-0.1092429922504958333333333333",
+        "ci_high": "0.07098375740467083333333333334",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "residual_inventory_pnl": {
+        "metric": "residual_inventory_pnl",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "-0.08588665666666666666666666667",
+        "ci_low": "-0.2931546360833333333333333334",
+        "ci_high": "0.08506201358333333333333333334",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "abs_residual_inventory": {
+        "metric": "abs_residual_inventory",
+        "unit": "1h_session",
+        "n": 120,
+        "mean": "0.002186333333333333333333333333",
+        "ci_low": "0.001811997916666666666666666667",
+        "ci_high": "0.002593029166666666666666666667",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "orders_per_fill": {
+        "metric": "orders_per_fill",
+        "unit": "1h_session",
+        "n": 119,
+        "mean": "94.95333503001304132876134193",
+        "ci_low": "84.41010100853058776094100846",
+        "ci_high": "107.6237566806961703462943933",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    },
+    "matched_lot": {
+      "net_pnl": {
+        "metric": "net_pnl",
+        "unit": "matched_lot",
+        "n": 1021,
+        "mean": "-0.002525346394671890303623898139",
+        "ci_low": "-0.007568782206979431929480901077",
+        "ci_high": "0.002370385941173359451518119491",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "gross_pnl": {
+        "metric": "gross_pnl",
+        "unit": "matched_lot",
+        "n": 1021,
+        "mean": "0.005254660724779627815866797258",
+        "ci_low": "0.0002079716944172380019588638589",
+        "ci_high": "0.01017086501469147894221351616",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "fees": {
+        "metric": "fees",
+        "unit": "matched_lot",
+        "n": 1021,
+        "mean": "0.007780007119451518119490695397",
+        "ci_low": "0.007339867011962291870714985309",
+        "ci_high": "0.008233095248638589618021547503",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "net_pnl_per_btc": {
+        "metric": "net_pnl_per_btc",
+        "unit": "matched_lot",
+        "n": 1021,
+        "mean": "-18.44091214887365328109696376",
+        "ci_low": "-31.53514275724779627815866797",
+        "ci_high": "-5.162165368707149853085210578",
+        "confidence": "0.95",
+        "iterations": 10000
+      },
+      "hold_time_ms": {
+        "metric": "hold_time_ms",
+        "unit": "matched_lot",
+        "n": 1021,
+        "mean": "975018.3594515181194906953967",
+        "ci_low": "929160.1813418217433888344760",
+        "ci_high": "1020934.418046033300685602350",
+        "confidence": "0.95",
+        "iterations": 10000
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "headline": "Conditional V2: queue-model-dependent result",
+  "conservative_passive_edge_verdict": "Strengthens V1",
+  "endpoints": {
+    "0.0": {
+      "queue_cancellation_credit": "0.0",
+      "mean_net_pnl": "-0.6857533116716666666666666667",
+      "ci_low": "-1.883280381338104166666666667",
+      "ci_high": "0.2896161717125208333333333333",
+      "frozen_v1_mean_net_pnl": "-1.44134121521000000000",
+      "material_improvement_threshold": "0.3603353038025000000000",
+      "verdict": "Weakens V1"
+    },
+    "1.0": {
+      "queue_cancellation_credit": "1.0",
+      "mean_net_pnl": "-1.043068588000559480465108625",
+      "ci_low": "-2.331630129898383466492775573",
+      "ci_high": "-0.03227232963581809532950586259",
+      "frozen_v1_mean_net_pnl": "-2.438809811930561920142440165",
+      "material_improvement_threshold": "0.6097024529826404800356100412",
+      "verdict": "Strengthens V1"
+    }
+  }
+}

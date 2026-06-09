@@ -22,3 +22,4 @@ __pycache__/
 data/
 results/panels/*/status*/
 results/panels/*/hourly_depth_descriptors.json
+results/panels/**/*_cache.json

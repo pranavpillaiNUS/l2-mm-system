@@ -1018,3 +1018,93 @@ Full deterministic suite from `/tmp`, without visibility into the repository
 ```text
 216 passed in 1.26s
 ```
+
+---
+## 2026-06-09: Phase A 24-Window Baseline Remeasurement
+
+### Question
+Does the V1 negative passive-microprice conclusion survive the frozen 24-window
+development panel at queue-credit endpoints `{0.0, 1.0}`?
+
+### Hypothesis
+Pre-registered. No directional prediction beyond the V1 prior that the passive
+baseline shows no stable positive edge. The classification ladder
+(`Overturns` / `Strengthens` / `Weakens` / `Confirms`) and the queue-disagreement
+rule were fixed in `research_writeup_v2.md` before the run.
+
+### Data window and config
+24 manifest-clean non-overlapping 5-hour development windows, `2026-04-12T09` to
+`2026-05-09T13`, frozen panel SHA `760c55b7...`. microprice, `half_spread=2.00`,
+`requote=5000ms`, `order_qty=0.001`, `max_position=0.01`, `latency=10ms`,
+`jitter=0`, `maker_bps=2`, `taker_bps=5`. Queue credits `{0.0, 1.0}`, 120
+sessions per endpoint. Deterministic suite `216 passed` immediately before the run.
+
+### Command
+```text
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase a
+```
+59 resumable steps, completed exit 0.
+
+### Artifact paths
+```text
+results/panels/btcusdt_l2_panel_v2/phase_a_verdict.json
+results/panels/btcusdt_l2_panel_v2/baseline_ci/{...,_qc0}.json
+results/panels/btcusdt_l2_panel_v2/{tail_diagnostics,fee_break_even,microprice_signal,microprice_fill_toxicity,same_ms_audit}/...
+```
+
+### Headline result
+`Conditional V2: queue-model-dependent result`. Conservative passive-edge
+verdict: `Strengthens V1`.
+
+| Endpoint | Mean net PnL | 95% CI | Verdict |
+|---|---:|---|---|
+| `1.0` proportional | -1.0431 | [-2.3316, -0.0323] | Strengthens V1 |
+| `0.0` none | -0.6858 | [-1.8833, +0.2896] | Weakens V1 |
+
+- 18 of 24 windows are net-negative at each endpoint. The worst windows remain
+  Apr 13 and Apr 17, the two worst V1 anchors.
+- Matched net PnL crosses zero at both endpoints (`-0.3577` [-0.7990, +0.0602]
+  proportional; `-0.1074` [-0.4503, +0.2526] none).
+- Microprice pooled 1s `beta * signal_std` `+0.0190 bps`, HAC `t +1.74`,
+  positive 1s beta in 19 of 24 windows. Fails the `|t| >= 2` and `0.05 bps` bars.
+- Fill toxicity broad: worst-5% fill share `40.6%` of total adverse 30s move
+  (proportional), comparable to V1's `39.6%`.
+- Fee break-even: full strategy needs a maker rebate at both endpoints
+  (`1.3515 bps` proportional, `0.7693 bps` none); tail-excluded matched lots flip
+  positive at both.
+
+### What changed from previous result
+V1 (six windows, proportional) had mean net PnL `-2.4388` with CI
+`[-6.7121, +1.2887]` that crossed zero. On 24 windows the proportional CI is
+`[-2.3316, -0.0323]`, excluding zero. The point estimate is less negative (the
+two extreme V1 windows are diluted by many mildly negative windows) but the CI
+tightened enough to establish the negative at the 95% level. The conclusion
+strengthened even though the mean rose.
+
+### What could be artifact
+- Full-strategy net PnL is endpoint-sensitive (residual inventory marked at
+  window close). Matched-lot economics are cleaner and still cross zero, so the
+  firmer negative is partly residual-inventory driven.
+- The proportional endpoint is the more generous queue assumption; `0.0`
+  (no credit) `Weakens` rather than `Strengthens`. The headline is explicitly
+  queue-model conditional.
+- Development panel only. The holdout stays sealed and is `regime-shifted`; that
+  label applies to any future holdout verdict.
+
+### What this proves
+The passive microprice-only baseline shows no stable positive edge on the
+broader, cleaner, pre-selected panel, and under the realistic queue model the
+negative is now statistically reliable (CI excludes zero). The V1 result was not
+a six-window small-sample fluke.
+
+### What this does not prove
+Nothing about OFI, inventory-aware, or vol-adaptive quoting; nothing about perp
+or other venues; nothing about whether an observable filter could avoid the
+adverse tail. Microprice retains directional 1s consistency (19/24) that is not
+economically usable on its own.
+
+### Next action
+Phase B OFI diagnostics as a premise test (unconditional drift plus
+conditional-on-fill toxicity), gated by the pre-registered support criteria. No
+strategy or holdout work until OFI clears its gate. Then Phase C queue and
+latency stress.

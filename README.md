@@ -165,7 +165,7 @@ V2 is now scaffolded as evidence expansion, not strategy proliferation:
 - `scripts/sweep_queue_credit.py` and `scripts/summarize_queue_credit_sweep.py` report queue-credit and latency stress using quantity-weighted matched net PnL per BTC.
 - `notebooks/holdout_protocol.md` is the required pre-commit lock record before any one-shot candidate holdout run.
 
-The current research task is Phase A baseline remeasurement, then OFI diagnostics. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
+Phase A baseline remeasurement is complete (2026-06-09): the 24-window result is `Conditional V2: queue-model-dependent`, conservative verdict `Strengthens V1`. The passive microprice baseline still shows no stable edge, and under the proportional queue model the window-level net-PnL CI now excludes zero (it crossed zero in the V1 six-window result). The current research task is Phase B OFI diagnostics. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
 
 Frozen manifest SHA-256: `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`.
 The strict inventory contains `89` clean non-overlapping development windows and

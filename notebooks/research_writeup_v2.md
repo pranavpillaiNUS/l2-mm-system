@@ -4,11 +4,16 @@ This V2 writeup supersedes the V1 six-window result in `notebooks/research_write
 
 ## Executive Summary
 
-Status: Phase A complete (2026-06-09). The integrity manifest and selected
-panels are frozen, and the 24-window development baseline has been remeasured at
-queue-credit endpoints `{0.0, 1.0}`. Headline: `Conditional V2:
-queue-model-dependent result`; conservative passive-edge verdict `Strengthens
-V1`. Phase B OFI diagnostics are the next step. The holdout remains sealed.
+Status: Phase B complete (2026-06-14). The integrity manifest and selected
+panels are frozen. Phase A remeasured the 24-window baseline at queue-credit
+endpoints `{0.0, 1.0}` (`Conditional V2: queue-model-dependent result`,
+conservative passive-edge verdict `Strengthens V1`). Phase B then tested OFI as a
+premise: the unconditional signal is strong (pooled 1s HAC `t=64.6`, 24 of 24
+windows same-sign, clean bucket dose-response), but the conditional-on-fill test
+fails (separation `+0.13 bps` proportional, `-0.38 bps` none, both far below the
+`1.0 bps` bar). OFI is therefore `blocked` as a passive maker edge, and
+`OFIGatedMM` does not advance. Phase C queue and latency stress is the next step.
+The holdout remains sealed.
 
 The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to 24 deterministic 5-hour BTCUSDT development windows. The selected size was derived from strict manifest-clean capacity. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
 
@@ -121,9 +126,81 @@ Do not proceed from this table directly to a strategy. Use it only to frame Phas
 
 ## Phase B OFI
 
-Status: pending.
+Status: complete (2026-06-14). Verdict: `blocked`.
 
-OFI must clear `75%` same-sign 1s beta stability across development windows, pooled HAC `|t| >= 2`, and pooled `|beta * signal_std| >= 0.05 bps`. Conditional 30s toxicity is `pass`, `fail_signal`, or `inconclusive_power`; thin buckets are not mislabeled as signal failure.
+### Pre-registered gate
+
+OFI had to clear `75%` same-sign 1s beta stability across development windows,
+pooled HAC `|t| >= 2`, and pooled `|beta * signal_std| >= 0.05 bps`. Conditional
+30s toxicity is `pass`, `fail_signal`, or `inconclusive_power`; thin buckets
+(below 30 samples) are `inconclusive_power`, not signal failure. The gate was
+fixed before the run.
+
+### Leakage hardening and robustness
+
+Before the locked run, the conditional fill-toxicity computation was tightened to
+strictly-pre-fill samples. The reference book and the OFI window now use the most
+recent sample STRICTLY before the fill, so a book sample stamped at the fill
+millisecond (which can encode the fill-causing move) cannot leak into the OFI or
+the reference mid. A leakage tripwire in `tests/test_ofi_signal.py` requires a
+near-zero t-stat when the OFI-to-drift pairing is destroyed (shuffled), which a
+window-overlap bug would not satisfy. The unconditional path was unchanged.
+
+The hardening moved the conditional separation only marginally (`qc1 +0.1264 ->
++0.1272 bps`; `qc0 -0.3788 -> -0.3756 bps`) and changed no status. Same-ms
+leakage is therefore empirically negligible in this dense top-of-book data, so
+the conditional-fail result is not a same-ms artifact.
+
+### Unconditional result (passes, strongly)
+
+The unconditional OFI signal is queue-independent (`qc0 == qc1`). Pooled across
+the 24 windows:
+
+| Horizon | n | beta | HAC t | R2 | beta * signal_std |
+|---|---:|---:|---:|---:|---:|
+| 1s | 430,278 | +0.1192 | +64.63 | 0.0366 | +0.1233 bps |
+| 10s | 430,062 | +0.2424 | +35.83 | 0.0128 | +0.2508 bps |
+| 1m | 428,862 | +0.3157 | +18.06 | 0.0032 | +0.3268 bps |
+| 5m | 423,102 | +0.2958 | +7.48 | 0.0006 | +0.3069 bps |
+
+Per-window 1s beta is positive in all 24 of 24 windows (100 percent same-sign),
+with `|t|` from 4.48 to 26.90, so every window is individually significant. The
+1s bucket dose-response is clean and monotone: average forward drift rises from
+`-0.276 bps` at OFI `< -1.0` through zero to `+0.284 bps` at OFI `>= 1.0`. The
+unconditional gate passes on all three bars (same-sign 100 vs 75, `|t| 64.63` vs
+2, effect `0.1233 bps` vs 0.05).
+
+### Conditional-on-fill result (fails)
+
+The strategy-relevant test is conditional on receiving a passive fill. The 30s
+side-aligned separation (favorable-OFI largest bucket minus adverse-OFI largest
+bucket) is small and sign-inconsistent across queue models:
+
+| Queue credit | Separation | Min bucket n | Status |
+|---|---:|---:|---|
+| 1.0 proportional | +0.1272 bps | 201 | fail_signal |
+| 0.0 none | -0.3756 bps | 154 | fail_signal |
+
+Both are far below the `1.0 bps` separation bar and well powered (`n >= 30`), so
+this is `fail_signal`, not `inconclusive_power`. Combined with the strong
+unconditional signal, the overall verdict is `blocked`.
+
+### Interpretation (project centerpiece)
+
+OFI is a real, strong, monotone predictor of forward mid drift at the population
+level. But conditional on receiving a passive fill, prior OFI does not separate
+toxic from benign fills: favorable-OFI fills move about as adversely as
+adverse-OFI fills. The fills a passive maker actually receives are the
+adversely-selected subsample of all book events, so a population-strong signal is
+not harvestable under passive execution. This is the sharpest single result in
+the project: signal existence does not imply edge once execution conditioning is
+applied honestly. It also explains why the microprice baseline does not improve
+with a microprice-derived gate.
+
+This blocks `OFIGatedMM`: it must not run unless Phase B is `supported` or
+`supported_with_conditional_power_limit`, and it is neither. The holdout stays
+sealed. The result does not speak to faster or taker-capable participants, to
+inventory-aware or vol-adaptive quoting, or to other venues.
 
 ## Phase C Queue And Regime Diagnostics
 

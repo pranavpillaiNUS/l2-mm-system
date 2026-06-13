@@ -1108,3 +1108,138 @@ Phase B OFI diagnostics as a premise test (unconditional drift plus
 conditional-on-fill toxicity), gated by the pre-registered support criteria. No
 strategy or holdout work until OFI clears its gate. Then Phase C queue and
 latency stress.
+
+---
+## 2026-06-14: Phase B OFI Diagnostics (Premise Test)
+
+### Question
+Does order-flow imbalance (OFI) give the passive microprice maker a usable edge?
+Two pre-registered sub-questions: unconditional (does 1s OFI predict forward mid
+drift?) and conditional-on-fill (given a passive fill, does prior OFI separate
+toxic from benign fills?).
+
+### Hypothesis
+Pre-registered support gate, fixed in `research_writeup_v2.md` and
+`current_stage_brief.md` before the run: same-sign 1s beta in at least 75 percent
+of development windows, pooled HAC `|t| >= 2`, pooled `|beta * signal_std| >=
+0.05 bps`, and a conditional 30s toxicity result that is not a clear signal
+failure. Conditional buckets below 30 samples are `inconclusive_power`, not
+failure. No directional prediction beyond the V1 / Phase A prior.
+
+### Data window and config
+Same frozen 24-window development panel as Phase A (`2026-04-12T09` to
+`2026-05-09T13`, panel SHA `760c55b7...`). microprice, `half_spread=2.00`,
+`requote=5000ms`, `order_qty=0.001`, `max_position=0.01`, `latency=10ms`,
+`jitter=0`, `maker_bps=2`, `taker_bps=5`. Queue credits `{0.0, 1.0}`. OFI sampled
+every 1s over the prior 1s interval; forward drift at 1s/10s/1m/5m; conditional
+toxicity at 30s. Deterministic suite `223 passed` immediately before the run.
+
+### Leakage hardening (done before the locked re-run)
+The conditional fill-toxicity computation was tightened to strictly-pre-fill
+samples: the reference book and the OFI window now use the most recent sample
+STRICTLY before the fill (`bisect_left`, `end_inclusive=False`), so a book sample
+stamped at the fill millisecond (which can encode the fill-causing move) cannot
+leak into the OFI or the reference mid. A leakage tripwire was added to
+`tests/test_ofi_signal.py`: a same-ms move guard, plus a random-walk / shuffle
+test that requires `|t| ~ 0` when the OFI-to-drift pairing is destroyed (observed
+clean `t=+1.0`, shuffled `t=-0.2`, versus the `|t| >> 10` a window-overlap bug
+would produce). The unconditional path was unchanged, so its cached samples
+remain valid.
+
+### Command
+```text
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase b
+```
+Re-run after the hardening with the `ofi_signal` step statuses invalidated to
+force recomputation. Unconditional samples were reused from the cache;
+conditional fill toxicity was re-replayed over 120 sessions per credit.
+
+### Artifact paths
+```text
+results/panels/btcusdt_l2_panel_v2/ofi_signal/btcusdt_microprice_ofi_20260412_09_to_20260509_13_24blocks_1000ms{,_qc0}/
+  summary.json, regressions.csv, signal_buckets.csv, fill_toxicity_rows.csv, fill_buckets.csv
+```
+
+### Headline result
+Verdict: `blocked`. The unconditional OFI signal passes every gate strongly, but
+the conditional-on-fill test fails. A strong population-level signal that the
+passive maker cannot harvest.
+
+Unconditional, pooled, queue-independent (`qc0 == qc1`):
+
+| Horizon | n | beta | HAC t | R2 | beta * signal_std |
+|---|---:|---:|---:|---:|---:|
+| 1s | 430,278 | +0.1192 | +64.63 | 0.0366 | +0.1233 bps |
+| 10s | 430,062 | +0.2424 | +35.83 | 0.0128 | +0.2508 bps |
+| 1m | 428,862 | +0.3157 | +18.06 | 0.0032 | +0.3268 bps |
+| 5m | 423,102 | +0.2958 | +7.48 | 0.0006 | +0.3069 bps |
+
+- Per-window 1s: 24 of 24 windows have positive beta (100 percent same-sign),
+  `|t|` from 4.48 to 26.90 (every window individually significant), beta from
+  0.0646 to 0.1431.
+- 1s bucket dose-response is clean and monotone: average forward drift rises from
+  `-0.276 bps` (OFI `< -1.0`) through zero to `+0.284 bps` (OFI `>= 1.0`).
+- Unconditional gate: same-sign 100 percent (bar 75), `|t| 64.63` (bar 2),
+  effect `0.1233 bps` (bar 0.05). All pass.
+
+Conditional-on-fill, 30s side-aligned separation (favorable minus adverse largest
+bucket):
+
+| Queue credit | Separation | Min bucket n | Status |
+|---|---:|---:|---|
+| 1.0 proportional | +0.1272 bps | 201 | fail_signal |
+| 0.0 none | -0.3756 bps | 154 | fail_signal |
+
+Both are far below the `1.0 bps` separation bar, sign-inconsistent across queue
+models, and well powered (`n >= 30`). Conditional status `fail_signal`, overall
+verdict `blocked`.
+
+### Interpretation (centerpiece)
+OFI is a real, strong, monotone predictor of forward mid drift at the population
+level (1s HAC `t=64.63`, 24 of 24 windows same-sign, clean bucket dose-response).
+But conditional on receiving a passive fill, prior OFI does not separate toxic
+from benign fills: favorable-OFI fills move about as adversely as adverse-OFI
+fills (`+0.13 bps` proportional, `-0.38 bps` none). The fills a passive maker
+receives are the adversely-selected subsample, so a population-strong signal is
+not usable by the maker. Adverse selection stated precisely: signal existence
+does not imply harvestable edge under passive execution.
+
+### What changed from the pre-hardening run
+The strictly-pre-fill hardening moved the conditional separation only marginally
+(`qc1 +0.1264 -> +0.1272 bps`; `qc0 -0.3788 -> -0.3756 bps`) and changed no
+status. Same-ms leakage was therefore empirically negligible in this dense
+top-of-book data, so the conditional-fail result was never a same-ms artifact.
+The hardening makes the claim robust without altering it.
+
+### What could be artifact
+- Conditional toxicity still depends on the queue/fill model that produced the
+  fills. The unconditional result is queue-independent (`qc0 == qc1`) and clean
+  (OFI over `[t-1s, t]`, forward over `[t, t+h]`, no overlap), so it does not rely
+  on the simulator's fill assumptions.
+- Development panel only. The holdout stays sealed and `regime-shifted`.
+
+### What this proves
+The pre-registered OFI premise test is decided: unconditional support is strong
+but the conditional-on-fill gate fails, so OFI is `blocked` as a passive maker
+edge. `OFIGatedMM` does not advance to a development gate.
+
+### What this does not prove
+Nothing about whether OFI is usable by a faster or taker-capable participant,
+nothing about inventory-aware or vol-adaptive quoting, nothing about perp or
+other venues. The unconditional signal is genuinely informative; it is simply not
+harvestable by this passive maker because of adverse selection on fills.
+
+### Next action
+Phase C queue-credit and latency stress (credits `{0,0.25,0.5,0.75,1.0}` by
+latency `{0,10,50}ms`) for model-risk closure. `OFIGatedMM` does not advance (gate
+blocked); the holdout stays sealed; tail-aware is not an automatic fallback.
+
+### Session note (infrastructure)
+Long-lead perp recording started this session. `src/recorder/simple_recorder.py`
+and `trade_recorder.py` gained `--market {spot,perp}`, writing to
+`data/raw/btcusdt_perp/` and `data/raw/btcusdt_perp_trades/` (spot paths and
+defaults unchanged). This environment's USD-M futures feed does not populate
+`@aggTrade`, so perp trades use the raw `@trade` stream (more granular than spot's
+aggTrade); depth uses `@depth@100ms` with `U/u/pu` futures bridging fields
+captured raw. Recording and reconnect only; no perp analysis until the spot arc
+completes.

@@ -62,12 +62,16 @@ Replays recorded L2 orderbook and trade data deterministically and simulates ord
 
 ### Data collection
 
-Two recorders run continuously in tmux, writing hourly gzipped JSONL files:
+Recorders run continuously in tmux, writing hourly gzipped JSONL files. Spot is the primary dataset; a long-lead perp (USD-M futures) capture runs in parallel for a later cross-venue study (recording and reconnect only, no perp analysis yet):
 
 ```
-data/raw/btcusdt/               # depth diffs + snapshots (~140MB/day compressed)
-data/raw/btcusdt_trades/        # aggTrade stream (~19MB/day compressed)
+data/raw/btcusdt/               # spot depth diffs + snapshots (~140MB/day compressed)
+data/raw/btcusdt_trades/        # spot aggTrade stream (~19MB/day compressed)
+data/raw/btcusdt_perp/          # perp depth diffs + snapshots (@depth@100ms, U/u/pu)
+data/raw/btcusdt_perp_trades/   # perp raw @trade stream (this futures feed has no aggTrade)
 ```
+
+The recorders take `--market {spot,perp}`; spot is the default and its paths are unchanged. Perp is written to its own dataset so the two raw trees can never collide. Perp trades use the raw `@trade` stream because this environment's futures feed does not populate `@aggTrade`; raw trades are one record per fill, more granular than spot aggTrades, which the future perp parser and any spot-vs-perp comparison must account for.
 
 Depth files contain two record types. Diff records (no `"type"` field) carry bid/ask level updates - quantity `"0"` means remove that level. Snapshot records (`"type": "snapshot"`) are full 1000-level REST snapshots taken at file start and after reconnects, used as resync points. Snapshots are present from April 12 2026 onwards; earlier files are diffs only and reconnection gaps are unrecoverable.
 
@@ -165,7 +169,9 @@ V2 is now scaffolded as evidence expansion, not strategy proliferation:
 - `scripts/sweep_queue_credit.py` and `scripts/summarize_queue_credit_sweep.py` report queue-credit and latency stress using quantity-weighted matched net PnL per BTC.
 - `notebooks/holdout_protocol.md` is the required pre-commit lock record before any one-shot candidate holdout run.
 
-Phase A baseline remeasurement is complete (2026-06-09): the 24-window result is `Conditional V2: queue-model-dependent`, conservative verdict `Strengthens V1`. The passive microprice baseline still shows no stable edge, and under the proportional queue model the window-level net-PnL CI now excludes zero (it crossed zero in the V1 six-window result). The current research task is Phase B OFI diagnostics. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
+Phase A baseline remeasurement is complete (2026-06-09): the 24-window result is `Conditional V2: queue-model-dependent`, conservative verdict `Strengthens V1`. The passive microprice baseline still shows no stable edge, and under the proportional queue model the window-level net-PnL CI now excludes zero (it crossed zero in the V1 six-window result).
+
+Phase B OFI diagnostics are complete (2026-06-14): verdict `blocked`. Unconditional OFI is a strong, queue-independent predictor of forward mid drift (pooled 1s beta `+0.119`, HAC `t 64.6`, positive 1s beta in 24 of 24 windows, clean monotone bucket dose-response from `-0.276 bps` to `+0.284 bps`). But conditional on receiving a passive fill, prior OFI gives no usable separation between toxic and benign fills (30s side-aligned separation `+0.13 bps` proportional, `-0.38 bps` none, both far below the `1.0 bps` bar). This is the project centerpiece: a strong population-level signal that a passive maker cannot harvest, because the fills it receives are the adversely-selected subsample. The conditional test was hardened to strictly-pre-fill samples with a leakage tripwire, and the result was essentially unchanged. `OFIGatedMM` does not advance. The next step is Phase C queue and latency stress. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
 
 Frozen manifest SHA-256: `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`.
 The strict inventory contains `89` clean non-overlapping development windows and
@@ -189,6 +195,8 @@ Deterministic suite checkpoints:
 - Initial local V2 scaffold: `215 passed in 9.49s`.
 - Current deterministic suite after synthetic bar-fixture hardening:
   `216 passed in 5.14s`.
+- After perp-recorder market split and OFI strictly-pre-fill leakage hardening:
+  `223 passed in 5.08s`.
 - Remote CI run ID: pending authenticated verification. This private repository
   returns `404` from the unauthenticated GitHub Actions API in the current
   environment, so no green remote run is claimed here.

@@ -21,12 +21,22 @@ import signal
 class TradeRecorder:
     """Records Binance aggTrade stream to gzipped files."""
 
-    WS_URL = "wss://stream.binance.com:9443/ws"
+    # Spot and USD-M perpetual futures share the aggTrade stream shape but live
+    # on different hosts. Spot is the default; perp writes to its own dataset.
+    SPOT_WS_URL = "wss://stream.binance.com:9443/ws"
+    PERP_WS_URL = "wss://fstream.binance.com/ws"
 
-    def __init__(self, symbol: str, output_dir: Path):
+    def __init__(self, symbol: str, output_dir: Path, market: str = "spot"):
+        if market not in ("spot", "perp"):
+            raise ValueError(f"market must be 'spot' or 'perp', got {market!r}")
         self.symbol = symbol.lower()
+        self.market = market
+        # Perp gets its own dataset key so trades land in
+        # data/raw/btcusdt_perp_trades/ and never in the spot trades tree.
+        self.dataset = self.symbol if market == "spot" else f"{self.symbol}_perp"
+        self._ws_url = self.SPOT_WS_URL if market == "spot" else self.PERP_WS_URL
         # trades go in their own subfolder next to depth data
-        self.output_dir = output_dir / "raw" / f"{self.symbol}_trades"
+        self.output_dir = output_dir / "raw" / f"{self.dataset}_trades"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self._running = False
@@ -36,8 +46,15 @@ class TradeRecorder:
         self._total_messages = 0
 
     def _get_ws_url(self) -> str:
-        # aggTrade stream - one message per aggregated trade
-        return f"{self.WS_URL}/{self.symbol}@aggTrade"
+        # Spot publishes aggregated trades on @aggTrade (one message per
+        # aggregated trade). The USD-M futures feed in this environment does
+        # not populate @aggTrade (verified: 0 messages over 25s while @trade,
+        # @depth, and @bookTicker all stream normally), so perp captures the
+        # raw per-fill @trade stream instead. Raw trades are strictly more
+        # granular than aggTrades (one record per fill, no same-price
+        # aggregation); the perp trade parser will account for this difference.
+        stream = "aggTrade" if self.market == "spot" else "trade"
+        return f"{self._ws_url}/{self.symbol}@{stream}"
 
     def _rotate_file(self, now: datetime) -> None:
         """Rotate to new file every hour."""
@@ -46,7 +63,7 @@ class TradeRecorder:
                 self._current_file.close()
                 print(f"Rotated. Trades in last file: {self._message_count}")
 
-            filename = f"{self.symbol}_trades_{now.strftime('%Y%m%d_%H')}00.jsonl.gz"
+            filename = f"{self.dataset}_trades_{now.strftime('%Y%m%d_%H')}00.jsonl.gz"
             filepath = self.output_dir / filename
             self._current_file = gzip.open(filepath, 'at', encoding='utf-8')
             self._current_hour = now.hour
@@ -79,7 +96,7 @@ class TradeRecorder:
 
         while self._running:
             try:
-                print(f"Connecting to {self.symbol}@aggTrade...")
+                print(f"Connecting to {self._get_ws_url().rsplit('/', 1)[-1]}...")
                 async with websockets.connect(
                     self._get_ws_url(),
                     ping_interval=30,
@@ -120,11 +137,14 @@ async def main():
     parser = argparse.ArgumentParser(description="Binance Trade Recorder")
     parser.add_argument("--symbol", default="btcusdt", help="Trading pair")
     parser.add_argument("--output-dir", default="data", help="Output directory")
+    parser.add_argument("--market", default="spot", choices=["spot", "perp"],
+                        help="spot (default) or perp (USD-M futures)")
     args = parser.parse_args()
 
     recorder = TradeRecorder(
         symbol=args.symbol,
         output_dir=Path(args.output_dir),
+        market=args.market,
     )
 
     loop = asyncio.get_event_loop()

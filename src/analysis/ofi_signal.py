@@ -307,7 +307,13 @@ def compute_ofi_fill_toxicity(
         if maker_only and not fill.is_maker:
             continue
 
-        current_idx = bisect_right(times, fill.timestamp_ms) - 1
+        # Strictly-pre-fill anchor: the most recent book sample STRICTLY before
+        # the fill. A sample stamped exactly at fill_ts can encode the
+        # fill-causing trade's own book impact; including it would leak that move
+        # into both the OFI window and the reference mid, biasing the conditional
+        # toxicity test toward a spurious pass. bisect_left excludes the same-ms
+        # sample; bisect_right (the old behaviour) would have included it.
+        current_idx = bisect_left(times, fill.timestamp_ms) - 1
         if current_idx <= 0:
             continue
         current = samples[current_idx]
@@ -318,8 +324,11 @@ def compute_ofi_fill_toxicity(
             continue
 
         interval_start_ms = fill.timestamp_ms - ofi_interval_ms
+        # end_inclusive=False keeps the OFI window strictly before the fill, so
+        # the forward (post-fill) window and the OFI window share only the
+        # pre-fill anchor point and never a common increment.
         raw_ofi, normalized_ofi = _ofi_between(
-            samples, times, interval_start_ms, fill.timestamp_ms
+            samples, times, interval_start_ms, fill.timestamp_ms, end_inclusive=False
         )
         side_sign = _side_sign(fill.side)
         side_aligned = side_sign * normalized_ofi
@@ -495,9 +504,14 @@ def _ofi_between(
     times: Sequence[int],
     start_ms: int,
     end_ms: int,
+    *,
+    end_inclusive: bool = True,
 ) -> tuple[Decimal, Decimal]:
     start_idx = bisect_right(times, start_ms) - 1
-    end_idx = bisect_right(times, end_ms) - 1
+    # end_inclusive=True (the unconditional grid path) includes a sample stamped
+    # exactly at end_ms. end_inclusive=False (the conditional fill path) excludes
+    # it, so a book sample at the fill timestamp cannot leak into the OFI window.
+    end_idx = (bisect_right(times, end_ms) if end_inclusive else bisect_left(times, end_ms)) - 1
     if start_idx < 0 or end_idx <= start_idx:
         return Decimal("0"), Decimal("0")
 

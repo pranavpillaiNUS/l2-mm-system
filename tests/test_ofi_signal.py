@@ -126,10 +126,16 @@ def test_ofi_fill_toxicity_side_aligns_signal():
         fill("buy", OrderSide.BUY, 1_000, price="100.00"),
         fill("sell", OrderSide.SELL, 1_000, price="101.00"),
     ]
+    # Dense strictly-pre-fill samples with a rising bid (positive OFI). The
+    # sample exactly at the fill timestamp (1_000) must be excluded by the
+    # strict-pre-fill window; a 2_000 sample serves the 1s forward horizon.
     samples = [
         sample(0, "100.00", "5", "101.00", "5"),
-        sample(1_000, "100.50", "6", "101.00", "5"),
-        sample(2_000, "101.00", "6", "101.50", "5"),
+        sample(250, "100.25", "6", "101.00", "5"),
+        sample(500, "100.50", "6", "101.00", "5"),
+        sample(750, "100.75", "6", "101.00", "5"),
+        sample(1_000, "101.00", "6", "101.50", "5"),
+        sample(2_000, "101.50", "6", "102.00", "5"),
     ]
 
     rows = compute_ofi_fill_toxicity(
@@ -137,8 +143,8 @@ def test_ofi_fill_toxicity_side_aligns_signal():
         samples,
         {"1s": 1_000},
         ofi_interval_ms=1_000,
-        max_staleness_ms=0,
-        max_future_lag_ms=0,
+        max_staleness_ms=1_000,
+        max_future_lag_ms=1_000,
     )
     buckets = bucket_ofi_fill_toxicity(rows, edges=[0])
 
@@ -146,7 +152,98 @@ def test_ofi_fill_toxicity_side_aligns_signal():
     sell_row = [row for row in rows if row.side == OrderSide.SELL][0]
     assert buy_row.side_aligned_ofi > 0
     assert sell_row.side_aligned_ofi < 0
+    # Reference book state is strictly before the fill, never the same-ms sample.
+    assert buy_row.book_timestamp_ms < 1_000
     assert any(row.side == "all" and row.bucket == ">=0" for row in buckets)
+
+
+def test_ofi_fill_toxicity_excludes_same_ms_book_move():
+    """A book sample stamped exactly at the fill must not leak into OFI or mid.
+
+    The 1_000ms sample carries a large adverse jump that represents the
+    fill-causing move. With strictly-pre-fill anchoring, the reference mid and
+    the OFI window must come only from samples before 1_000, so the measured
+    pre-fill mid is the calm 100.50 and the prior OFI is zero (flat book).
+    """
+    fills = [fill("buy", OrderSide.BUY, 1_000, price="100.00")]
+    samples = [
+        sample(0, "100.00", "5", "101.00", "5"),
+        sample(500, "100.00", "5", "101.00", "5"),
+        # Same-ms-as-fill sample with a big upward jump (the fill-causing move).
+        sample(1_000, "200.00", "50", "201.00", "1"),
+        sample(2_000, "200.00", "50", "201.00", "1"),
+    ]
+
+    rows = compute_ofi_fill_toxicity(
+        fills,
+        samples,
+        {"1s": 1_000},
+        ofi_interval_ms=1_000,
+        max_staleness_ms=1_000,
+        max_future_lag_ms=1_000,
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    # Anchored on the strictly-pre-fill (calm) book, not the 1_000ms jump.
+    assert row.book_timestamp_ms == 500
+    assert row.mid_at_fill == Decimal("100.50")
+    # The flat pre-fill book yields zero OFI; the jump is not leaked in.
+    assert row.raw_ofi == Decimal("0")
+    assert row.side_aligned_ofi == Decimal("0")
+
+
+def test_ofi_unconditional_no_leakage_tripwire():
+    """Forward-shifted / shuffled OFI must regress to ~zero t-stat.
+
+    On an independent-increment random walk, OFI (a function of past book
+    increments) and forward mid drift (a future increment) are independent, so
+    a correct, non-overlapping construction yields |t| near zero. A window-
+    overlap leakage bug would instead manufacture a large t (the audit notes
+    contemporaneous-overlap bugs produce R2 ~ 0.4-0.65, |t| >> 10). The
+    generous |t| < 4 bound cleanly separates clean from leaking.
+    """
+    import random
+    from dataclasses import replace
+
+    rng = random.Random(20260614)
+    samples = []
+    bid = 100.00
+    for i in range(1500):
+        # Independent +/- 1 tick mid steps; top-of-book sizes vary independently.
+        bid += rng.choice((-0.5, 0.5))
+        ask = bid + 1.0
+        bid_qty = rng.randint(1, 9)
+        ask_qty = rng.randint(1, 9)
+        samples.append(sample(i * 1_000, f"{bid:.2f}", str(bid_qty),
+                              f"{ask:.2f}", str(ask_qty)))
+
+    rows = compute_ofi_signal_samples(
+        samples,
+        sample_interval_ms=1_000,
+        ofi_interval_ms=1_000,
+        horizons_ms={"1s": 1_000},
+        max_staleness_ms=1_000,
+        max_future_lag_ms=1_000,
+    )
+    reg = regress_ofi_signal(rows)[0]
+    assert reg.t_stat is not None
+    assert abs(reg.t_stat) < 4.0
+
+    # Shuffled OFI (pairing destroyed) must also give a near-zero t-stat.
+    drifts = [r.forward_drift_bps for r in rows]
+    perm = list(range(len(rows)))
+    rng.shuffle(perm)
+    shuffled = [
+        replace(rows[i], normalized_ofi=rows[perm[i]].normalized_ofi,
+                raw_ofi=rows[perm[i]].raw_ofi)
+        for i in range(len(rows))
+    ]
+    # sanity: drift order is unchanged; only OFI labels were permuted
+    assert [r.forward_drift_bps for r in shuffled] == drifts
+    reg_shuf = regress_ofi_signal(shuffled)[0]
+    assert reg_shuf.t_stat is not None
+    assert abs(reg_shuf.t_stat) < 4.0
 
 
 def test_ofi_gate_requires_75_percent_window_sign_stability():

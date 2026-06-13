@@ -1243,3 +1243,76 @@ defaults unchanged). This environment's USD-M futures feed does not populate
 aggTrade); depth uses `@depth@100ms` with `U/u/pu` futures bridging fields
 captured raw. Recording and reconnect only; no perp analysis until the spot arc
 completes.
+
+---
+## 2026-06-14: Phase C Queue-Credit and Latency Stress (Model-Risk Closure)
+
+### Question
+Is the negative passive-baseline conclusion robust across the
+queue-cancellation-credit and latency assumptions, or is it an artifact of the
+proportional (credit `1.0`) queue model or the `10ms` latency used in Phase A?
+
+### Data window and config
+Frozen 24-window development panel. microprice, `half_spread=2.00`,
+`requote=5000ms`, `maker_bps=2`, `taker_bps=5`. Grid: queue credits
+`{0.0, 0.25, 0.5, 0.75, 1.0}` at latency `10ms`, plus endpoint credits
+`{0.0, 1.0}` at latencies `{0, 50}ms`. The latency-10 endpoints reuse the Phase A
+reconciliation runs. 168 new window replays, all completed (168/168).
+
+### Command
+```text
+env PYTHONPATH=. python scripts/sweep_queue_credit.py
+env PYTHONPATH=. python scripts/summarize_queue_credit_sweep.py \
+  --runs-csv results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/queue_credit_sweep_runs.csv \
+  --output-root results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/summary
+```
+One fix to `scripts/summarize_queue_credit_sweep.py`: the latency-10 endpoints
+share the Phase A reconciliation root, which holds both credits. The summarizer
+now selects only the matching-credit summaries from a shared root (instead of
+raising on the other credit) and adds a post-load count check.
+
+### Result (pooled, 24 windows)
+
+| Credit | Latency | Fills | Orders/fill | Matched net/BTC | Matched net | Full net | Matched break-even fee |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 0.0 | 0/10/50 | 1595 | 70.8 | -9.75 | -2.58 | -16.46 | +1.35 |
+| 0.25 | 10 | 1796 | 62.9 | -15.08 | -4.38 | -17.64 | +1.00 |
+| 0.5 | 10 | 1802 | 62.6 | -16.08 | -4.97 | -20.88 | +0.93 |
+| 0.75 | 10 | 1831 | 61.6 | -17.51 | -5.69 | -21.33 | +0.84 |
+| 1.0 | 0/10/50 | 2041 | 55.4 | -23.65 | -8.59 | -25.03 | +0.43 |
+
+### Findings
+- Latency-invariant. For each credit, latencies `{0, 10, 50}ms` give identical
+  matched and full-strategy PnL (only orders-per-fill changes marginally). At a
+  `2.00` half-spread, a 0 to 50ms latency difference does not change the fill set.
+- Monotonic in queue credit. As cancellation credit rises `0.0 -> 1.0`, fills
+  rise (1595 -> 2041), orders-per-fill falls (70.8 -> 55.4), and both matched and
+  full-strategy PnL worsen (matched per BTC `-9.75 -> -23.65`; full net `-16.46
+  -> -25.03`). More credit yields more, more-toxic fills.
+- The matched-lot sign flip does not persist. On the 24-window panel matched net
+  is negative across the entire grid, most favorable at credit `0.0` (pooled
+  `-2.58`, i.e. `-0.107` per window, the near-flat CI-crossing-zero Phase A
+  no-credit value) and most negative at credit `1.0` (`-8.59` pooled, `-0.358`
+  per window, exactly the Phase A proportional value). The V1 six-anchor
+  "positive matched under no credit" does not generalize to the broader panel.
+
+### Interpretation
+The negative passive-baseline conclusion is robust to the two main model-risk
+levers. Queue-cancellation credit changes the magnitude of the loss but never the
+sign; latency in `[0, 50]ms` is immaterial at this spread. The proportional
+(credit `1.0`) assumption that Phase A headlined is the least favorable endpoint,
+so the Phase A proportional negative is conservative; the no-credit endpoint is
+the most favorable but still negative and near-flat. This closes the model-risk
+question for the passive microprice baseline.
+
+### What this proves / does not prove
+Proves: the passive baseline's negative result does not depend on the queue model
+or on a particular sub-50ms latency. Does not prove anything about other spreads,
+strategies, signals, or venues.
+
+### Status of the research arc
+Phases A, B, and C are complete. The passive microprice baseline shows no stable
+edge (`Strengthens V1`, robust across queue credit and latency); OFI is a strong
+population signal but `blocked` for a passive maker by adverse selection on fills.
+`OFIGatedMM` does not advance; the holdout stays sealed; tail-aware is not an
+automatic fallback. The disciplined outcome is to publish the expanded negative.

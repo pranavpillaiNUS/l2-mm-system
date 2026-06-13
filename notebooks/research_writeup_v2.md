@@ -4,16 +4,18 @@ This V2 writeup supersedes the V1 six-window result in `notebooks/research_write
 
 ## Executive Summary
 
-Status: Phase B complete (2026-06-14). The integrity manifest and selected
-panels are frozen. Phase A remeasured the 24-window baseline at queue-credit
+Status: Phase C complete (2026-06-14); the Phase A/B/C development arc is
+finished. The integrity manifest and selected panels are frozen. Phase A remeasured the 24-window baseline at queue-credit
 endpoints `{0.0, 1.0}` (`Conditional V2: queue-model-dependent result`,
 conservative passive-edge verdict `Strengthens V1`). Phase B then tested OFI as a
 premise: the unconditional signal is strong (pooled 1s HAC `t=64.6`, 24 of 24
 windows same-sign, clean bucket dose-response), but the conditional-on-fill test
 fails (separation `+0.13 bps` proportional, `-0.38 bps` none, both far below the
 `1.0 bps` bar). OFI is therefore `blocked` as a passive maker edge, and
-`OFIGatedMM` does not advance. Phase C queue and latency stress is the next step.
-The holdout remains sealed.
+`OFIGatedMM` does not advance. Phase C queue-credit and latency stress
+(2026-06-14) confirms the baseline negative is robust to both model levers: it
+worsens monotonically with queue-cancellation credit and is invariant to latency
+in `[0, 50]ms`. No candidate advances and the holdout remains sealed.
 
 The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to 24 deterministic 5-hour BTCUSDT development windows. The selected size was derived from strict manifest-clean capacity. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
 
@@ -204,10 +206,42 @@ inventory-aware or vol-adaptive quoting, or to other venues.
 
 ## Phase C Queue And Regime Diagnostics
 
-Status: pending.
+Status: complete (2026-06-14). The negative baseline is robust to the
+queue-credit and latency model levers.
 
-The regime table is descriptive and for writeup context only. Do not select strategy filters from a 24-row table with many columns. Apparent patterns require holdout windows because spurious correlations are expected by chance.
+Queue stress ran credits `{0.0, 0.25, 0.5, 0.75, 1.0}` at `10ms` plus endpoint
+credits `{0.0, 1.0}` at latencies `{0, 50}ms` (the `10ms` endpoints reuse the
+Phase A reconciliation runs). Pooled over the 24 development windows:
 
-Queue stress reports credits `{0.0, 0.25, 0.5, 0.75, 1.0}` at `10ms` and endpoint latencies `{0, 10, 50}ms`. Candidate advancement uses paired five-hour quantity-weighted matched net PnL per BTC, not total matched PnL.
+| Credit | Latency | Fills | Orders/fill | Matched net/BTC | Matched net | Full net | Matched break-even fee |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 0.0 | 0/10/50 | 1595 | 70.8 | -9.75 | -2.58 | -16.46 | +1.35 |
+| 0.25 | 10 | 1796 | 62.9 | -15.08 | -4.38 | -17.64 | +1.00 |
+| 0.5 | 10 | 1802 | 62.6 | -16.08 | -4.97 | -20.88 | +0.93 |
+| 0.75 | 10 | 1831 | 61.6 | -17.51 | -5.69 | -21.33 | +0.84 |
+| 1.0 | 0/10/50 | 2041 | 55.4 | -23.65 | -8.59 | -25.03 | +0.43 |
+
+Three findings close the model-risk question:
+
+- Latency-invariant. For each credit, latencies `{0, 10, 50}ms` give identical
+  matched and full-strategy PnL (only orders-per-fill changes marginally). At a
+  `2.00` half-spread a 0 to 50ms latency difference does not change the fill set.
+- Monotonic in queue credit. More cancellation credit yields more fills
+  (1595 to 2041) of worse quality: matched net per BTC degrades from `-9.75` to
+  `-23.65` and full net from `-16.46` to `-25.03` as credit rises `0.0 -> 1.0`.
+- The matched-lot sign flip does not persist. Matched net is negative across the
+  entire grid, most favorable at credit `0.0` (`-0.107` per window, the near-flat
+  Phase A no-credit value) and most negative at credit `1.0` (`-0.358` per
+  window, the Phase A proportional value). The V1 six-anchor "positive matched
+  under no credit" does not generalize. The proportional endpoint that Phase A
+  headlined is the least favorable, so the Phase A negative is conservative.
+
+The development regime table is descriptive and for writeup context only. Do not
+select strategy filters from a 24-row table with many columns. Apparent patterns
+require holdout windows because spurious correlations are expected by chance.
+Candidate advancement, if any candidate had qualified, would use paired five-hour
+quantity-weighted matched net PnL per BTC, not total matched PnL. No candidate
+qualified: OFI is `blocked` and the baseline negative is robust, so no strategy
+advances and the holdout stays sealed.
 
 The holdout remains sealed until `notebooks/holdout_protocol.md` is filled and committed with the lock timestamp, commit hash, candidate definition, development CI bounds, and no-retuning rule. The template already records the frozen manifest hash, selected-panel hash, `regime-shifted` label, and the pre-committed interpretation constraint.

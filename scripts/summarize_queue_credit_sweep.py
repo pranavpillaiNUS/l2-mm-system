@@ -42,6 +42,17 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
 def _load_runs(path: Path) -> list[QueueCreditRun]:
     with path.open("r", encoding="utf-8", newline="") as f:
         manifest_rows = list(csv.DictReader(f))
+    # One expected run per (credit, latency, window). Latency-10 endpoints reuse
+    # the Phase A reconciliation root, which holds both the proportional and the
+    # no-credit runs, so distinct combos legitimately share a root.
+    expected_runs = {
+        (
+            parse_queue_credit(row["queue_cancellation_credit"]),
+            int(row["latency_ms"]),
+            row["start"],
+        )
+        for row in manifest_rows
+    }
     combos = {
         (
             parse_queue_credit(row["queue_cancellation_credit"]),
@@ -57,14 +68,20 @@ def _load_runs(path: Path) -> list[QueueCreditRun]:
         for summary_path in sorted(root.glob("*/summary.json")):
             reconciliation = load_reconciliation_run(summary_path.parent)
             if reconciliation.queue_credit != expected_credit:
-                raise ValueError(
-                    f"{summary_path} credit {reconciliation.queue_credit} "
-                    f"does not match manifest credit {expected_credit}"
-                )
+                # A reconciliation_root can hold multiple credits (the Phase A
+                # root shared by the latency-10 endpoints). Take only the
+                # summaries whose credit matches this combo; the rest belong to a
+                # different combo that shares the same root.
+                continue
             runs.append(QueueCreditRun(
                 latency_ms=latency_ms,
                 reconciliation=reconciliation,
             ))
+    if len(runs) != len(expected_runs):
+        raise ValueError(
+            f"expected {len(expected_runs)} reconciliation runs, found {len(runs)}; "
+            "a queue-credit/latency combo is missing or duplicated"
+        )
     return runs
 
 

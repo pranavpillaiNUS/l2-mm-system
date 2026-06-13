@@ -22,30 +22,42 @@ import signal
 
 class SimpleRecorder:
     """Records Binance depth stream to gzipped files."""
-    
-    WS_URL = "wss://stream.binance.com:9443/ws"
-    REST_URL = "https://api.binance.com/api/v3/depth"
-    
-    def __init__(self, symbol: str, output_dir: Path):
+
+    # Spot and USD-M perpetual futures endpoints. Spot is the default; perp
+    # writes to a separate dataset so the two raw trees can never collide.
+    SPOT_WS_URL = "wss://stream.binance.com:9443/ws"
+    SPOT_REST_URL = "https://api.binance.com/api/v3/depth"
+    PERP_WS_URL = "wss://fstream.binance.com/ws"
+    PERP_REST_URL = "https://fapi.binance.com/fapi/v1/depth"
+
+    def __init__(self, symbol: str, output_dir: Path, market: str = "spot"):
+        if market not in ("spot", "perp"):
+            raise ValueError(f"market must be 'spot' or 'perp', got {market!r}")
         self.symbol = symbol.lower()
-        self.output_dir = output_dir / "raw" / self.symbol
+        self.market = market
+        # Perp gets its own dataset key so depth files land in
+        # data/raw/btcusdt_perp/ and never in the spot data/raw/btcusdt/ tree.
+        self.dataset = self.symbol if market == "spot" else f"{self.symbol}_perp"
+        self._ws_url = self.SPOT_WS_URL if market == "spot" else self.PERP_WS_URL
+        self._rest_url = self.SPOT_REST_URL if market == "spot" else self.PERP_REST_URL
+        self.output_dir = output_dir / "raw" / self.dataset
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self._running = False
         self._current_file: Optional[gzip.GzipFile] = None
         self._current_hour: Optional[int] = None
         self._message_count = 0
         self._total_messages = 0
-    
+
     def _get_ws_url(self) -> str:
-        return f"{self.WS_URL}/{self.symbol}@depth@100ms"
+        return f"{self._ws_url}/{self.symbol}@depth@100ms"
     
     def _fetch_snapshot(self) -> Optional[dict]:
         """Fetch full orderbook snapshot from REST API.
         Returns the snapshot dict or None if it fails.
         The snapshot has lastUpdateId, bids, and asks - this is
         the reference point we need to reconstruct the book from diffs."""
-        url = f"{self.REST_URL}?symbol={self.symbol.upper()}&limit=1000"
+        url = f"{self._rest_url}?symbol={self.symbol.upper()}&limit=1000"
         try:
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -77,7 +89,7 @@ class SimpleRecorder:
                 self._current_file.close()
                 print(f"Rotated. Messages in last file: {self._message_count}")
             
-            filename = f"{self.symbol}_depth_{now.strftime('%Y%m%d_%H')}00.jsonl.gz"
+            filename = f"{self.dataset}_depth_{now.strftime('%Y%m%d_%H')}00.jsonl.gz"
             filepath = self.output_dir / filename
             self._current_file = gzip.open(filepath, 'at', encoding='utf-8')
             self._current_hour = now.hour
@@ -160,11 +172,14 @@ async def main():
     parser = argparse.ArgumentParser(description="Binance L2 Recorder")
     parser.add_argument("--symbol", default="btcusdt", help="Trading pair")
     parser.add_argument("--output-dir", default="data", help="Output directory")
+    parser.add_argument("--market", default="spot", choices=["spot", "perp"],
+                        help="spot (default) or perp (USD-M futures)")
     args = parser.parse_args()
-    
+
     recorder = SimpleRecorder(
         symbol=args.symbol,
         output_dir=Path(args.output_dir),
+        market=args.market,
     )
     
     # Handle Ctrl+C

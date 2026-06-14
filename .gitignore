@@ -2,6 +2,7 @@ data_raw/
 data_derived/
 reports/
 notebooks/rebuild_journal.md
+notebooks/current_stage_brief.md
 
 .agents/
 .codex/

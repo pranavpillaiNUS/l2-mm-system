@@ -4,7 +4,7 @@ Execution simulator for L2 replay.
 Takes OrderRequests from strategies, applies latency, models FIFO queue
 position, and produces Fills as trades happen in the replayed data.
 
-Key design decisions (all in design notes):
+Key design decisions:
   - Latency uses seeded PRNG - determinism over realism
   - queue_ahead set at order arrival = book qty at that price level
   - Trades drain queue_ahead from the front

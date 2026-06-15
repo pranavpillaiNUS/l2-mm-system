@@ -175,6 +175,13 @@ Phase B OFI diagnostics are complete (2026-06-14): verdict `blocked`. Unconditio
 
 Phase C queue-credit and latency stress is complete (2026-06-14): the baseline negative is robust to both model levers. Matched and full-strategy PnL worsen monotonically with queue-cancellation credit (matched net per BTC `-9.75` at credit `0.0` to `-23.65` at credit `1.0`) and are invariant to latency in `[0, 50]ms` at this spread, so the V1 "positive matched under no credit" does not generalize. Phases A, B, and C are complete; no candidate advances, the holdout stays sealed, and the disciplined outcome is to publish the expanded negative. Do not add `InventorySkewMM` or `VolAdaptiveMM` yet.
 
+The compact artifact map is `notebooks/phase2_artifact_index.md`. The lightweight
+verification command is:
+
+```bash
+env PYTHONPATH=. python scripts/verify_v2_artifacts.py
+```
+
 Frozen manifest SHA-256: `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`.
 The strict inventory contains `89` clean non-overlapping development windows and
 `43` clean non-overlapping late-May holdout windows, so the planned `24 + 12`
@@ -200,7 +207,7 @@ Deterministic suite checkpoints:
 - After perp-recorder market split and OFI strictly-pre-fill leakage hardening:
   `223 passed in 5.08s`.
 - Latest local hygiene verification on 2026-06-15:
-  `223 passed in 5.26s`.
+  `223 passed in 5.37s`.
 - Remote CI run ID: pending authenticated verification. This private repository
   returns `404` from the unauthenticated GitHub Actions API in the current
   environment, so no green remote run is claimed here.
@@ -342,6 +349,12 @@ Deterministic suite:
 env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
 ```
 
+V2 artifact verifier:
+
+```bash
+env PYTHONPATH=. python scripts/verify_v2_artifacts.py
+```
+
 `tests/test_recorder.py` is a live network/recorder test and is intentionally excluded from the deterministic suite. Remote CI remains pending authenticated verification for this private repository; no green remote run ID is claimed here.
 
 Reproduce the V2 development research path:
@@ -358,6 +371,7 @@ env PYTHONPATH=. python scripts/summarize_queue_credit_sweep.py \
 Primary writeup and artifacts:
 
 - `notebooks/research_writeup_v2.md`
+- `notebooks/phase2_artifact_index.md`
 - `notebooks/research_log.md`
 - `results/panels/btcusdt_l2_panel_v2/phase_a_verdict.json`
 - `results/panels/btcusdt_l2_panel_v2/ofi_signal/`

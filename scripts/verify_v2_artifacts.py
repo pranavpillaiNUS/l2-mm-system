@@ -31,6 +31,18 @@ OFI_QC0 = (
     / "btcusdt_microprice_ofi_20260412_09_to_20260509_13_24blocks_1000ms_qc0"
     / "summary.json"
 )
+SAME_MS_QC1 = (
+    PANEL_ROOT
+    / "same_ms_audit"
+    / "btcusdt_microprice_hs2.00_rq5000_panel24"
+    / "summary.json"
+)
+SAME_MS_QC0 = (
+    PANEL_ROOT
+    / "same_ms_audit"
+    / "btcusdt_microprice_hs2.00_rq5000_panel24_qc0"
+    / "summary.json"
+)
 
 
 def _load_json(path: Path) -> dict:
@@ -161,11 +173,56 @@ def verify_phase_c() -> None:
                 _assert_equal(row[key], base[key], f"credit {credit} latency-invariant {key}")
 
 
+def verify_same_ms_audit() -> None:
+    expected = {
+        SAME_MS_QC1: {
+            "total_fills": 2041,
+            "same_ms_overlap_fills": 10,
+        },
+        SAME_MS_QC0: {
+            "total_fills": 1595,
+            "same_ms_overlap_fills": 7,
+        },
+    }
+    for path, expected_values in expected.items():
+        summary = _load_json(path)
+        aggregate = summary["aggregate"]
+        _assert_equal(
+            aggregate["same_ms_overlap_timestamps"],
+            16613,
+            f"{path.name} same-ms overlap timestamp count",
+        )
+        _assert_equal(
+            aggregate["total_fills"],
+            expected_values["total_fills"],
+            f"{path.name} same-ms total fills",
+        )
+        _assert_equal(
+            aggregate["same_ms_overlap_fills"],
+            expected_values["same_ms_overlap_fills"],
+            f"{path.name} same-ms overlap fills",
+        )
+        _assert_equal(
+            aggregate["wrong_attribution_cases"],
+            0,
+            f"{path.name} same-ms wrong attribution cases",
+        )
+        _assert_true(
+            Decimal(str(aggregate["same_ms_overlap_fill_share_pct"])) < Decimal("1"),
+            f"{path.name} same-ms overlap share below 1 pct",
+        )
+
+
 def verify_holdout_sealed() -> None:
     protocol = ROOT / "notebooks" / "holdout_protocol.md"
     text = protocol.read_text(encoding="utf-8")
     _assert_true("UNLOCKED TEMPLATE" in text, "holdout protocol should remain unlocked")
     _assert_true("Lock timestamp (UTC): `TBD`" in text, "holdout lock timestamp should be TBD")
+    _assert_true(
+        "no active candidate qualified for holdout" in text,
+        "holdout should have no active candidate",
+    )
+    _assert_true("Strategy: `TBD`" in text, "holdout strategy should remain TBD")
 
     allowed = {(PANEL_ROOT / "holdout_windows.csv").resolve()}
     holdout_paths = {
@@ -183,6 +240,7 @@ def main() -> None:
         ("Phase A verdict", verify_phase_a),
         ("Phase B OFI gate", verify_phase_b),
         ("Phase C queue stress", verify_phase_c),
+        ("same-ms audit", verify_same_ms_audit),
         ("sealed holdout", verify_holdout_sealed),
     ]
     for label, check in checks:

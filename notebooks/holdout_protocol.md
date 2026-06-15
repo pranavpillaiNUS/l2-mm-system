@@ -3,6 +3,9 @@
 Status: **UNLOCKED TEMPLATE. Do not run candidate strategy holdout results until
 this file is filled, committed, and changed to `LOCKED`.**
 
+Current Phase 2 status: no active candidate qualified for holdout. OFI was
+blocked by the Phase B conditional-on-fill gate, so `OFIGatedMM` did not advance.
+
 ## Lock Record
 
 - Lock timestamp (UTC): `TBD`
@@ -13,12 +16,13 @@ this file is filled, committed, and changed to `LOCKED`.**
 
 ## Candidate Strategy
 
-- Strategy: `OFIGatedMM`
+- Strategy: `TBD`
 - OFI interval: `TBD`
 - OFI threshold: `TBD`
 - Quote behavior when gated: threshold-crossing positive normalized OFI
   suppresses the ask; threshold-crossing negative normalized OFI suppresses
-  the bid; otherwise quote both eligible sides.
+  the bid; otherwise quote both eligible sides. This remains a historical
+  template only unless a future candidate clears development.
 - Queue-credit endpoints: `{0.0, 1.0}`
 - Retuning after lock: prohibited
 

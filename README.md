@@ -1,8 +1,8 @@
 # L2 Market Microstructure System
 
-A quantitative trading research project built in three phases: a bar-level backtesting framework (Phase 1, complete), a deterministic L2 orderbook replay engine with execution simulation (Phase 2, in progress), and a C++17 port of the hot path for performance (Phase 3, planned).
+A quantitative trading research project built in three phases: a bar-level backtesting framework (Phase 1, complete), a deterministic L2 orderbook replay engine with execution simulation and a completed spot-market Phase A/B/C research arc (Phase 2), and a C++17 hot-path port for parity-tested performance measurement (Phase 3, planned next).
 
-The goal is to build and validate market-making strategies on real recorded L2 orderbook data, with a realistic model of execution: queue position, latency, partial fills, and maker/taker fee assignment.
+The goal is to test market-making hypotheses on real recorded L2 orderbook data with a realistic model of execution: queue position, latency, partial fills, and maker/taker fee assignment. The current research result is deliberately conservative: no passive candidate advanced, and the sealed holdout remains untouched.
 
 ---
 
@@ -56,7 +56,7 @@ scripts/
 
 ---
 
-## Phase 2 - L2 Replay Engine + Execution Simulator (in progress)
+## Phase 2 - L2 Replay Engine + Execution Simulator (spot research arc complete)
 
 Replays recorded L2 orderbook and trade data deterministically and simulates order execution with realistic microstructure effects.
 
@@ -116,9 +116,9 @@ optional quote-throttling via `requote_interval_ms`.
 |---|---|---|
 | `SymmetricMM` | arithmetic mid | baseline - symmetric bid/ask around mid |
 | `MicropriceMM` | microprice | tests whether top-of-book imbalance improves fill quality |
-| `OFIGatedMM` | microprice plus recent normalized OFI | suppresses only the quote side adverse to the OFI-predicted move; runnable only after the Phase B OFI support gate |
-| `InventorySkewMM` | planned | shift quotes toward flat as inventory grows |
-| `VolAdaptiveMM` | planned | widen spreads in high-volatility periods |
+| `OFIGatedMM` | microprice plus recent normalized OFI | implemented as a gated candidate, but blocked because Phase B failed conditional-on-fill |
+| `InventorySkewMM` | parked | not justified by the current evidence |
+| `VolAdaptiveMM` | parked | not justified by the current evidence |
 
 Strategies inherit from `BaseMMStrategy` with callbacks `on_book_update`, `on_trade`, `on_fill`, each returning a list of actions: `OrderRequest` to place orders or `CancelRequest` to cancel existing orders.
 
@@ -161,11 +161,11 @@ Fee break-even and queue-sensitivity diagnostics are now generated. The full-str
 
 The same-millisecond depth/trade attribution audit is bounded and quantified. Across the six anchor windows, only 5 of 927 fills occurred at same-ms depth/trade overlaps (0.54%), with zero artifact-evidenced wrong-attribution cases. That is below the predefined escalation thresholds, so the depth-before-trade rule remains a documented design assumption.
 
-V2 is now scaffolded as evidence expansion, not strategy proliferation:
+V2 was run as evidence expansion, not strategy proliferation:
 
 - `scripts/build_l2_integrity_manifest.py` freezes hourly file integrity before `2026-06-01T00:00` UTC with checksums, gzip/JSON validation, snapshot bridging, and depth/trade gap reasons.
 - `scripts/select_l2_windows.py` caches one-hour depth descriptors, selects manifest-clean non-overlapping development and holdout panels, and computes one correlated regime-comparability screen before strategy holdout evaluation.
-- `scripts/run_l2_panel.py` remeasures Phase A at queue-credit endpoints `{0.0, 1.0}` and caches queue-invariant same-ms and OFI data-level work once.
+- `scripts/run_l2_panel.py` remeasures Phase A at queue-credit endpoints `{0.0, 1.0}` and runs the Phase B OFI diagnostics.
 - `scripts/sweep_queue_credit.py` and `scripts/summarize_queue_credit_sweep.py` report queue-credit and latency stress using quantity-weighted matched net PnL per BTC.
 - `notebooks/holdout_protocol.md` is the required pre-commit lock record before any one-shot candidate holdout run.
 
@@ -199,16 +199,15 @@ Deterministic suite checkpoints:
   `216 passed in 5.14s`.
 - After perp-recorder market split and OFI strictly-pre-fill leakage hardening:
   `223 passed in 5.08s`.
+- Latest local hygiene verification on 2026-06-15:
+  `223 passed in 5.36s`.
 - Remote CI run ID: pending authenticated verification. This private repository
   returns `404` from the unauthenticated GitHub Actions API in the current
   environment, so no green remote run is claimed here.
 
-### What's left to build
+### Next build scope
 
-**`scripts/`**:
-- `sweep_mm_params.py` - broader parameter sweep after quote mechanics are stable
-- `walk_forward_mm.py` - same anchored-window framework as Phase 1, adapted for L2 time periods
-- `benchmark.py` - throughput, latency, and memory benchmarks (events/sec, ms/fill)
+The next implementation phase is the C++17 hot-path port. Parity against the Python reference comes first; benchmark numbers are reported only after parity tests pass. Broader MM sweeps, L2 walk-forward, and perp analysis are parked until the port exists and the spot negative result is written up cleanly.
 
 ### Architecture (full picture)
 
@@ -228,9 +227,9 @@ src/strategies/
 |--- base_mm.py        # BaseMMStrategy ABC
 |--- symmetric_mm.py   # quote symmetrically around mid
 |--- microprice_mm.py  # quote around microprice
-|--- ofi_gated_mm.py   # suppress the OFI-adverse quote side after Phase B support
-|--- inventory_skew.py # shift quotes toward flat                                    [ ]
-`--- vol_adaptive.py   # widen in high vol, tighten in low vol                       [ ]
+|--- ofi_gated_mm.py   # implemented, blocked by Phase B conditional-on-fill result
+|--- inventory_skew.py # parked, not justified by current evidence                   [ ]
+`--- vol_adaptive.py   # parked, not justified by current evidence                   [ ]
 
 src/analysis/
 |--- markout.py        # adverse selection at multiple horizons
@@ -260,16 +259,16 @@ scripts/
 |--- summarize_queue_credit_sweep.py  # V2 queue-credit stress summary
 |--- run_ofigated_panel.py             # OFI-supported candidate replay only
 |--- build_strategy_gate_metrics.py    # per-window baseline/candidate gate adapter
-|--- sweep_mm_params.py               # broader MM parameter sweep                     [ ]
-|--- walk_forward_mm.py               # L2 walk-forward validation                     [ ]
-`--- benchmark.py                     # performance benchmark                          [ ]
+|--- sweep_mm_params.py               # parked until C++ throughput exists             [ ]
+|--- walk_forward_mm.py               # parked until C++ throughput exists             [ ]
+`--- benchmark.py                     # C++/Python performance benchmark               [ ]
 ```
 
 ---
 
-## Phase 3 - C++17 Port (planned)
+## Phase 3 - C++17 Port (planned next)
 
-Port the hot path of the replay loop to C++17 via pybind11 for roughly a 10x speedup on parameter sweeps. The Python implementation is the reference; the C++ port must produce bit-identical results on the same input.
+Port the hot path of the replay loop to C++17 via pybind11 and measure the actual speedup on replay and sweep workloads. The Python implementation is the reference; the C++ port must produce bit-identical state hashes on the same input before any benchmark claim is made.
 
 ```
 cpp/  # planned
@@ -327,6 +326,42 @@ python scripts/walk_forward.py
 ```bash
 env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
 ```
+
+### Reproducibility checklist
+
+Use the `l2mm` conda environment from the repository root:
+
+```bash
+conda activate l2mm
+cd /home/pranav/trading-projects/l2-mm-system
+```
+
+Deterministic suite:
+
+```bash
+env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+```
+
+`tests/test_recorder.py` is a live network/recorder test and is intentionally excluded from the deterministic suite. Remote CI remains pending authenticated verification for this private repository; no green remote run ID is claimed here.
+
+Reproduce the V2 development research path:
+
+```bash
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase a
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase b
+env PYTHONPATH=. python scripts/sweep_queue_credit.py
+env PYTHONPATH=. python scripts/summarize_queue_credit_sweep.py \
+  --runs-csv results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/queue_credit_sweep_runs.csv \
+  --output-root results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/summary
+```
+
+Primary writeup and artifacts:
+
+- `notebooks/research_writeup_v2.md`
+- `notebooks/research_log.md`
+- `results/panels/btcusdt_l2_panel_v2/phase_a_verdict.json`
+- `results/panels/btcusdt_l2_panel_v2/ofi_signal/`
+- `results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/summary/`
 
 Individual test files can also be run directly:
 ```bash

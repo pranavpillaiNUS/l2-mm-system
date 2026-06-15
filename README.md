@@ -200,7 +200,7 @@ Deterministic suite checkpoints:
 - After perp-recorder market split and OFI strictly-pre-fill leakage hardening:
   `223 passed in 5.08s`.
 - Latest local hygiene verification on 2026-06-15:
-  `223 passed in 5.36s`.
+  `223 passed in 5.26s`.
 - Remote CI run ID: pending authenticated verification. This private repository
   returns `404` from the unauthenticated GitHub Actions API in the current
   environment, so no green remote run is claimed here.

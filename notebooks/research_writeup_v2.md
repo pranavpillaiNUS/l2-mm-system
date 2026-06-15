@@ -17,6 +17,12 @@ fails (separation `+0.13 bps` proportional, `-0.38 bps` none, both far below the
 worsens monotonically with queue-cancellation credit and is invariant to latency
 in `[0, 50]ms`. No candidate advances and the holdout remains sealed.
 
+Closure note: the compact artifact map is
+`notebooks/phase2_artifact_index.md`. The lightweight reproducibility guard is
+`scripts/verify_v2_artifacts.py`, which checks the frozen hashes, Phase A/B/C
+verdict shape, and sealed-holdout boundary without rerunning the expensive replay
+panel.
+
 The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to 24 deterministic 5-hour BTCUSDT development windows. The selected size was derived from strict manifest-clean capacity. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
 
 The short answer: it does. Across 24 windows the passive microprice baseline is net-negative in 18 of 24 windows at each queue endpoint, and under the realistic proportional queue model the window-level mean net PnL CI now excludes zero (it crossed zero in V1). The negative conclusion strengthened on more, cleaner, pre-selected data. This is a robustness result, not a profitability result.

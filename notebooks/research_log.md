@@ -1316,3 +1316,54 @@ edge (`Strengthens V1`, robust across queue credit and latency); OFI is a strong
 population signal but `blocked` for a passive maker by adverse selection on fills.
 `OFIGatedMM` does not advance; the holdout stays sealed; tail-aware is not an
 automatic fallback. The disciplined outcome is to publish the expanded negative.
+
+---
+## 2026-06-16: Phase 2 Closure And Publication Hygiene
+
+### Question
+Are the public-facing notes and reproducibility hooks aligned with the completed
+Phase A/B/C development arc before moving to the C++ port?
+
+### Actions
+- Added `notebooks/phase2_artifact_index.md` as the compact map of canonical
+  writeups, frozen hashes, Phase A/B/C artifacts, holdout status, and perp
+  capture QA.
+- Added `scripts/verify_v2_artifacts.py` as a lightweight guard for frozen panel
+  provenance, Phase A/B/C verdict shape, and the sealed-holdout boundary.
+- Updated the README and notebooks so Phase C, the same-ms V2 audit, and
+  publication checks are recorded as complete.
+- Kept `notebooks/research_writeup.md` as the frozen V1 reference and kept
+  `notebooks/holdout_protocol.md` unlocked because no candidate advanced.
+
+### Verification
+The artifact verifier passes:
+
+```text
+OK: panel selection
+OK: Phase A verdict
+OK: Phase B OFI gate
+OK: Phase C queue stress
+OK: same-ms audit
+OK: sealed holdout
+OK: V2 Phase 2 artifacts verified
+```
+
+The deterministic suite remains green:
+
+```text
+223 passed in 5.37s
+```
+
+`tests/test_recorder.py` remains excluded because it is a live
+network/environment test.
+
+### Interpretation
+Phase 2 is closed locally in both the research and reproducibility sense. The
+scientific result is still the expanded negative / conditional result: no passive
+candidate advances, OFI is blocked by conditional-on-fill adverse selection, and
+the holdout remains sealed.
+
+### Next action
+Publish the cleaned branch, then begin Phase 3: C++17 hot-path parity against
+the Python reference. Benchmark claims wait until bit-identical state-hash parity
+passes.

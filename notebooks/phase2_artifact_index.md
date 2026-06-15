@@ -82,6 +82,24 @@ Expected pooled rows:
   to about `-23.65` at credit `1.0`
 - Matched and full-strategy PnL are invariant to latency in `[0, 50]ms`
 
+## Same-Millisecond Attribution Audit
+
+Question: can the depth-before-trade same-ms tie rule plausibly drive the V2
+baseline conclusion?
+
+Primary artifacts:
+
+- `results/panels/btcusdt_l2_panel_v2/same_ms_audit/btcusdt_microprice_hs2.00_rq5000_panel24/summary.json`
+- `results/panels/btcusdt_l2_panel_v2/same_ms_audit/btcusdt_microprice_hs2.00_rq5000_panel24_qc0/summary.json`
+- `results/panels/btcusdt_l2_panel_v2/same_ms_audit/data_overlap_cache.json`
+
+Expected result:
+
+- Proportional credit: `10` same-ms overlap fills out of `2041` fills (`0.49%`)
+- No credit: `7` same-ms overlap fills out of `1595` fills (`0.44%`)
+- Artifact-evidenced wrong-attribution cases: `0` at both endpoints
+- Both endpoints remain below escalation thresholds
+
 ## Holdout Status
 
 The holdout is sealed. `notebooks/holdout_protocol.md` must remain an unlocked
@@ -90,6 +108,8 @@ template unless a future pre-registered candidate clears development first.
 Expected status:
 
 - `notebooks/holdout_protocol.md` contains `UNLOCKED TEMPLATE`
+- No active candidate qualified for holdout
+- Candidate strategy remains `TBD`
 - No candidate holdout result artifacts exist under `results/`
 - `results/panels/btcusdt_l2_panel_v2/holdout_windows.csv` is allowed because it
   is the frozen selection record, not a strategy result
@@ -119,10 +139,10 @@ env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
 ```
 
-Expected latest local deterministic suite:
+Latest local closure check on 2026-06-16:
 
 ```text
-223 passed
+223 passed in 5.37s
 ```
 
 `tests/test_recorder.py` is a live network/recorder test and is intentionally

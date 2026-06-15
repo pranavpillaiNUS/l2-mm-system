@@ -66,11 +66,18 @@ Completed V1 sensitivity:
 - Full-strategy PnL stayed negative under both modes, while matched-lot PnL
   changed sign. The matched-lot conclusion is queue-model conditional.
 
-Required V2 follow-up:
+Completed V2 stress:
 
-- Remeasure the development panel at queue-credit endpoints `{0.0, 1.0}`.
-- Run Phase C queue credits `{0.25, 0.5, 0.75}` at `10ms` and endpoint
-  latencies `{0, 10, 50}ms`.
+- The 24-window development panel was remeasured at queue-credit endpoints
+  `{0.0, 1.0}` in Phase A.
+- Phase C ran queue credits `{0.0, 0.25, 0.5, 0.75, 1.0}` at `10ms`, plus
+  endpoint latencies `{0, 10, 50}ms`.
+- Matched net per BTC worsened monotonically from about `-9.75` at credit
+  `0.0` to about `-23.65` at credit `1.0`.
+- Matched and full-strategy PnL were invariant to latency in `[0, 50]ms` at the
+  tested spread.
+- The V1 matched-lot positive under no cancellation credit did not generalize
+  to the 24-window panel.
 
 ### Same-Millisecond Depth/Trade Attribution
 
@@ -86,10 +93,14 @@ Completed V1 audit:
   wrong-attribution cases.
 - Neither escalation threshold was met.
 
-Required V2 follow-up:
+Completed V2 panel audit:
 
-- Compute data-level overlap timestamps once and recompute only endpoint-specific
-  fill joins.
+- The 24-window data-level overlap cache is shared across endpoint audits.
+- Proportional queue credit: `10` same-ms overlap fills out of `2041` fills
+  (`0.49%`) and `0` artifact-evidenced wrong-attribution cases.
+- No queue credit: `7` same-ms overlap fills out of `1595` fills (`0.44%`) and
+  `0` artifact-evidenced wrong-attribution cases.
+- Both endpoints remain below the predefined escalation thresholds.
 
 ### Holdout Regime Shift
 
@@ -114,5 +125,7 @@ Required interpretation:
   observed deviations are actually near that size.
 - Do not run candidate holdout replays before the holdout protocol is filled,
   locked, and committed.
-- Do not build `InventorySkewMM`, `VolAdaptiveMM`, or C++ before the V2
-  evidence-expansion path is complete.
+- Do not build `InventorySkewMM` or `VolAdaptiveMM` without a new
+  pre-registered mechanism. The V2 evidence-expansion path is complete.
+- The C++ port may start now, but parity against Python state hashes comes
+  before benchmark claims.

@@ -1,5 +1,9 @@
 # L2 Market Microstructure System
 
+> Start here: [notebooks/research_note_public.md](notebooks/research_note_public.md) is a two-page summary of the research result. This README is the full technical reference.
+
+**Headline result.** Order flow imbalance (OFI) strongly predicted one-second forward mid-price movement across the population of book states (pooled HAC `t = 64.6`, positive in 24 of 24 development windows, about `+0.123 bps` per signal standard deviation), but that predictive content did not survive conditioning on the passive fills the maker actually received (30s side-aligned separation `+0.127 bps` under proportional queue credit and `-0.376 bps` under no credit, both far below the pre-registered `1.0 bps` materiality bar). This is a population-strong signal that a passive maker cannot harvest: the fills it receives are not a representative draw from the predictive book states, a result consistent with adverse selection. Signal existence does not imply edge under passive execution.
+
 A quantitative trading research project built in three phases: a bar-level backtesting framework (Phase 1, complete), a deterministic L2 orderbook replay engine with execution simulation and a completed spot-market Phase A/B/C research arc (Phase 2), and a C++17 hot-path port for parity-tested performance measurement (Phase 3, planned next).
 
 The goal is to test market-making hypotheses on real recorded L2 orderbook data with a realistic model of execution: queue position, latency, partial fills, and maker/taker fee assignment. The current research result is deliberately conservative: no passive candidate advanced, and the sealed holdout remains untouched.
@@ -157,7 +161,7 @@ Tail Diagnostics V1 adds the sharper distributional picture:
 - The matched-lot body is heterogeneous across windows. Apr 13 and Apr 14 lose even after removing their worst 5%; the other four windows have positive body economics.
 - The largest matched-lot 300s cluster is an Apr 14 realization episode from 13:55:18 to 13:58:19 UTC: 8 matched lots from 4 unique closing fills and 5 unique opening fills, within 30 minutes after US cash open. This is descriptive only, not proof of a session-boundary effect.
 
-Fee break-even and queue-sensitivity diagnostics are now generated. The full-strategy result is negative under both queue modes and would require a rebate in pooled results, but matched-lot PnL is queue-mode conditional: negative under proportional cancellation credit and positive under `none`. Queue sensitivity therefore belongs in the headline interpretation, not a footnote.
+Fee break-even and queue-sensitivity diagnostics are generated. The full-strategy result is negative under both queue modes and would require a rebate in pooled results. On the six-anchor artifact matched-lot PnL was queue-mode conditional (negative under proportional cancellation credit, positive under `none`), but the Phase C 24-window queue-credit stress superseded this: matched net per BTC is negative across the entire credit grid (`-9.75` at credit `0.0` worsening to `-23.65` at credit `1.0`), so the matched-lot sign flip does not generalize. The matched-lot sign is robust; throughput, average fill quality, and loss magnitude are the queue-model-sensitive quantities. Queue sensitivity therefore belongs in the headline interpretation, not a footnote.
 
 The same-millisecond depth/trade attribution audit is bounded and quantified. Across the six anchor windows, only 5 of 927 fills occurred at same-ms depth/trade overlaps (0.54%), with zero artifact-evidenced wrong-attribution cases. That is below the predefined escalation thresholds, so the depth-before-trade rule remains a documented design assumption.
 

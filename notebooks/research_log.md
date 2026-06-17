@@ -307,6 +307,17 @@ At ~$100k BTC, $1 approx 1 bp. So half_spread in {1, 2, 3, 5, 8} dollars approx 
 - If no combo is positive but the *least negative* point has clearly positive E[pnl|fill] and the loss is just "too few fills": fill rate is the binding constraint, not edge per fill. Implication: distance is right, need queue-priority or a smarter quote-placement timing.
 - If *every* point has negative E[pnl|fill] after fees: passive at this asset/data is fundamentally unprofitable. Story becomes "why" - and that's what fill_rate.py's distance/vol breakdown answers. Steps 3-4 become "rescue" attempts; step 5 still has value (showing strategies fail consistently across windows is itself walk-forward evidence).
 
+> Correction, 2026-06-17: the conversion "$1 approx 1 bp at ~$100k BTC" in the
+> decomposition above is wrong. At $100k, $1 is 0.1 bp ($1 / $100,000 x 10,000 =
+> 0.1 bp), and at the ~$71.5k price level in this data $1 is about 0.14 bp. So
+> half_spread in {1, 2, 3, 5, 8} dollars is about {0.14, 0.28, 0.42, 0.70, 1.12}
+> bps here, not {1, 2, 3, 5, 8} bps, and the half_spread=2.00 baseline quotes
+> about 0.28 bps from the reference, not 2 bps. This was a prose conversion error
+> in the prediction reasoning only. The computed markout, adverse-selection,
+> spread-capture, and PnL metrics use move / price x 10,000 (or absolute dollar
+> PnL) directly and are unaffected. The original entry is preserved for the audit
+> trail.
+
 ---
 ## 2026-05-08: Post-Only Sweep Results - Prediction Mostly Wrong
 

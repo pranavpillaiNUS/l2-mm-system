@@ -212,9 +212,11 @@ Deterministic suite checkpoints:
   `223 passed in 5.08s`.
 - Latest local hygiene verification on 2026-06-16:
   `223 passed in 5.37s`.
-- Remote CI run ID: pending authenticated verification. This private repository
-  returns `404` from the unauthenticated GitHub Actions API in the current
-  environment, so no green remote run is claimed here.
+- Remote deterministic CI: verified for research commit `39e833d` (GitHub
+  Actions "Tests" workflow run `27702853914`, completed 2026-06-17 16:09 UTC,
+  conclusion `success`). The Tests workflow runs the deterministic suite on every
+  push. This documentation commit changes prose only and was validated locally
+  with the deterministic suite.
 
 ### Next build scope
 
@@ -359,7 +361,7 @@ V2 artifact verifier:
 env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 ```
 
-`tests/test_recorder.py` is a live network/recorder test and is intentionally excluded from the deterministic suite. Remote CI remains pending authenticated verification for this private repository; no green remote run ID is claimed here.
+`tests/test_recorder.py` is a live network/recorder test and is intentionally excluded from the deterministic suite. Remote deterministic CI is verified for research commit `39e833d` (GitHub Actions "Tests" run `27702853914`, 2026-06-17 16:09 UTC, conclusion `success`).
 
 Reproduce the V2 development research path:
 

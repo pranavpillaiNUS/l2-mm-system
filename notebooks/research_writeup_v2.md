@@ -141,8 +141,11 @@ Status: complete (2026-06-14). Verdict: `blocked`.
 OFI had to clear `75%` same-sign 1s beta stability across development windows,
 pooled HAC `|t| >= 2`, and pooled `|beta * signal_std| >= 0.05 bps`. Conditional
 30s toxicity is `pass`, `fail_signal`, or `inconclusive_power`; thin buckets
-(below 30 samples) are `inconclusive_power`, not signal failure. The gate was
-fixed before the run.
+(below 30 samples) are `inconclusive_power`, not signal failure. Conditional
+`pass` requires a side-aligned 30s separation of at least `1.0 bps`. That `1.0
+bps` value is a pre-registered materiality threshold: it was fixed before the run
+and was not derived from baseline execution economics or adjusted after seeing the
+conditional results. The whole gate was fixed before the run.
 
 ### Leakage hardening and robustness
 
@@ -196,11 +199,15 @@ unconditional signal, the overall verdict is `blocked`.
 ### Interpretation (project centerpiece)
 
 OFI is a real, strong, monotone predictor of forward mid drift at the population
-level. But conditional on receiving a passive fill, prior OFI does not separate
-toxic from benign fills: favorable-OFI fills move about as adversely as
-adverse-OFI fills. The fills a passive maker actually receives are the
-adversely-selected subsample of all book events, so a population-strong signal is
-not harvestable under passive execution. This is the sharpest single result in
+level. But its predictive content did not survive conditioning on the passive
+fills the maker received: favorable-OFI fills moved about as adversely as
+adverse-OFI fills, and the separation stayed far below the materiality bar. The
+fill sample is therefore not a representative draw from the book states where OFI
+is predictive. This is consistent with adverse selection of the fills, since the
+events that reach a resting quote are selected against the signal; the experiment
+identifies the conditional-sample failure rather than every causal mechanism
+behind it (hidden liquidity, participant heterogeneity, queue dynamics, and
+event-order effects could all contribute). This is the sharpest single result in
 the project: signal existence does not imply edge once execution conditioning is
 applied honestly. It also explains why the microprice baseline does not improve
 with a microprice-derived gate.
@@ -229,9 +236,13 @@ Phase A reconciliation runs). Pooled over the 24 development windows:
 
 Three findings close the model-risk question:
 
-- Latency-invariant. For each credit, latencies `{0, 10, 50}ms` give identical
-  matched and full-strategy PnL (only orders-per-fill changes marginally). At a
-  `2.00` half-spread a 0 to 50ms latency difference does not change the fill set.
+- Latency-invariant under this configuration. For each credit, latencies
+  `{0, 10, 50}ms` give identical matched and full-strategy PnL (only
+  orders-per-fill changes marginally). Changing latency from 0 to 50ms did not
+  change the simulated fill set. This is specific to the quote distance (a `$2`
+  half-spread, about `0.28 bps` from the reference at a representative `$71.5k`
+  price level) and the event path used here, not a general claim about latency
+  sensitivity in market making.
 - Monotonic in queue credit. More cancellation credit yields more fills
   (1595 to 2041) of worse quality: matched net per BTC degrades from `-9.75` to
   `-23.65` and full net from `-16.46` to `-25.03` as credit rises `0.0 -> 1.0`.

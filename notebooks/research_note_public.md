@@ -1,4 +1,4 @@
-# Passive Market Making on BTCUSDT L2 Data: A Signal That Cannot Be Harvested
+# Passive Market Making on BTCUSDT L2 Data: A Signal This Passive Maker Couldn't Harvest
 
 A deterministic L2 order-book replay and execution simulator for studying passive
 market making on real Binance spot BTCUSDT data. The central result is a
@@ -20,12 +20,14 @@ But that predictive content did not survive conditioning on the passive fills th
 simulated maker actually received. The 30s side-aligned separation between
 favorable-OFI and adverse-OFI fills was `+0.127 bps` under proportional queue credit
 and `-0.376 bps` under no credit, both far below the pre-registered `1.0 bps`
-materiality bar and both well powered (smallest bucket `n = 201` and `154`). The signal
-exists in the population of book states but cannot be harvested through this passive
-quoting mechanism. The result is consistent with adverse selection of the fill sample:
-the events that fill a resting quote are not a representative draw from the book states
-where OFI is predictive. Signal existence does not imply edge once execution
-conditioning is applied honestly.
+materiality bar and both well powered (smallest bucket `n = 201` and `154`). Under the
+frozen protocol, this premise test failed, so running `OFIGatedMM` was not justified.
+That is a decision about candidate advancement, not a counterfactual claim that the
+unrun strategy would necessarily lose: suppressing one quote side would change the
+fill set. The observed conditional failure is consistent with adverse selection of the
+baseline fill sample. The events that fill a resting quote are not a representative
+draw from the book states where OFI is predictive, so signal existence does not imply
+edge once execution conditioning is applied honestly.
 
 ## System and data
 
@@ -94,6 +96,25 @@ diagnostic; statistical significance is always reported with economic magnitude 
 forced into pass/fail; and determinism is verified by a 223-test deterministic suite and
 state hashing.
 
+## Related work and scope
+
+The measured mechanisms are established market-microstructure ideas, not a claim of
+theoretical novelty. Glosten and Milgrom frame bid-ask spreads as compensation for
+trading against better-informed flow; Cont, Kukanov, and Stoikov connect order-flow
+imbalance to short-horizon price impact; and Avellaneda and Stoikov formulate the
+inventory-aware market-making control problem that this project deliberately did not
+add after the development gate failed. The contribution here is the deterministic
+measurement pipeline, realistic execution conditioning, and pre-registered decision
+rule applied to real BTCUSDT data.
+
+- Lawrence R. Glosten and Paul R. Milgrom (1985), ["Bid, Ask and Transaction
+  Prices in a Specialist Market with Heterogeneously Informed
+  Traders"](https://doi.org/10.1016/0304-405X(85)90044-3).
+- Rama Cont, Arseniy Kukanov, and Sasha Stoikov (2014), ["The Price Impact of
+  Order Book Events"](https://doi.org/10.1093/jjfinec/nbt003).
+- Marco Avellaneda and Sasha Stoikov (2008), ["High-frequency Trading in a
+  Limit Order Book"](https://doi.org/10.1080/14697680701381228).
+
 ## Limitations and conclusion
 
 The completed evidence uses one instrument (Binance spot BTCUSDT) and 24 five-hour
@@ -107,9 +128,9 @@ economics is made. The `$2` quote distance is small (sub-basis-point), and the r
 are specific to that configuration.
 
 The disciplined conclusion is to publish the rigorous negative. A strong
-population-level signal that a passive maker cannot harvest, demonstrated with realistic
-execution and an honestly conditioned test, is a more useful and more credible result
-than a fragile positive built on contaminated execution assumptions.
+population-level signal that failed this passive-maker premise gate, demonstrated with
+realistic execution and an honestly conditioned test, is a more useful and more
+credible result than a fragile positive built on contaminated execution assumptions.
 
 ## Claim-to-artifact map
 

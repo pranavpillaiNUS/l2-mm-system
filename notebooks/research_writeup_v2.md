@@ -214,8 +214,12 @@ with a microprice-derived gate.
 
 This blocks `OFIGatedMM`: it must not run unless Phase B is `supported` or
 `supported_with_conditional_power_limit`, and it is neither. The holdout stays
-sealed. The result does not speak to faster or taker-capable participants, to
-inventory-aware or vol-adaptive quoting, or to other venues.
+sealed. This is a protocol decision based on a failed premise gate, not a
+counterfactual claim that `OFIGatedMM` would necessarily lose. Suppressing one
+quote side would change the candidate's fill set, and that unrun counterfactual
+was deliberately not estimated after the gate failed. The result also does not
+speak to faster or taker-capable participants, to inventory-aware or
+vol-adaptive quoting, or to other venues.
 
 ## Phase C Queue And Regime Diagnostics
 

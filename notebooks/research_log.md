@@ -1173,8 +1173,8 @@ results/panels/btcusdt_l2_panel_v2/ofi_signal/btcusdt_microprice_ofi_20260412_09
 
 ### Headline result
 Verdict: `blocked`. The unconditional OFI signal passes every gate strongly, but
-the conditional-on-fill test fails. A strong population-level signal that the
-passive maker cannot harvest.
+the conditional-on-fill test fails. Its predictive content did not survive
+conditioning on this maker's baseline passive fills.
 
 Unconditional, pooled, queue-independent (`qc0 == qc1`):
 
@@ -1237,8 +1237,10 @@ edge. `OFIGatedMM` does not advance to a development gate.
 ### What this does not prove
 Nothing about whether OFI is usable by a faster or taker-capable participant,
 nothing about inventory-aware or vol-adaptive quoting, nothing about perp or
-other venues. The unconditional signal is genuinely informative; it is simply not
-harvestable by this passive maker because of adverse selection on fills.
+other venues. The unconditional signal is genuinely informative, but the
+conditional result failed the frozen premise gate. That blocked `OFIGatedMM`
+from advancing; it did not establish how the unrun candidate's altered fill set
+would perform.
 
 ### Next action
 Phase C queue-credit and latency stress (credits `{0,0.25,0.5,0.75,1.0}` by
@@ -1378,3 +1380,39 @@ the holdout remains sealed.
 Publish the cleaned branch, then begin Phase 3: C++17 hot-path parity against
 the Python reference. Benchmark claims wait until bit-identical state-hash parity
 passes.
+
+---
+## 2026-07-02: Public Claim Scope Hardening
+
+### Question
+Does the public wording distinguish the observed conditional-fill result from
+the unrun `OFIGatedMM` counterfactual?
+
+### Change
+- Retitled the public note to index the claim to this passive maker.
+- Replaced categorical harvestability wording with the tested result: OFI's
+  predictive content did not survive conditioning on the baseline passive
+  fills.
+- Stated the decision rule explicitly: the failed premise gate meant the
+  candidate was not justified to advance.
+- Stated the counterfactual boundary explicitly: suppressing one quote side
+  would change the fill set, so the result does not prove the unrun candidate
+  would lose.
+- Added a compact related-work section covering adverse selection, OFI price
+  impact, and inventory-aware market making.
+
+### Research status
+No data, code path, artifact, gate, or verdict changed. This is a claim-scope
+correction only. Phase 2 remains complete, no candidate advances, and the
+holdout remains untouched.
+
+Verification after the documentation change:
+
+```text
+223 passed in 5.40s
+```
+
+### Next action
+Rebase the local `cpp-orderbook-parity` branch onto current `main`, run the full
+suite, and publish that branch. Then establish operation-level parity before
+implementing bindings or reporting benchmarks.

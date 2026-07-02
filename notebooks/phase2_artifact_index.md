@@ -61,9 +61,11 @@ Expected verdict:
 - Pooled 1s HAC t-stat: about `+64.63`
 - Pooled 1s beta times signal standard deviation: about `+0.1233 bps`
 
-Interpretation: OFI is a strong population-level signal, but not harvestable by
-this passive maker because the fills received are the adversely-selected
-subsample.
+Interpretation: OFI is a strong population-level signal, but its predictive
+content did not survive conditioning on this maker's baseline passive fills.
+The frozen protocol therefore blocked `OFIGatedMM` from advancing. This does
+not claim that the unrun candidate would necessarily lose, because gating would
+change the fill set.
 
 ## Phase C: Queue-Credit And Latency Stress
 

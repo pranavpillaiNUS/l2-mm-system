@@ -12,6 +12,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Sequence
 
+from src.execution.provenance import (
+    guard_event_driven_output_path,
+    require_event_driven_provenance,
+    require_safe_path_component,
+)
 from src.analysis.tail_diagnostics import (
     build_tail_diagnostics,
     load_anchor_run_dirs,
@@ -22,15 +27,18 @@ from src.analysis.tail_diagnostics import (
 
 
 DEFAULT_BASELINE_CI = Path(
-    "results/baseline_ci/btcusdt_microprice_hs2.00_rq5000_baseline_ci.json"
+    "results/event_driven_v2/baseline_ci/"
+    "btcusdt_microprice_hs2.00_rq5000_baseline_ci.json"
 )
 DEFAULT_FILL_TOXICITY_ROWS = Path(
-    "results/microprice_fill_toxicity/"
+    "results/event_driven_v2/microprice_fill_toxicity/"
     "btcusdt_microprice_hs2.00_rq5000_20260413_12_to_20260417_12_6blocks/"
     "fill_toxicity_rows.csv"
 )
-DEFAULT_RECONCILIATION_ROOT = Path("results/markout_reconciliation")
-DEFAULT_OUTPUT_ROOT = Path("results/tail_diagnostics")
+DEFAULT_RECONCILIATION_ROOT = Path(
+    "results/event_driven_v2/markout_reconciliation"
+)
+DEFAULT_OUTPUT_ROOT = Path("results/event_driven_v2/tail_diagnostics")
 DEFAULT_RUN_ID = "btcusdt_microprice_hs2.00_rq5000_anchor6"
 
 
@@ -108,8 +116,27 @@ def parse_args():
 
 def main():
     args = parse_args()
+    require_safe_path_component(args.run_id, label="--run-id")
+    guard_event_driven_output_path(args.output_root)
+
+    with args.baseline_ci.open("r", encoding="utf-8") as f:
+        baseline_payload = json.load(f)
+    execution_provenance = require_event_driven_provenance(baseline_payload)
 
     run_dirs = load_anchor_run_dirs(args.baseline_ci, args.reconciliation_root)
+    input_payloads = []
+    for run_dir in run_dirs:
+        with (run_dir / "summary.json").open("r", encoding="utf-8") as f:
+            input_payloads.append(json.load(f))
+    toxicity_summary = args.fill_toxicity_rows.parent / "summary.json"
+    with toxicity_summary.open("r", encoding="utf-8") as f:
+        input_payloads.append(json.load(f))
+    for payload in input_payloads:
+        if require_event_driven_provenance(payload) != execution_provenance:
+            raise ValueError(
+                "tail-diagnostic inputs have incompatible execution provenance"
+            )
+
     window_rows = load_window_summaries(run_dirs)
     matched_lot_rows = load_matched_lot_rows(run_dirs)
     fill_rows = load_fill_toxicity_rows(args.fill_toxicity_rows, horizon=args.horizon)
@@ -126,6 +153,7 @@ def main():
         "horizon": args.horizon,
         "run_dirs": [path.name for path in run_dirs],
     }
+    result.summary["execution_provenance"] = execution_provenance
 
     run_dir = args.output_root / args.run_id
     run_dir.mkdir(parents=True, exist_ok=True)

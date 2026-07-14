@@ -26,6 +26,10 @@ from src.analysis.ofi_signal import (
     evaluate_ofi_gates,
     regress_ofi_signal,
 )
+from src.execution.provenance import (
+    execution_provenance_for_replay,
+    guard_event_driven_output_path,
+)
 from src.execution.queue_credit import (
     credit_from_legacy_mode,
     parse_queue_credit,
@@ -59,6 +63,21 @@ class NoopStrategy:
         return None
 
 
+def _book_only_replay_provenance() -> dict:
+    """Cache identity for a depth-only replay with no private orders."""
+    provenance = SimConfig(
+        base_latency_ms=0,
+        jitter_ms=0,
+        maker_bps=0,
+        taker_bps=0,
+        queue_cancellation_credit="0",
+    ).provenance
+    provenance.pop("queue_cancellation_credit")
+    provenance["trade_gap_policy"] = "pause_until_snapshot"
+    provenance["private_order_scope"] = "none"
+    return provenance
+
+
 def _block_windows(args) -> list[SessionWindow]:
     return [SessionWindow(start=_parse_start(value), hours=args.hours) for value in args.starts]
 
@@ -89,7 +108,9 @@ def _run_depth_window(args, window: SessionWindow, ofi_interval_ms: int) -> dict
             jitter_ms=0,
             maker_bps=0,
             taker_bps=0,
-            queue_cancellation_credit=args.queue_cancellation_credit,
+            # NoopStrategy submits no orders. Keep the depth-only replay
+            # configuration identical across conditional-fill endpoints.
+            queue_cancellation_credit="0",
         ),
         record_book_samples=True,
     )
@@ -143,6 +164,8 @@ def _run_fill_session(args, block_label: str, window: SessionWindow,
         sim_config=SimConfig(
             base_latency_ms=args.latency_ms,
             jitter_ms=args.jitter_ms,
+            cancel_latency_ms=args.cancel_latency_ms,
+            cancel_jitter_ms=args.cancel_jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
             queue_cancellation_credit=args.queue_cancellation_credit,
@@ -186,6 +209,7 @@ def _load_or_build_signal_windows(args, *, ofi_interval_ms: int) -> list[dict]:
         "max_staleness_ms": args.max_staleness_ms,
         "max_future_lag_ms": args.max_future_lag_ms,
         "data_root": str(args.data_root),
+        "book_replay_provenance": _book_only_replay_provenance(),
     }
     cached = payload["analyses"].get(key)
     if cached is not None:
@@ -381,6 +405,8 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0")
@@ -392,13 +418,20 @@ def parse_args():
     parser.add_argument("--max-staleness-ms", type=int, default=1_000)
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--output-dir", type=Path, default=Path("results/ofi_signal"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("results/event_driven_v2/ofi_signal"),
+    )
     parser.add_argument("--unconditional-cache", type=Path)
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_dir)
+    if args.unconditional_cache is not None:
+        guard_event_driven_output_path(args.unconditional_cache)
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
             args.queue_cancellation_mode
@@ -427,6 +460,18 @@ def main():
         _write_analysis(run_dir, fallback, prefix="ofi_5000ms")
 
     summary = {
+        "execution_provenance": execution_provenance_for_replay(
+            SimConfig(
+                base_latency_ms=args.latency_ms,
+                jitter_ms=args.jitter_ms,
+                cancel_latency_ms=args.cancel_latency_ms,
+                cancel_jitter_ms=args.cancel_jitter_ms,
+                maker_bps=args.maker_bps,
+                taker_bps=args.taker_bps,
+                queue_cancellation_credit=args.queue_cancellation_credit,
+            ),
+            trade_gap_policy="pause_until_snapshot",
+        ),
         "params": {
             "symbol": args.symbol.lower(),
             "strategy": args.strategy,

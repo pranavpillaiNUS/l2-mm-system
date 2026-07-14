@@ -8,7 +8,12 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+from src.execution.provenance import (
+    artifact_execution_model,
+    guard_event_driven_output_path,
+)
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
+from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
 
 
 def _summary_credit(params: dict) -> Decimal:
@@ -20,7 +25,20 @@ def _summary_credit(params: dict) -> Decimal:
 def _metric_row(summary: dict) -> dict:
     params = summary["params"]
     aggregate = summary["aggregate"]
+    provenance = summary.get("execution_provenance", {})
     return {
+        "execution_model_version": artifact_execution_model(summary),
+        "equal_timestamp_policy": provenance.get("equal_timestamp_policy"),
+        "trade_gap_policy": provenance.get("trade_gap_policy"),
+        "entry_latency_ms": provenance.get("entry_latency_ms"),
+        "entry_jitter_ms": provenance.get("entry_jitter_ms"),
+        "cancel_latency_ms": provenance.get("cancel_latency_ms"),
+        "cancel_jitter_ms": provenance.get("cancel_jitter_ms"),
+        "latency_seed": provenance.get("latency_seed"),
+        "post_only": provenance.get("post_only"),
+        "queue_cancellation_credit": provenance.get(
+            "queue_cancellation_credit"
+        ),
         "window": params["start"],
         "fills": aggregate["fills"],
         "maker_fills": aggregate["maker_fills"],
@@ -37,18 +55,63 @@ def parse_args():
     parser.add_argument("--strategy", required=True)
     parser.add_argument("--queue-credit", required=True)
     parser.add_argument("--latency-ms", type=int, default=10)
+    parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
+    parser.add_argument("--latency-seed", type=int, default=42)
+    parser.add_argument("--execution-model-version", default=EXECUTION_MODEL_VERSION)
+    parser.add_argument(
+        "--trade-gap-policy",
+        choices=["ignore", "pause_until_snapshot"],
+        default="pause_until_snapshot",
+    )
     parser.add_argument("--output", type=Path, required=True)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.cancel_latency_ms is None:
+        args.cancel_latency_ms = args.latency_ms
+    if args.cancel_jitter_ms is None:
+        args.cancel_jitter_ms = args.jitter_ms
+    return args
+
+
+def _matches_execution_provenance(summary: dict, args, expected_credit: Decimal) -> bool:
+    provenance = summary.get("execution_provenance")
+    if not isinstance(provenance, dict):
+        return False
+    expected = {
+        "execution_model_version": args.execution_model_version,
+        "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+        "trade_gap_policy": args.trade_gap_policy,
+        "entry_latency_ms": args.latency_ms,
+        "entry_jitter_ms": args.jitter_ms,
+        "cancel_latency_ms": args.cancel_latency_ms,
+        "cancel_jitter_ms": args.cancel_jitter_ms,
+        "latency_seed": args.latency_seed,
+        "post_only": True,
+    }
+    try:
+        provenance_credit = parse_queue_credit(
+            provenance["queue_cancellation_credit"]
+        )
+    except (KeyError, ValueError, ArithmeticError):
+        return False
+    return (
+        all(provenance.get(key) == value for key, value in expected.items())
+        and provenance_credit == expected_credit
+    )
 
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output)
     expected_credit = parse_queue_credit(args.queue_credit)
     rows = []
     for path in sorted(args.reconciliation_root.glob("*/summary.json")):
         with path.open("r", encoding="utf-8") as f:
             summary = json.load(f)
         params = summary["params"]
+        if not _matches_execution_provenance(summary, args, expected_credit):
+            continue
         if params["strategy"] != args.strategy:
             continue
         if int(params["latency_ms"]) != args.latency_ms:

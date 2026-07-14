@@ -14,16 +14,18 @@ Gap handling: the engine starts in gap state (book uninitialized). A snapshot
 exits gap state and resyncs the book. A sequence gap in depth diffs, or an
 aggTrade gap under the strict policy, re-enters gap state. During a gap, events
 are counted but not dispatched -- the book is unreliable and strategy
-callbacks would see stale data. All open orders are cancelled on gap entry
-because queue positions and pending intent are invalid.
+callbacks would see stale data. All local open orders are explicitly
+invalidated on gap entry because queue positions and pending intent are no
+longer trustworthy; this is not counted as an exchange cancellation.
 
 Order management: strategies return Actions (OrderRequests or CancelRequests)
 from callbacks. The engine submits orders through the simulator and notifies
 the strategy via on_order_placed so it can track order IDs for later
 cancellation. The strategy owns its cancel/replace logic.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
+from itertools import groupby
 from pathlib import Path
 from typing import List, Optional, Protocol, Tuple, Union
 
@@ -31,8 +33,14 @@ from src.replay.orderbook import Orderbook
 from src.replay.depth_parser import DepthParser, DepthEvent
 from src.replay.trade_parser import TradeParser, TradeEvent
 from src.replay.event_merger import EventMerger
-from src.execution.simulator import ExecutionSimulator, SimConfig
+from src.execution.simulator import (
+    EQUAL_TIMESTAMP_POLICY,
+    EXECUTION_MODEL_VERSION,
+    ExecutionSimulator,
+    SimConfig,
+)
 from src.execution.order import OrderRequest, Order, Fill, OrderEvent
+from src.execution.provenance import execution_provenance_for_replay
 
 
 @dataclass
@@ -97,7 +105,14 @@ class ReplayStats:
     trade_gaps_detected: int = 0
     events_during_gap: int = 0
     orders_submitted: int = 0
+    order_arrivals: int = 0
+    cancel_requests: int = 0
     orders_cancelled: int = 0
+    cancels_too_late: int = 0
+    gap_invalidations: int = 0
+    replay_end_invalidations: int = 0
+    pending_actions_at_end: int = 0
+    pending_cancels_at_end: int = 0
     fills: int = 0
 
 
@@ -120,6 +135,9 @@ class ReplayResult:
     stats: ReplayStats
     checkpoints: List[Tuple[int, int, str]]  # (event_idx, timestamp_ms, book_hash)
     book_samples: List[BookSample]
+    execution_model_version: str = EXECUTION_MODEL_VERSION
+    equal_timestamp_policy: str = EQUAL_TIMESTAMP_POLICY
+    execution_provenance: dict = field(default_factory=dict)
 
 
 class ReplayEngine:
@@ -158,20 +176,74 @@ class ReplayEngine:
 
         checkpoints: List[Tuple[int, int, str]] = []
 
-        for event in merger.events():
-            self._stats.total_events += 1
+        last_timestamp_ms: Optional[int] = None
+        for timestamp_ms, timestamp_events in groupby(
+            merger.events(), key=lambda event: event.exchange_time_ms
+        ):
+            last_timestamp_ms = timestamp_ms
+            timestamp_events = list(timestamp_events)
+            group_reports_gap = self._group_reports_gap(timestamp_events)
+            # Recorded market data wins unresolved millisecond ties.  Private
+            # actions strictly before this timestamp use the last observable
+            # book; private actions exactly at it wait until every recorded
+            # depth/trade event in the timestamp group has been processed.
+            if group_reports_gap:
+                # Sequence loss makes within-millisecond execution attribution
+                # incomplete. Treat the whole timestamp as an atomic censored
+                # group: invalidate before any event in it can fill an order or
+                # invoke a strategy callback.
+                if not self._in_gap:
+                    self._in_gap = True
+                    self._cancel_all(timestamp_ms)
+                for event in timestamp_events:
+                    self._count_censored_gap_event(event)
+                    if self._stats.total_events % self.config.checkpoint_interval == 0:
+                        checkpoints.append((
+                            self._stats.total_events,
+                            event.exchange_time_ms,
+                            self.book.state_hash(),
+                        ))
+                self._process_scheduled(
+                    timestamp_ms, inclusive=True, strategy=strategy
+                )
+                continue
 
-            if isinstance(event, DepthEvent):
-                self._on_depth(event, strategy)
-            else:
-                self._on_trade(event, strategy)
+            self._process_scheduled(
+                timestamp_ms, inclusive=False, strategy=strategy
+            )
 
-            if self._stats.total_events % self.config.checkpoint_interval == 0:
-                checkpoints.append((
-                    self._stats.total_events,
-                    event.exchange_time_ms,
-                    self.book.state_hash(),
-                ))
+            observed_depth = False
+            for event in timestamp_events:
+                self._stats.total_events += 1
+
+                if isinstance(event, DepthEvent):
+                    observed_depth = self._on_depth(event, strategy) or observed_depth
+                else:
+                    self._on_trade(event, strategy)
+
+                if self._stats.total_events % self.config.checkpoint_interval == 0:
+                    checkpoints.append((
+                        self._stats.total_events,
+                        event.exchange_time_ms,
+                        self.book.state_hash(),
+                    ))
+
+            # Defer cancellation attribution until same-ms trades are known;
+            # otherwise depth-before-trade ties misclassify traded volume as
+            # cancellation-driven queue improvement.
+            if observed_depth:
+                self.sim.observe_book_update(self.book, timestamp_ms)
+
+            self._process_scheduled(
+                timestamp_ms, inclusive=True, strategy=strategy
+            )
+
+        if last_timestamp_ms is not None:
+            self._stats.pending_actions_at_end = self.sim.pending_scheduled_actions
+            self._stats.pending_cancels_at_end = self.sim.pending_cancel_actions
+            self._stats.replay_end_invalidations += self.sim.invalidate_all(
+                last_timestamp_ms, reason="replay_end"
+            )
 
         return ReplayResult(
             fills=self.sim.fills,
@@ -179,11 +251,15 @@ class ReplayEngine:
             stats=self._stats,
             checkpoints=checkpoints,
             book_samples=list(self._book_samples),
+            execution_provenance=execution_provenance_for_replay(
+                self.config.sim_config,
+                trade_gap_policy=self.config.trade_gap_policy,
+            ),
         )
 
     # --- event handlers ---
 
-    def _on_depth(self, event: DepthEvent, strategy: Strategy) -> None:
+    def _on_depth(self, event: DepthEvent, strategy: Strategy) -> bool:
         if event.event_type == "snapshot":
             self._stats.snapshots += 1
             self.book.apply_snapshot(event.bids, event.asks, event.last_update_id)
@@ -196,31 +272,29 @@ class ReplayEngine:
                 self._cancel_all(event.exchange_time_ms)
 
             self._record_book_sample(event.exchange_time_ms)
-            fills = self.sim.on_book_update(self.book, event.exchange_time_ms)
-            self._dispatch_fills(fills, strategy)
             actions = strategy.on_book_update(self.book, event.exchange_time_ms)
             self._apply_actions(actions, event.exchange_time_ms, strategy)
-            return
+            return True
 
         # Diff
         self._stats.depth_diffs += 1
 
-        if event.has_gap and not self._in_gap:
+        if event.has_gap:
             self._stats.gaps_detected += 1
             self._stats.depth_gaps_detected += 1
-            self._in_gap = True
-            self._cancel_all(event.exchange_time_ms)
+            if not self._in_gap:
+                self._in_gap = True
+                self._cancel_all(event.exchange_time_ms)
 
         if self._in_gap:
             self._stats.events_during_gap += 1
-            return
+            return False
 
         self.book.apply_diff(event.bids, event.asks, event.last_update_id)
         self._record_book_sample(event.exchange_time_ms)
-        fills = self.sim.on_book_update(self.book, event.exchange_time_ms)
-        self._dispatch_fills(fills, strategy)
         actions = strategy.on_book_update(self.book, event.exchange_time_ms)
         self._apply_actions(actions, event.exchange_time_ms, strategy)
+        return True
 
     def _on_trade(self, event: TradeEvent, strategy: Strategy) -> None:
         self._stats.trade_events += 1
@@ -237,12 +311,66 @@ class ReplayEngine:
             self._stats.events_during_gap += 1
             return
 
-        fills = self.sim.on_trade(event, self.book)
+        fills = self.sim.observe_trade(event, self.book)
         self._dispatch_fills(fills, strategy)
         actions = strategy.on_trade(event, self.book)
         self._apply_actions(actions, event.exchange_time_ms, strategy)
 
     # --- internal helpers ---
+
+    def _group_reports_gap(self, events: List[object]) -> bool:
+        """Whether missing data taints the timestamp as an atomic group."""
+        for event in events:
+            if isinstance(event, DepthEvent) and event.has_gap:
+                return True
+            if (
+                isinstance(event, TradeEvent)
+                and event.has_gap
+                and self.config.trade_gap_policy == "pause_until_snapshot"
+            ):
+                return True
+        return False
+
+    def _count_censored_gap_event(self, event: object) -> None:
+        """Count one event in a gap-tainted timestamp without dispatching it."""
+        self._stats.total_events += 1
+        self._stats.events_during_gap += 1
+        if isinstance(event, DepthEvent):
+            if event.event_type == "snapshot":
+                self._stats.snapshots += 1
+            else:
+                self._stats.depth_diffs += 1
+            if event.has_gap:
+                self._stats.depth_gaps_detected += 1
+                self._stats.gaps_detected += 1
+            return
+
+        self._stats.trade_events += 1
+        if event.has_gap:
+            self._stats.trade_gaps_detected += 1
+            # Only strict trade-gap policy reaches this censored path.
+            self._stats.gaps_detected += 1
+
+    def _process_scheduled(
+        self,
+        timestamp_ms: int,
+        *,
+        inclusive: bool,
+        strategy: Strategy,
+    ) -> None:
+        """Process private arrivals on the selected side of a market timestamp."""
+        while self.sim.next_scheduled_time_ms is not None:
+            next_time = self.sim.next_scheduled_time_ms
+            if next_time > timestamp_ms or (
+                next_time == timestamp_ms and not inclusive
+            ):
+                return
+
+            step = self.sim.process_next_scheduled(self.book)
+            self._stats.order_arrivals += step.order_arrivals
+            self._stats.orders_cancelled += step.effective_cancels
+            self._stats.cancels_too_late += step.cancels_too_late
+            self._dispatch_fills(step.fills, strategy)
 
     def _dispatch_fills(self, fills: List[Fill], strategy: Strategy) -> None:
         for fill in fills:
@@ -259,17 +387,17 @@ class ReplayEngine:
         for action in actions:
             if isinstance(action, CancelRequest):
                 if self.sim.cancel(action.order_id, timestamp_ms):
-                    self._stats.orders_cancelled += 1
+                    self._stats.cancel_requests += 1
             elif isinstance(action, OrderRequest):
                 self._stats.orders_submitted += 1
                 order = self.sim.submit(action, timestamp_ms)
                 strategy.on_order_placed(action, order)
 
     def _cancel_all(self, timestamp_ms: int) -> None:
-        """Cancel all open orders -- used on gap entry and gap recovery."""
-        for order in self.sim.open_orders:
-            if self.sim.cancel(order.order_id, timestamp_ms):
-                self._stats.orders_cancelled += 1
+        """Fail-closed invalidation used on data-gap entry and recovery."""
+        self._stats.gap_invalidations += self.sim.invalidate_all(
+            timestamp_ms, reason="data_gap"
+        )
 
     def _record_book_sample(self, timestamp_ms: int) -> None:
         if not self.config.record_book_samples:

@@ -2,6 +2,18 @@
 
 This V2 writeup supersedes the V1 six-window result in `notebooks/research_writeup.md`. The 24-window Phase A result artifacts were generated on 2026-06-09. V1 is retained as a frozen reference showing the original corrected six-window conclusion and the reasoning that led to the expanded panel.
 
+> **Historical execution boundary.** This writeup describes the frozen V2
+> artifacts generated at research commit `1066950` under
+> `legacy_book_update_v1`, where modeled arrivals activated on the next depth
+> update and cancels were immediate. Its numerical claims remain the record of
+> that experiment, not current-engine results. The Phase 2.5
+> `event_driven_v2` Python implementation has passed local acceptance; see
+> [`notebooks/execution_model_v2.md`](execution_model_v2.md). New results belong
+> under `results/panels/btcusdt_l2_panel_v3_event_driven`. Its development
+> rerun is pending, no V3 execution-derived claim has been validated yet, and
+> the C++ performance port
+> is intentionally paused pending modern C++ fundamentals.
+
 ## Executive Summary
 
 Status: Phase C complete (2026-06-14); the Phase A/B/C development arc is
@@ -25,7 +37,7 @@ panel.
 
 The V2 panel keeps the same canonical passive microprice baseline and expands the evidence from 6 to 24 deterministic 5-hour BTCUSDT development windows. The selected size was derived from strict manifest-clean capacity. The purpose is to test whether the V1 conclusion survives broader data before adding any new strategy variant.
 
-The short answer: it does. Across 24 windows the passive microprice baseline is net-negative in 18 of 24 windows at each queue endpoint, and under the realistic proportional queue model the window-level mean net PnL CI now excludes zero (it crossed zero in V1). The negative conclusion strengthened on more, cleaner, pre-selected data. This is a robustness result, not a profitability result.
+The historical V2 answer was yes. Across 24 windows the passive microprice baseline was net-negative in 18 of 24 windows at each queue endpoint, and under the proportional queue-credit model the window-level mean net PnL CI excluded zero (it crossed zero in V1). The negative conclusion strengthened on more, cleaner, pre-selected data within the legacy execution model. This is a bounded robustness result, not a profitability result or validation of the newer timing model.
 
 ## Replay Correctness Protocol
 
@@ -214,8 +226,12 @@ with a microprice-derived gate.
 
 This blocks `OFIGatedMM`: it must not run unless Phase B is `supported` or
 `supported_with_conditional_power_limit`, and it is neither. The holdout stays
-sealed. The result does not speak to faster or taker-capable participants, to
-inventory-aware or vol-adaptive quoting, or to other venues.
+sealed. This is a protocol decision based on a failed premise gate, not a
+counterfactual claim that `OFIGatedMM` would necessarily lose. Suppressing one
+quote side would change the candidate's fill set, and that unrun counterfactual
+was deliberately not estimated after the gate failed. The result also does not
+speak to faster or taker-capable participants, to inventory-aware or
+vol-adaptive quoting, or to other venues.
 
 ## Phase C Queue And Regime Diagnostics
 

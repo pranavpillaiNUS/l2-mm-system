@@ -25,6 +25,10 @@ from src.analysis.microprice_fill_toxicity import (
     bucket_microprice_fill_toxicity,
     compute_microprice_fill_toxicity,
 )
+from src.execution.provenance import (
+    execution_provenance_for_replay,
+    guard_event_driven_output_path,
+)
 from src.execution.queue_credit import (
     credit_from_legacy_mode,
     parse_queue_credit,
@@ -70,6 +74,8 @@ def _run_session(args, block_label: str, window: SessionWindow) -> list[dict]:
         sim_config=SimConfig(
             base_latency_ms=args.latency_ms,
             jitter_ms=args.jitter_ms,
+            cancel_latency_ms=args.cancel_latency_ms,
+            cancel_jitter_ms=args.cancel_jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
             queue_cancellation_credit=args.queue_cancellation_credit,
@@ -177,6 +183,8 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0",
@@ -188,7 +196,9 @@ def parse_args():
     parser.add_argument("--max-future-lag-ms", type=int, default=1_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
-                        default=Path("results/microprice_fill_toxicity"))
+                        default=Path(
+                            "results/event_driven_v2/microprice_fill_toxicity"
+                        ))
     parser.add_argument("--print-horizon", default="30s")
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
@@ -204,6 +214,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_dir)
     windows = _windows_from_starts(args)
 
     rows: list[dict] = []
@@ -234,6 +245,18 @@ def main():
     _write_bucket_csv(run_dir / "buckets.csv", buckets)
 
     summary = {
+        "execution_provenance": execution_provenance_for_replay(
+            SimConfig(
+                base_latency_ms=args.latency_ms,
+                jitter_ms=args.jitter_ms,
+                cancel_latency_ms=args.cancel_latency_ms,
+                cancel_jitter_ms=args.cancel_jitter_ms,
+                maker_bps=args.maker_bps,
+                taker_bps=args.taker_bps,
+                queue_cancellation_credit=args.queue_cancellation_credit,
+            ),
+            trade_gap_policy="pause_until_snapshot",
+        ),
         "params": {
             "symbol": args.symbol.lower(),
             "strategy": args.strategy,

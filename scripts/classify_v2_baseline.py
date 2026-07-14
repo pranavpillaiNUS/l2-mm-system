@@ -1,4 +1,7 @@
-"""Classify Phase A endpoint CIs against frozen V1 endpoint means."""
+"""Classify historical legacy Phase A endpoint CIs against frozen V1 means.
+
+This frozen V2/V1 ladder is not valid for event-driven V3 artifacts.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +13,11 @@ from enum import Enum
 from pathlib import Path
 
 from src.analysis.v2_classification import classify_endpoint, classify_phase_a
+from src.execution.provenance import (
+    LEGACY_EXECUTION_MODEL_VERSION,
+    artifact_execution_model,
+    guard_frozen_v2_output_path,
+)
 from src.execution.queue_credit import parse_queue_credit
 
 
@@ -46,6 +54,18 @@ def parse_args():
     return parser.parse_args()
 
 
+def _load_legacy_endpoint(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as f:
+        report = json.load(f)
+    model = artifact_execution_model(report)
+    if model != LEGACY_EXECUTION_MODEL_VERSION:
+        raise ValueError(
+            "the historical V2 classifier accepts only legacy execution "
+            f"artifacts; found {model} in {path}"
+        )
+    return report
+
+
 def main():
     args = parse_args()
     ci_paths = _pairs(args.endpoint_ci)
@@ -54,8 +74,7 @@ def main():
         raise ValueError("endpoint CI and frozen V1 mean credits must match")
     endpoints = {}
     for credit, path in ci_paths.items():
-        with Path(path).open("r", encoding="utf-8") as f:
-            report = json.load(f)
+        report = _load_legacy_endpoint(Path(path))
         ci = report["ci"]["window"]["net_pnl"]
         endpoints[credit] = classify_endpoint(
             queue_cancellation_credit=parse_queue_credit(credit),
@@ -65,6 +84,10 @@ def main():
             frozen_v1_mean_net_pnl=Decimal(frozen_means[credit]),
         )
     result = classify_phase_a(endpoints)
+    guard_frozen_v2_output_path(
+        args.output,
+        writer_label="historical V2 classifier on the current branch",
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, default=_jsonable)

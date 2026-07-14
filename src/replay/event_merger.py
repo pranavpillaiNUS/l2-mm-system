@@ -6,10 +6,11 @@ Both streams must already be sorted by exchange timestamp (which they are,
 since parsers yield in file order). This is a standard 2-way sorted merge
 using heapq.merge - O(log 2) = O(1) per event.
 
-Tiebreaker: when a depth event and a trade event share the same millisecond
-timestamp, depth comes first. The book update reflects the state after the
-matching engine processed that order - if you process the trade first, your
-execution simulator sees stale liquidity.
+Tiebreaker: when a depth event and a trade event share the same millisecond,
+depth comes first. The feed does not expose enough information to reconstruct
+true within-millisecond matching-engine order, so this is an explicit model
+policy. ReplayEngine additionally batches all market data at the timestamp
+before equal-time simulated private arrivals.
 """
 import heapq
 from typing import Iterable, Iterator, Tuple, Union

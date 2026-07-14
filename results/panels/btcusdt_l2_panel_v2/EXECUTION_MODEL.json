@@ -1,0 +1,13 @@
+{
+  "execution_model_version": "legacy_book_update_v1",
+  "reference_commit": "1066950",
+  "semantics": {
+    "entry_activation": "first depth update at or after modeled arrival",
+    "cancellation": "immediate at client request time",
+    "same_price_own_volume": "recorded trade quantity applied independently per own order",
+    "equal_timestamp_market_order": "depth_before_trade"
+  },
+  "status": "frozen_historical_artifacts",
+  "superseded_by": "event_driven_v2",
+  "note": "Missing execution-model metadata in artifacts under this root means legacy_book_update_v1. Do not overwrite these artifacts with current-engine results."
+}

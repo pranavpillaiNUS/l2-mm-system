@@ -17,6 +17,7 @@ from src.analysis.fill_rate import format_fill_rate_summary, summarize_fill_rate
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition, format_pnl_summary
 from src.execution.order import Fill
+from src.execution.provenance import guard_event_driven_output_path
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
@@ -120,12 +121,18 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
     print("=" * 72)
     print(f"Strategy:         {args.strategy}")
     print(f"Symbol:           {args.symbol.upper()}")
+    print(f"Execution model:  {result.execution_model_version}")
+    print(f"Timestamp policy: {result.equal_timestamp_policy}")
     print(f"Window:           {args.date} {args.hour:02d}:00 for {args.hours} hour(s)")
     print(f"Half spread:      {args.half_spread}")
     print(f"Order qty:        {args.order_qty}")
     print(f"Max position:     {args.max_position}")
     print(f"Requote interval: {args.requote_interval_ms}ms")
     print(f"Latency:          {args.latency_ms}ms +/- {args.jitter_ms}ms")
+    print(
+        f"Cancel latency:   {result.execution_provenance['cancel_latency_ms']}ms "
+        f"+/- {result.execution_provenance['cancel_jitter_ms']}ms"
+    )
     print(f"Queue credit:     {args.queue_cancellation_credit}")
     print(f"Trade-gap policy: {args.trade_gap_policy}")
     print()
@@ -144,7 +151,13 @@ def _print_summary(args, result, strategy, markouts, final_mid, decomp=None):
 
     print("Execution")
     print(f"  Orders:         {stats.orders_submitted:,}")
-    print(f"  Cancels:        {stats.orders_cancelled:,}")
+    print(f"  Order arrivals: {stats.order_arrivals:,}")
+    print(f"  Cancel requests:{stats.cancel_requests:>10,}")
+    print(f"  Cancel acks:    {stats.orders_cancelled:,}")
+    print(f"  Cancels too late:{stats.cancels_too_late:>9,}")
+    print(f"  Gap invalidated:{stats.gap_invalidations:>10,}")
+    print(f"  Replay expired: {stats.replay_end_invalidations:,}")
+    print(f"  Pending at end: {stats.pending_actions_at_end:,}")
     print(f"  Fills:          {len(result.fills):,}")
     print(f"  Maker fills:    {maker_fills:,}")
     print(f"  Taker fills:    {taker_fills:,}")
@@ -209,6 +222,7 @@ def _write_results(output_dir: Path, args, result, strategy, markouts, final_mid
         "taker_bps": args.taker_bps,
         "queue_cancellation_credit": args.queue_cancellation_credit,
         "trade_gap_policy": args.trade_gap_policy,
+        "execution_provenance": result.execution_provenance,
         "events": result.stats.__dict__,
         "fills": len(result.fills),
         "maker_fills": sum(1 for fill in result.fills if fill.is_maker),
@@ -298,6 +312,8 @@ def parse_args():
     parser.add_argument("--ofi-threshold", default="0.25")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0",
@@ -310,7 +326,11 @@ def parse_args():
                         default="pause_until_snapshot")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--write-results", action="store_true")
-    parser.add_argument("--output-dir", type=Path, default=Path("results/replay"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("results/event_driven_v2/replay"),
+    )
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
@@ -325,6 +345,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.write_results:
+        guard_event_driven_output_path(args.output_dir)
     depth_files, trade_files = _select_files(
         args.data_root, args.symbol, args.date, args.hour, args.hours,
     )
@@ -336,6 +358,8 @@ def main():
         sim_config=SimConfig(
             base_latency_ms=args.latency_ms,
             jitter_ms=args.jitter_ms,
+            cancel_latency_ms=args.cancel_latency_ms,
+            cancel_jitter_ms=args.cancel_jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
             queue_cancellation_credit=args.queue_cancellation_credit,

@@ -12,6 +12,7 @@ notebooks/current_stage_brief.md
 *.jsonl.gz
 *.json.gz
 *.csv
+!results/panels/btcusdt_l2_panel_v3_event_driven/**/*.csv
 *.parquet
 
 __pycache__/

@@ -11,6 +11,7 @@ from src.analysis.data_integrity import (
     build_integrity_manifest,
     manifest_sha256,
 )
+from src.execution.provenance import guard_frozen_v2_output_path
 
 
 def _parse_hour(value: str) -> datetime:
@@ -101,6 +102,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_frozen_v2_output_path(args.output_dir)
     rows = build_integrity_manifest(
         data_root=args.data_root,
         symbol=args.symbol,

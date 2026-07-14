@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from src.execution.queue_credit import queue_credit_suffix
+from src.execution.provenance import guard_frozen_v2_output_path
 
 
 def _load_windows(path: Path) -> list[dict]:
@@ -205,6 +206,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_frozen_v2_output_path(args.output_root)
     rows = _build_rows(args)
     args.output_root.mkdir(parents=True, exist_ok=True)
     _write_csv(args.output_root / "regime_table.csv", rows)

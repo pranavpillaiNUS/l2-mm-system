@@ -1,11 +1,11 @@
 """
-Bounded audit for same-millisecond depth/trade attribution risk.
+Bounded audit for same-millisecond depth/trade exposure.
 
-The replay intentionally processes depth before trade on equal timestamps.
-This diagnostic quantifies the prevalence of depth/trade ties and how many
-persisted strategy fills land on those ties. It is intentionally bounded:
-escalation is triggered only by the explicit fill-overlap threshold or by
-artifact-evidenced wrong attribution cases.
+The event-driven replay groups market data by timestamp, processes depth before
+trade, defers cancellation attribution until tied trades are known, and puts
+private arrivals last. This diagnostic quantifies how often fills rely on that
+explicit tie policy. It is intentionally bounded: escalation is triggered only
+by the explicit fill-overlap threshold or artifact-evidenced contradictions.
 
 Example:
     env PYTHONPATH=. python scripts/audit_same_ms_attribution.py
@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Sequence
 
 from scripts.compare_mm import SessionWindow, _parse_start, _select_files
+from src.execution.provenance import (
+    guard_event_driven_output_path,
+    require_event_driven_provenance,
+    require_safe_path_component,
+)
 from src.execution.queue_credit import (
     credit_from_legacy_mode,
     parse_queue_credit,
@@ -38,7 +43,7 @@ DEFAULT_STARTS = [
     "2026-04-16T17",
     "2026-04-17T12",
 ]
-DEFAULT_OUTPUT_ROOT = Path("results/same_ms_audit")
+DEFAULT_OUTPUT_ROOT = Path("results/event_driven_v2/same_ms_audit")
 DEFAULT_RUN_ID = "btcusdt_anchor6"
 
 
@@ -151,7 +156,15 @@ def _audit_window(args, start_value: str, data_overlap: dict | None = None) -> t
                 ),
             })
 
-    total_fills = int(_load_summary(run_dir)["aggregate"]["fills"])
+    artifact_summary = _load_summary(run_dir)
+    execution_provenance = require_event_driven_provenance(artifact_summary)
+    if parse_queue_credit(
+        execution_provenance["queue_cancellation_credit"]
+    ) != args.queue_cancellation_credit:
+        raise ValueError(
+            f"{run_dir} execution provenance has the wrong queue credit"
+        )
+    total_fills = int(artifact_summary["aggregate"]["fills"])
     if len(fills) != total_fills:
         raise ValueError(
             f"{run_dir} reconstructs {len(fills)} unique fills but summary "
@@ -182,18 +195,35 @@ def _audit_window(args, start_value: str, data_overlap: dict | None = None) -> t
         "wrong_attribution_cases": wrong_attribution_cases,
         "wrong_attribution_share_of_overlap_fills_pct": wrong_share_pct,
         "escalates": escalates,
+        "_execution_provenance": execution_provenance,
     }
     return summary, risk_candidate_rows
+
+
+def _data_cache_identity(args) -> dict[str, object]:
+    return {
+        "symbol": args.symbol.lower(),
+        "data_root": str(Path(args.data_root).expanduser().resolve(strict=False)),
+        "starts": list(args.starts),
+        "hours": args.hours,
+    }
 
 
 def _load_or_build_data_cache(args) -> dict[str, dict] | None:
     if args.data_overlap_cache is None:
         return None
+    expected_identity = _data_cache_identity(args)
     if args.data_overlap_cache.exists():
         with args.data_overlap_cache.open("r", encoding="utf-8") as f:
             payload = json.load(f)
-        if payload["starts"] != args.starts or int(payload["hours"]) != args.hours:
-            raise ValueError("same-ms data-overlap cache does not match requested windows")
+        actual_identity = {
+            key: payload.get(key)
+            for key in expected_identity
+        }
+        if actual_identity != expected_identity:
+            raise ValueError(
+                "same-ms data-overlap cache does not match requested raw data"
+            )
         return payload["windows"]
 
     rows = {}
@@ -205,8 +235,7 @@ def _load_or_build_data_cache(args) -> dict[str, dict] | None:
     args.data_overlap_cache.parent.mkdir(parents=True, exist_ok=True)
     with args.data_overlap_cache.open("w", encoding="utf-8") as f:
         json.dump({
-            "starts": args.starts,
-            "hours": args.hours,
+            **expected_identity,
             "windows": rows,
         }, f, indent=2, default=_jsonable)
     return rows
@@ -394,7 +423,9 @@ def parse_args():
                         type=Decimal, default=Decimal("1"))
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--reconciliation-root", type=Path,
-                        default=Path("results/markout_reconciliation"))
+                        default=Path(
+                            "results/event_driven_v2/markout_reconciliation"
+                        ))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     parser.add_argument("--data-overlap-cache", type=Path)
@@ -412,6 +443,10 @@ def parse_args():
 
 def main():
     args = parse_args()
+    require_safe_path_component(args.run_id, label="--run-id")
+    guard_event_driven_output_path(args.output_root)
+    if args.data_overlap_cache is not None:
+        guard_event_driven_output_path(args.data_overlap_cache)
     window_rows: list[dict] = []
     candidate_rows: list[dict] = []
     data_by_start = _load_or_build_data_cache(args)
@@ -423,6 +458,12 @@ def main():
             start_value,
             None if data_by_start is None else data_by_start[start_value],
         )
+        provenance = window_summary.pop("_execution_provenance")
+        if window_rows and provenance != execution_provenance:
+            raise ValueError(
+                "same-ms audit inputs have incompatible execution provenance"
+            )
+        execution_provenance = provenance
         window_rows.append(window_summary)
         candidate_rows.extend(candidates)
 
@@ -433,8 +474,8 @@ def main():
         > args.wrong_attribution_threshold_pct
     )
     decision = (
-        "escalate_grouped_timestamp_handling"
-        if escalates else "document_assumption_no_blocker"
+        "escalate_equal_timestamp_sensitivity"
+        if escalates else "document_tie_policy_no_blocker"
     )
 
     run_dir = args.output_root / args.run_id
@@ -442,6 +483,7 @@ def main():
     _write_csv(run_dir / "window_summary.csv", window_rows)
     _write_csv(run_dir / "attribution_risk_candidates.csv", candidate_rows)
     summary = {
+        "execution_provenance": execution_provenance,
         "params": {
             "symbol": args.symbol.lower(),
             "strategy": args.strategy,
@@ -450,12 +492,14 @@ def main():
             "half_spread": args.half_spread,
             "requote_interval_ms": args.requote_interval_ms,
             "queue_cancellation_credit": args.queue_cancellation_credit,
-            "depth_trade_tie_rule": "depth_before_trade",
+            "depth_trade_tie_rule": "grouped_depth_then_trade",
+            "private_tie_rule": "market_data_before_private_actions",
+            "strict_gap_tie_rule": "censor_entire_millisecond_group",
             "overlap_fill_threshold_pct": args.overlap_fill_threshold_pct,
             "wrong_attribution_threshold_pct": args.wrong_attribution_threshold_pct,
             "wrong_attribution_definition": (
                 "artifact-evidenced case where persisted data contradicts "
-                "the depth-before-trade assumption; candidate rows are not "
+                "the grouped equal-timestamp policy; candidate rows are not "
                 "classified wrong because queue-drain timestamps are not "
                 "persisted in reconciliation artifacts"
             ),

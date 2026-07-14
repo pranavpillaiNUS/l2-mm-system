@@ -29,6 +29,7 @@ from src.analysis.hold_time import (
 )
 from src.analysis.markout import compute_markouts
 from src.analysis.pnl import compute_pnl_decomposition
+from src.execution.provenance import guard_event_driven_output_path
 from src.execution.queue_credit import (
     credit_from_legacy_mode,
     parse_queue_credit,
@@ -65,6 +66,7 @@ class AnalyzedSession:
     spread_buckets: list[BookSpreadBucket]
     drift_summary: dict
     queue_summary: dict
+    execution_provenance: dict
 
 
 def _decimal_str(value) -> str:
@@ -194,6 +196,8 @@ def _run_replay(args, window: SessionWindow):
         sim_config=SimConfig(
             base_latency_ms=args.latency_ms,
             jitter_ms=args.jitter_ms,
+            cancel_latency_ms=args.cancel_latency_ms,
+            cancel_jitter_ms=args.cancel_jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
             queue_cancellation_credit=args.queue_cancellation_credit,
@@ -392,6 +396,30 @@ def _aggregate_summary(args, sessions: Sequence[AnalyzedSession]) -> dict:
         ),
         "postonly_rejects": sum(session.postonly_rejects for session in sessions),
         "orders_submitted": total_orders,
+        "order_arrivals": sum(
+            session.replay_stats.order_arrivals for session in sessions
+        ),
+        "cancel_requests": sum(
+            session.replay_stats.cancel_requests for session in sessions
+        ),
+        "effective_cancels": sum(
+            session.replay_stats.orders_cancelled for session in sessions
+        ),
+        "cancels_too_late": sum(
+            session.replay_stats.cancels_too_late for session in sessions
+        ),
+        "gap_invalidations": sum(
+            session.replay_stats.gap_invalidations for session in sessions
+        ),
+        "replay_end_invalidations": sum(
+            session.replay_stats.replay_end_invalidations for session in sessions
+        ),
+        "pending_actions_at_end": sum(
+            session.replay_stats.pending_actions_at_end for session in sessions
+        ),
+        "pending_cancels_at_end": sum(
+            session.replay_stats.pending_cancels_at_end for session in sessions
+        ),
         "gaps_detected": sum(session.replay_stats.gaps_detected for session in sessions),
         "depth_gaps_detected": sum(
             session.replay_stats.depth_gaps_detected for session in sessions
@@ -536,6 +564,8 @@ def parse_args():
     parser.add_argument("--ofi-threshold", default="0.25")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0",
@@ -549,7 +579,9 @@ def parse_args():
     parser.add_argument("--vol-window-ms", type=int, default=60_000)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
-                        default=Path("results/markout_reconciliation"))
+                        default=Path(
+                            "results/event_driven_v2/markout_reconciliation"
+                        ))
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
@@ -564,6 +596,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_dir)
     windows = _windows_from_args(args)
 
     sessions: list[AnalyzedSession] = []
@@ -605,6 +638,7 @@ def main():
             spread_buckets=spread_buckets,
             drift_summary=_pre_fill_summary(drift_rows),
             queue_summary=_queue_summary(queue_rows),
+            execution_provenance=result.execution_provenance,
         ))
 
     first_window = windows[0]
@@ -686,6 +720,7 @@ def main():
         })
 
     summary = {
+        "execution_provenance": sessions[0].execution_provenance,
         "params": {
             "symbol": args.symbol.lower(),
             "strategy": args.strategy,
@@ -701,6 +736,12 @@ def main():
             "ofi_threshold": args.ofi_threshold,
             "latency_ms": args.latency_ms,
             "jitter_ms": args.jitter_ms,
+            "cancel_latency_ms": sessions[0].execution_provenance[
+                "cancel_latency_ms"
+            ],
+            "cancel_jitter_ms": sessions[0].execution_provenance[
+                "cancel_jitter_ms"
+            ],
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
             "queue_cancellation_credit": args.queue_cancellation_credit,

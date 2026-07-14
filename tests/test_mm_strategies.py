@@ -6,6 +6,8 @@ Run with: python tests/test_mm_strategies.py
 from decimal import Decimal
 from datetime import datetime
 
+import pytest
+
 from src.execution.order import (
     Fill, Order, OrderRequest, OrderSide, OrderStatus, OrderType,
 )
@@ -190,6 +192,95 @@ def test_requote_interval_does_not_delay_position_limit_cancel():
     assert len(cancels) == 1
     assert cancels[0].order_id == "ord-buy"
     print("PASS: requote interval does not delay risk-reducing cancels")
+
+
+def test_delayed_cancel_replace_respects_worst_case_position_limit():
+    strat = SymmetricMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("0.01"),
+    )
+    book = make_book()
+    initial = strat.on_book_update(book, timestamp_ms=1000)
+    for request in [a for a in initial if isinstance(a, OrderRequest)]:
+        strat.on_order_placed(
+            request,
+            make_order(
+                f"old-{request.side.value}", request.side, request.price
+            ),
+        )
+
+    moved = make_book(
+        bids=[("99.00", "5.0")],
+        asks=[("100.00", "3.0")],
+    )
+    actions = strat.on_book_update(moved, timestamp_ms=1100)
+
+    assert len([a for a in actions if isinstance(a, CancelRequest)]) == 2
+    assert [a for a in actions if isinstance(a, OrderRequest)] == []
+
+    for order in strat._orders.values():
+        order.status = OrderStatus.CANCELLED
+    replacement = strat.on_book_update(moved, timestamp_ms=1200)
+    assert {
+        request.side
+        for request in replacement
+        if isinstance(request, OrderRequest)
+    } == {OrderSide.BUY, OrderSide.SELL}
+
+
+def test_delayed_overlap_can_reach_but_not_exceed_hard_position_limit():
+    strat = SymmetricMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("0.02"),
+    )
+    book = make_book()
+    initial = strat.on_book_update(book, timestamp_ms=1000)
+    for request in [a for a in initial if isinstance(a, OrderRequest)]:
+        strat.on_order_placed(
+            request,
+            make_order(
+                f"old-{request.side.value}", request.side, request.price
+            ),
+        )
+
+    moved = make_book(
+        bids=[("99.00", "5.0")],
+        asks=[("100.00", "3.0")],
+    )
+    actions = strat.on_book_update(moved, timestamp_ms=1100)
+    new_bid = next(
+        action
+        for action in actions
+        if isinstance(action, OrderRequest) and action.side == OrderSide.BUY
+    )
+    replacement = make_order("new-buy", OrderSide.BUY, new_bid.price)
+    strat.on_order_placed(new_bid, replacement)
+
+    old_bid = strat._orders["old-buy"]
+    old_bid.status = OrderStatus.FILLED
+    strat.on_fill(make_fill("old-buy", OrderSide.BUY, "100", "0.01"))
+    replacement.status = OrderStatus.FILLED
+    strat.on_fill(make_fill("new-buy", OrderSide.BUY, "99", "0.01"))
+
+    assert strat.position == strat.max_position == Decimal("0.02")
+    later = strat.on_book_update(moved, timestamp_ms=1200)
+    assert not any(
+        isinstance(action, OrderRequest) and action.side == OrderSide.BUY
+        for action in later
+    )
+
+
+def test_position_invariant_fails_closed_on_untracked_oversized_fill():
+    strat = SymmetricMM(
+        half_spread=Decimal("0.50"),
+        order_qty=Decimal("0.01"),
+        max_position=Decimal("0.01"),
+    )
+
+    with pytest.raises(RuntimeError, match="breached hard max_position"):
+        strat.on_fill(make_fill("foreign", OrderSide.BUY, "100", "0.02"))
 
 
 def test_requote_after_fill():

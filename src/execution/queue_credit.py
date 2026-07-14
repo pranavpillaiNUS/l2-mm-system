@@ -1,13 +1,24 @@
 """Helpers for the queue-cancellation credit configuration axis."""
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 def parse_queue_credit(value) -> Decimal:
     """Parse and validate a queue cancellation credit in [0.0, 1.0]."""
-    credit = Decimal(str(value))
-    if credit < Decimal("0") or credit > Decimal("1"):
+    try:
+        credit = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError(
+            "queue_cancellation_credit must be a finite decimal in [0.0, 1.0]"
+        ) from exc
+    if (
+        not credit.is_finite()
+        or credit < Decimal("0")
+        or credit > Decimal("1")
+    ):
         raise ValueError("queue_cancellation_credit must be in [0.0, 1.0]")
+    if credit == 0:
+        return Decimal("0")
     return credit
 
 

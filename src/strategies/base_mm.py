@@ -14,7 +14,7 @@ when to cancel, building OrderRequests, tracking fills - lives here.
 """
 from abc import ABC, abstractmethod
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.execution.order import Fill, Order, OrderRequest, OrderSide, OrderType
 from src.replay.engine import Action, CancelRequest
@@ -32,8 +32,8 @@ class BaseMMStrategy(ABC):
 
     Parameters:
         order_qty: size of each quote (in base currency, e.g. BTC)
-        max_position: absolute position limit - stop quoting the side
-                      that would increase exposure beyond this
+        max_position: hard absolute exposure limit under the conservative
+                      assumption that every live same-side order fills
         tick_size: minimum price increment for rounding quotes
     """
 
@@ -44,6 +44,24 @@ class BaseMMStrategy(ABC):
         tick_size: Decimal = Decimal("0.01"),
         requote_interval_ms: int = 0,
     ):
+        decimal_inputs = {
+            "order_qty": order_qty,
+            "max_position": max_position,
+            "tick_size": tick_size,
+        }
+        if any(
+            not isinstance(value, Decimal) or not value.is_finite()
+            for value in decimal_inputs.values()
+        ):
+            raise ValueError("strategy sizing and tick inputs must be finite Decimals")
+        if order_qty <= Decimal("0"):
+            raise ValueError("order_qty must be positive")
+        if max_position < Decimal("0"):
+            raise ValueError("max_position must be non-negative")
+        if tick_size <= Decimal("0"):
+            raise ValueError("tick_size must be positive")
+        if type(requote_interval_ms) is not int or requote_interval_ms < 0:
+            raise ValueError("requote_interval_ms must be a non-negative integer")
         self.order_qty = order_qty
         self.max_position = max_position
         self.tick_size = tick_size
@@ -53,6 +71,7 @@ class BaseMMStrategy(ABC):
         # updates (filled, cancelled) are visible here automatically.
         self._bid_order: Optional[Order] = None
         self._ask_order: Optional[Order] = None
+        self._orders: Dict[str, Order] = {}
         self._last_requote_ms: Optional[int] = None
 
         # Inventory: positive = long, negative = short
@@ -92,17 +111,11 @@ class BaseMMStrategy(ABC):
         desired_bid = self._round_bid(desired_bid) if desired_bid is not None else None
         desired_ask = self._round_ask(desired_ask) if desired_ask is not None else None
 
-        # Position limits: don't quote the side that would increase exposure
-        if self.position >= self.max_position:
-            desired_bid = None  # already max long, don't buy more
-        if self.position <= -self.max_position:
-            desired_ask = None  # already max short, don't sell more
-
         # Post-only: never place a quote that would cross the spread.
         # A real exchange would reject these (post-only / maker-only flag).
-        # Without this check, the order arrives ~100ms later (next depth event),
-        # the book may have moved, and the simulator executes it as a taker.
-        # We prevent that by checking against the CURRENT book before submission.
+        # The order reaches the exchange after modeled latency, so this client-
+        # side check avoids obviously stale/aggressive intent. The simulator
+        # independently enforces post-only again at exact exchange arrival.
         if desired_bid is not None and desired_bid >= book.best_ask:
             self.postonly_suppressed += 1
             desired_bid = None
@@ -112,6 +125,16 @@ class BaseMMStrategy(ABC):
 
         current_bid = self._live_price(self._bid_order)
         current_ask = self._live_price(self._ask_order)
+
+        # Hard position envelope. Pending orders and cancels in flight remain
+        # fillable, so a cancel/replace may add a new quote only when every
+        # live same-side order filling would still stay inside max_position.
+        desired_bid = self._risk_checked_price(
+            OrderSide.BUY, desired_bid, current_bid
+        )
+        desired_ask = self._risk_checked_price(
+            OrderSide.SELL, desired_ask, current_ask
+        )
         if self._should_hold_quotes(
             desired_bid, desired_ask, current_bid, current_ask, timestamp_ms,
         ):
@@ -134,11 +157,17 @@ class BaseMMStrategy(ABC):
             self.position -= fill.quantity
             self.realized_pnl += fill.notional
 
+        if abs(self.position) > self.max_position:
+            raise RuntimeError(
+                "fill breached hard max_position; working-order risk invariant failed"
+            )
+
         self.total_fees += fill.fee
         self.fill_count += 1
-        return []
+        return self._risk_reducing_cancels()
 
     def on_order_placed(self, request: OrderRequest, order: Order) -> None:
+        self._orders[order.order_id] = order
         if order.side == OrderSide.BUY:
             self._bid_order = order
         else:
@@ -164,7 +193,8 @@ class BaseMMStrategy(ABC):
         if desired_bid != current_bid:
             # Cancel old bid if still active
             if self._bid_order is not None and not self._bid_order.is_done:
-                actions.append(CancelRequest(self._bid_order.order_id))
+                if not self._bid_order.cancel_pending:
+                    actions.append(CancelRequest(self._bid_order.order_id))
                 self._bid_order = None
 
             # Place new bid
@@ -181,7 +211,8 @@ class BaseMMStrategy(ABC):
 
         if desired_ask != current_ask:
             if self._ask_order is not None and not self._ask_order.is_done:
-                actions.append(CancelRequest(self._ask_order.order_id))
+                if not self._ask_order.cancel_pending:
+                    actions.append(CancelRequest(self._ask_order.order_id))
                 self._ask_order = None
 
             if desired_ask is not None:
@@ -199,6 +230,67 @@ class BaseMMStrategy(ABC):
         if order is None or order.is_done:
             return None
         return order.price
+
+    def _live_remaining(self, side: OrderSide) -> Decimal:
+        """Worst-case remaining quantity from all fillable orders on a side."""
+        return sum(
+            (
+                order.remaining_quantity
+                for order in self._orders.values()
+                if order.side == side and not order.is_done
+            ),
+            Decimal("0"),
+        )
+
+    def _risk_checked_price(
+        self,
+        side: OrderSide,
+        desired_price: Optional[Decimal],
+        current_price: Optional[Decimal],
+    ) -> Optional[Decimal]:
+        """Suppress a quote that could breach the hard worst-case envelope."""
+        if desired_price is None:
+            return None
+        working = self._live_remaining(side)
+        if side == OrderSide.BUY:
+            worst_existing = self.position + working
+            if worst_existing > self.max_position:
+                return None
+            if desired_price != current_price:
+                worst_existing += self.order_qty
+            return desired_price if worst_existing <= self.max_position else None
+
+        worst_existing = self.position - working
+        if worst_existing < -self.max_position:
+            return None
+        if desired_price != current_price:
+            worst_existing -= self.order_qty
+        return desired_price if worst_existing >= -self.max_position else None
+
+    def _risk_reducing_cancels(self) -> List[Action]:
+        """Cancel fillable orders if externally supplied state breaks the envelope."""
+        actions: List[Action] = []
+        if self.position + self._live_remaining(OrderSide.BUY) > self.max_position:
+            actions.extend(
+                CancelRequest(order.order_id)
+                for order in self._orders.values()
+                if (
+                    order.side == OrderSide.BUY
+                    and not order.is_done
+                    and not order.cancel_pending
+                )
+            )
+        if self.position - self._live_remaining(OrderSide.SELL) < -self.max_position:
+            actions.extend(
+                CancelRequest(order.order_id)
+                for order in self._orders.values()
+                if (
+                    order.side == OrderSide.SELL
+                    and not order.is_done
+                    and not order.cancel_pending
+                )
+            )
+        return actions
 
     def _should_hold_quotes(
         self,

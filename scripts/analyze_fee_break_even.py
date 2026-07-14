@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Sequence
 
 from scripts.compare_mm import _parse_start
+from src.execution.provenance import (
+    EXECUTION_PROVENANCE_FIELDS,
+    guard_event_driven_output_path,
+    require_event_driven_provenance,
+    require_safe_path_component,
+)
 from src.execution.queue_credit import (
     credit_from_legacy_mode,
     legacy_mode_from_credit,
@@ -33,7 +39,7 @@ DEFAULT_STARTS = [
     "2026-04-16T17",
     "2026-04-17T12",
 ]
-DEFAULT_OUTPUT_ROOT = Path("results/fee_break_even")
+DEFAULT_OUTPUT_ROOT = Path("results/event_driven_v2/fee_break_even")
 DEFAULT_RUN_ID = "btcusdt_microprice_hs2.00_rq5000_anchor6"
 
 
@@ -50,6 +56,7 @@ def _run_dir_name(args, start_value: str, queue_credit: Decimal) -> str:
 
 def _load_runs(args):
     runs = []
+    shared_signature = None
     for queue_credit in args.queue_credits:
         for start_value in args.starts:
             run_dir = args.reconciliation_root / _run_dir_name(args, start_value, queue_credit)
@@ -60,11 +67,30 @@ def _load_runs(args):
                     "start and queue credit first."
                 )
             run = load_reconciliation_run(run_dir)
+            provenance = require_event_driven_provenance(run.summary)
             actual_credit = run.queue_credit
             if actual_credit != queue_credit:
                 raise ValueError(
                     f"{run_dir} reports queue_cancellation_credit={actual_credit}; "
                     f"expected {queue_credit}"
+                )
+            if parse_queue_credit(
+                provenance["queue_cancellation_credit"]
+            ) != queue_credit:
+                raise ValueError(
+                    f"{run_dir} execution provenance reports a different "
+                    "queue-cancellation credit"
+                )
+            signature = tuple(
+                provenance[field]
+                for field in EXECUTION_PROVENANCE_FIELDS
+                if field != "queue_cancellation_credit"
+            )
+            if shared_signature is None:
+                shared_signature = signature
+            elif signature != shared_signature:
+                raise ValueError(
+                    "fee break-even inputs have incompatible execution provenance"
                 )
             runs.append(run)
     return runs
@@ -92,6 +118,15 @@ def _csv_value(value) -> str:
 
 def _write_rows(path: Path, rows: Sequence[dict]) -> None:
     fieldnames = [
+        "execution_model_version",
+        "equal_timestamp_policy",
+        "trade_gap_policy",
+        "entry_latency_ms",
+        "entry_jitter_ms",
+        "cancel_latency_ms",
+        "cancel_jitter_ms",
+        "latency_seed",
+        "post_only",
         "queue_cancellation_credit",
         "legacy_queue_cancellation_mode",
         "window",
@@ -122,6 +157,13 @@ def _annotate_legacy_labels(rows: Sequence[dict]) -> None:
         row["legacy_queue_cancellation_mode"] = legacy_mode_from_credit(
             row["queue_cancellation_credit"]
         )
+
+
+def _annotate_execution_provenance(rows: Sequence[dict], provenance: dict) -> None:
+    for row in rows:
+        for field in EXECUTION_PROVENANCE_FIELDS:
+            if field != "queue_cancellation_credit":
+                row[field] = provenance[field]
 
 
 def _print_pooled(rows: Sequence[dict]) -> None:
@@ -165,7 +207,9 @@ def parse_args():
                         choices=["proportional", "none"],
                         help=argparse.SUPPRESS)
     parser.add_argument("--reconciliation-root", type=Path,
-                        default=Path("results/markout_reconciliation"))
+                        default=Path(
+                            "results/event_driven_v2/markout_reconciliation"
+                        ))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     args = parser.parse_args()
@@ -178,15 +222,25 @@ def parse_args():
 
 def main():
     args = parse_args()
+    require_safe_path_component(args.run_id, label="--run-id")
+    guard_event_driven_output_path(args.output_root)
     runs = _load_runs(args)
     rows = build_fee_break_even_rows(runs, expected_maker_bps=args.maker_bps)
     _annotate_legacy_labels(rows)
+    first_provenance = require_event_driven_provenance(runs[0].summary)
+    _annotate_execution_provenance(rows, first_provenance)
 
     run_dir = args.output_root / args.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     _write_rows(run_dir / "fee_break_even.csv", rows)
 
+    aggregate_provenance = dict(first_provenance)
+    aggregate_provenance["queue_cancellation_credit"] = [
+        str(credit) for credit in args.queue_credits
+    ]
+    aggregate_provenance["varied_fields"] = ["queue_cancellation_credit"]
     summary = {
+        "execution_provenance": aggregate_provenance,
         "params": {
             "symbol": args.symbol.lower(),
             "strategy": args.strategy,

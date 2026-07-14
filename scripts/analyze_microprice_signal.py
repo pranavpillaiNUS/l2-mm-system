@@ -22,6 +22,7 @@ from src.analysis.microprice_signal import (
     regress_microprice_signal,
 )
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
+from src.execution.provenance import guard_event_driven_output_path
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
 
@@ -119,6 +120,7 @@ def _run_window(args, start: datetime) -> dict:
         "signal_samples": rows,
         "regressions": regressions,
         "buckets": buckets,
+        "execution_provenance": result.execution_provenance,
     }
 
 
@@ -210,7 +212,7 @@ def parse_args():
                         help=argparse.SUPPRESS)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
-                        default=Path("results/microprice_signal"))
+                        default=Path("results/event_driven_v2/microprice_signal"))
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
@@ -225,6 +227,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_dir)
     starts = [_parse_start(value) for value in args.starts]
 
     windows = []
@@ -256,7 +259,14 @@ def main():
     _write_regression_csv(run_dir / "regressions.csv", windows, pooled_regressions)
     _write_bucket_csv(run_dir / "signal_buckets.csv", windows, pooled_buckets)
 
+    execution_provenance = windows[0]["execution_provenance"]
+    if any(
+        window["execution_provenance"] != execution_provenance
+        for window in windows[1:]
+    ):
+        raise ValueError("microprice-signal windows have incompatible provenance")
     summary = {
+        "execution_provenance": execution_provenance,
         "params": {
             "symbol": args.symbol.lower(),
             "starts": [start.isoformat() for start in starts],

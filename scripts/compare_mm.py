@@ -20,6 +20,7 @@ from typing import Iterable, List
 from src.analysis.fill_rate import compute_order_contexts
 from src.analysis.markout import compute_markouts, summarize_markouts
 from src.analysis.pnl import compute_pnl_decomposition
+from src.execution.provenance import guard_event_driven_output_path
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
@@ -152,6 +153,8 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         sim_config=SimConfig(
             base_latency_ms=args.latency_ms,
             jitter_ms=args.jitter_ms,
+            cancel_latency_ms=args.cancel_latency_ms,
+            cancel_jitter_ms=args.cancel_jitter_ms,
             maker_bps=args.maker_bps,
             taker_bps=args.taker_bps,
             queue_cancellation_credit=args.queue_cancellation_credit,
@@ -186,6 +189,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
     horizon_row = markout_summary.get(args.adverse_horizon, {})
 
     return {
+        **result.execution_provenance,
         "session_start": window.label,
         "session_hours": window.hours,
         "strategy": strategy_name,
@@ -207,7 +211,14 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         "gaps_detected": result.stats.gaps_detected,
         "events_during_gap": result.stats.events_during_gap,
         "orders_submitted": result.stats.orders_submitted,
+        "order_arrivals": result.stats.order_arrivals,
+        "cancel_requests": result.stats.cancel_requests,
         "orders_cancelled": result.stats.orders_cancelled,
+        "cancels_too_late": result.stats.cancels_too_late,
+        "gap_invalidations": result.stats.gap_invalidations,
+        "replay_end_invalidations": result.stats.replay_end_invalidations,
+        "pending_actions_at_end": result.stats.pending_actions_at_end,
+        "pending_cancels_at_end": result.stats.pending_cancels_at_end,
         "fills": len(result.fills),
         "maker_fills": maker_fills,
         "taker_fills": taker_fills,
@@ -312,6 +323,15 @@ def _aggregate_rows(rows: Iterable[dict]) -> List[dict]:
         )
 
         aggregates.append({
+            "execution_model_version": strategy_rows[0]["execution_model_version"],
+            "equal_timestamp_policy": strategy_rows[0]["equal_timestamp_policy"],
+            "trade_gap_policy": strategy_rows[0]["trade_gap_policy"],
+            "entry_latency_ms": strategy_rows[0]["entry_latency_ms"],
+            "entry_jitter_ms": strategy_rows[0]["entry_jitter_ms"],
+            "cancel_latency_ms": strategy_rows[0]["cancel_latency_ms"],
+            "cancel_jitter_ms": strategy_rows[0]["cancel_jitter_ms"],
+            "latency_seed": strategy_rows[0]["latency_seed"],
+            "post_only": strategy_rows[0]["post_only"],
             "strategy": strategy_name,
             "sessions": len(strategy_rows),
             "fills": total_fills,
@@ -334,6 +354,24 @@ def _aggregate_rows(rows: Iterable[dict]) -> List[dict]:
             "adverse_selection_bps": adverse_selection_bps,
             "avg_markout_bps": avg_markout_bps,
             "gaps_detected": sum(row["gaps_detected"] for row in strategy_rows),
+            "cancel_requests": sum(
+                row["cancel_requests"] for row in strategy_rows
+            ),
+            "orders_cancelled": sum(
+                row["orders_cancelled"] for row in strategy_rows
+            ),
+            "cancels_too_late": sum(
+                row["cancels_too_late"] for row in strategy_rows
+            ),
+            "gap_invalidations": sum(
+                row["gap_invalidations"] for row in strategy_rows
+            ),
+            "replay_end_invalidations": sum(
+                row["replay_end_invalidations"] for row in strategy_rows
+            ),
+            "pending_actions_at_end": sum(
+                row["pending_actions_at_end"] for row in strategy_rows
+            ),
             "queue_cancellation_credit": strategy_rows[0]["queue_cancellation_credit"],
         })
 
@@ -416,6 +454,8 @@ def parse_args():
     parser.add_argument("--tick-size", default="0.01")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--requote-interval-ms", type=int, default=0)
     parser.add_argument("--ofi-interval-ms", type=int, default=1000)
     parser.add_argument("--ofi-threshold", default="0.25")
@@ -428,7 +468,11 @@ def parse_args():
                         help=argparse.SUPPRESS)
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--output-dir", type=Path, default=Path("results/compare"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("results/event_driven_v2/compare"),
+    )
     parser.add_argument("--skip-missing", action="store_true",
                         help="Skip sessions whose depth/trade files are missing")
     args = parser.parse_args()
@@ -445,6 +489,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_dir)
     if args.end is not None:
         args.sessions = _sessions_from_end(args.start, args.end, args.session_hours)
     elif args.sessions is None:

@@ -24,6 +24,7 @@ from src.analysis.window_selection import (
     with_jump_count,
 )
 from src.execution.simulator import SimConfig
+from src.execution.provenance import guard_frozen_v2_output_path
 from src.replay.engine import BookSample, ReplayConfig, ReplayEngine
 
 
@@ -324,6 +325,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    guard_frozen_v2_output_path(args.output_dir)
     if args.scan_workers <= 0:
         raise ValueError("--scan-workers must be positive")
     manifest = _load_manifest(args.integrity_manifest)

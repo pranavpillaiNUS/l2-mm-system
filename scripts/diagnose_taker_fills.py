@@ -52,44 +52,30 @@ strategy = SymmetricMM(
 )
 
 engine = ReplayEngine(config)
-
-# monkey-patch the simulator to log aggressive orders
-original_on_book_update = engine.sim.on_book_update
-aggressive_count = 0
-resting_count = 0
-aggressive_details = []
-
-def patched_on_book_update(book, timestamp_ms):
-    global aggressive_count, resting_count
-    from src.execution.order import OrderStatus, OrderType
-    
-    for order in list(engine.sim._orders.values()):
-        if order.status != OrderStatus.PENDING:
-            continue
-        if order.arrival_time_ms > timestamp_ms:
-            continue
-        if order.order_type == OrderType.LIMIT:
-            is_agg = engine.sim._is_aggressive(order, book)
-            if is_agg:
-                aggressive_count += 1
-                aggressive_details.append({
-                    "order_id": order.order_id,
-                    "side": order.side.value,
-                    "price": str(order.price),
-                    "best_bid": str(book.best_bid),
-                    "best_ask": str(book.best_ask),
-                    "mid": str(book.mid),
-                    "placed_ms": order.placed_time_ms,
-                    "arrived_ms": timestamp_ms,
-                })
-            else:
-                resting_count += 1
-    
-    return original_on_book_update(book, timestamp_ms)
-
-engine.sim.on_book_update = patched_on_book_update
-
 result = engine.run(strategy)
+
+# Exact-arrival diagnostics come from lifecycle events. ReplayEngine no longer
+# quantizes activation through the direct on_book_update convenience wrapper.
+queued_events = [event for event in result.events if event.event_type == "queued"]
+aggressive_events = [
+    event for event in result.events
+    if event.event_type == "cancelled"
+    and event.detail.get("reason") == "post_only_would_cross"
+]
+resting_count = len(queued_events)
+aggressive_count = len(aggressive_events)
+aggressive_details = []
+for event in aggressive_events:
+    order = engine.sim._orders[event.order_id]
+    aggressive_details.append({
+        "order_id": order.order_id,
+        "side": order.side.value,
+        "price": str(order.price),
+        "best_bid": event.detail.get("best_bid"),
+        "best_ask": event.detail.get("best_ask"),
+        "placed_ms": order.placed_time_ms,
+        "arrived_ms": event.timestamp_ms,
+    })
 
 # summarize
 maker_fills = [f for f in result.fills if f.is_maker]
@@ -109,7 +95,7 @@ if aggressive_details:
     print(f"\n--- First 20 Aggressive Orders ---")
     for d in aggressive_details[:20]:
         print(f"  {d['order_id']}: {d['side']} @ {d['price']}, "
-              f"best_bid={d['best_bid']}, best_ask={d['best_ask']}, mid={d['mid']}, "
+              f"best_bid={d['best_bid']}, best_ask={d['best_ask']}, "
               f"placed={d['placed_ms']}, arrived={d['arrived_ms']}")
 else:
     print("\nNo aggressive orders detected!")

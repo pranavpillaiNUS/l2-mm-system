@@ -78,6 +78,41 @@ def verify_panel_selection() -> None:
     _assert_equal(manifest["manifest_sha256"], MANIFEST_SHA, "integrity manifest self hash")
 
 
+def verify_execution_model_boundary() -> None:
+    marker = _load_json(PANEL_ROOT / "EXECUTION_MODEL.json")
+    _assert_equal(
+        marker["execution_model_version"],
+        "legacy_book_update_v1",
+        "frozen V2 execution model",
+    )
+    _assert_equal(
+        marker["status"],
+        "frozen_historical_artifacts",
+        "frozen V2 model status",
+    )
+
+    for path in PANEL_ROOT.rglob("*.json"):
+        if path.name == "EXECUTION_MODEL.json":
+            continue
+        payload = _load_json(path)
+        if not isinstance(payload, dict):
+            continue
+        provenance = payload.get("execution_provenance", {})
+        params = payload.get("params", {})
+        if not isinstance(provenance, dict):
+            provenance = {}
+        if not isinstance(params, dict):
+            params = {}
+        model = provenance.get(
+            "execution_model_version",
+            params.get("execution_model_version"),
+        )
+        _assert_true(
+            model != "event_driven_v2",
+            f"event-driven artifact found under frozen V2 root: {path}",
+        )
+
+
 def verify_phase_a() -> None:
     verdict = _load_json(PANEL_ROOT / "phase_a_verdict.json")
     _assert_equal(
@@ -236,6 +271,7 @@ def verify_holdout_sealed() -> None:
 
 def main() -> None:
     checks = [
+        ("legacy execution-model boundary", verify_execution_model_boundary),
         ("panel selection", verify_panel_selection),
         ("Phase A verdict", verify_phase_a),
         ("Phase B OFI gate", verify_phase_b),

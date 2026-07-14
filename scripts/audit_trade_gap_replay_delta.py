@@ -1,4 +1,4 @@
-"""Publish the six-anchor replay delta for the trade-gap policy correction."""
+"""Compare trade-gap policies under the current event-driven execution model."""
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ from enum import Enum
 from pathlib import Path
 
 from scripts.compare_mm import _parse_start
+from src.execution.provenance import (
+    guard_event_driven_output_path,
+    require_event_driven_provenance,
+)
 
 
 DEFAULT_STARTS = [
@@ -72,6 +76,8 @@ def _run_anchor(args, start: str, policy: str, output_dir: Path) -> dict:
         "--requote-interval-ms", str(args.requote_interval_ms),
         "--latency-ms", str(args.latency_ms),
         "--jitter-ms", str(args.jitter_ms),
+        "--cancel-latency-ms", str(args.cancel_latency_ms),
+        "--cancel-jitter-ms", str(args.cancel_jitter_ms),
         "--maker-bps", str(args.maker_bps),
         "--taker-bps", str(args.taker_bps),
         "--queue-cancellation-credit", args.queue_cancellation_credit,
@@ -112,24 +118,54 @@ def parse_args():
     parser.add_argument("--requote-interval-ms", type=int, default=5000)
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-root", type=Path,
-                        default=Path("results/replay_correctness"))
-    return parser.parse_args()
+                        default=Path(
+                            "results/event_driven_v2/replay_correctness"
+                        ))
+    args = parser.parse_args()
+    if args.cancel_latency_ms is None:
+        args.cancel_latency_ms = args.latency_ms
+    if args.cancel_jitter_ms is None:
+        args.cancel_jitter_ms = args.jitter_ms
+    return args
 
 
 def main():
     args = parse_args()
+    guard_event_driven_output_path(args.output_root)
     rows = []
+    execution_provenance = None
     with tempfile.TemporaryDirectory(prefix="trade-gap-anchor6-") as tmp:
         temp_root = Path(tmp)
         for idx, start in enumerate(args.starts, start=1):
             print(f"[{idx}/{len(args.starts)}] {start}", flush=True)
             old = _run_anchor(args, start, OLD_POLICY, temp_root / start / OLD_POLICY)
             new = _run_anchor(args, start, NEW_POLICY, temp_root / start / NEW_POLICY)
+            old_provenance = require_event_driven_provenance(old)
+            new_provenance = require_event_driven_provenance(new)
+            if (
+                old_provenance["trade_gap_policy"] != OLD_POLICY
+                or new_provenance["trade_gap_policy"] != NEW_POLICY
+            ):
+                raise ValueError("trade-gap policy artifact provenance mismatch")
+            old_base = dict(old_provenance)
+            new_base = dict(new_provenance)
+            old_base.pop("trade_gap_policy")
+            new_base.pop("trade_gap_policy")
+            if old_base != new_base:
+                raise ValueError("trade-gap policy runs have incompatible provenance")
+            if (
+                execution_provenance is not None
+                and execution_provenance != old_base
+            ):
+                raise ValueError("trade-gap audit windows have incompatible provenance")
+            execution_provenance = old_base
             rows.append(_delta_row(start, old, new))
 
     exact_zero = all(row["exact_zero_delta"] for row in rows)
@@ -138,6 +174,11 @@ def main():
         for row in rows
     )
     report = {
+        "execution_provenance": {
+            **execution_provenance,
+            "trade_gap_policy": [OLD_POLICY, NEW_POLICY],
+            "varied_fields": ["trade_gap_policy"],
+        },
         "protocol": {
             "old_policy": OLD_POLICY,
             "new_policy": NEW_POLICY,
@@ -151,13 +192,15 @@ def main():
             "windows": len(rows),
             "exact_zero_delta": exact_zero,
             "anchors_trade_gap_clean": no_anchor_trade_gaps,
-            "v1_was_not_a_trade_gap_artifact": exact_zero and no_anchor_trade_gaps,
+            "event_driven_result_is_trade_gap_policy_invariant": (
+                exact_zero and no_anchor_trade_gaps
+            ),
         },
         "finding": (
-            "V1 was not a trade-gap artifact: all six anchors are trade-gap-clean "
-            "and replay identically under ignore and pause_until_snapshot."
+            "The event-driven anchor runs are trade-gap-clean and replay "
+            "identically under ignore and pause_until_snapshot."
             if exact_zero and no_anchor_trade_gaps
-            else "The trade-gap correction changes at least one V1 anchor; inspect deltas."
+            else "Trade-gap policy changes at least one event-driven anchor; inspect deltas."
         ),
     }
     args.output_root.mkdir(parents=True, exist_ok=True)

@@ -25,6 +25,7 @@ from scripts.compare_mm import (
     _write_csv,
 )
 from src.analysis.fill_rate import FillRateBin, summarize_pooled_contexts
+from src.execution.provenance import guard_event_driven_output_path
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 
 
@@ -83,6 +84,15 @@ def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
         )
 
         aggregates.append({
+            "execution_model_version": group_rows[0]["execution_model_version"],
+            "equal_timestamp_policy": group_rows[0]["equal_timestamp_policy"],
+            "trade_gap_policy": group_rows[0]["trade_gap_policy"],
+            "entry_latency_ms": group_rows[0]["entry_latency_ms"],
+            "entry_jitter_ms": group_rows[0]["entry_jitter_ms"],
+            "cancel_latency_ms": group_rows[0]["cancel_latency_ms"],
+            "cancel_jitter_ms": group_rows[0]["cancel_jitter_ms"],
+            "latency_seed": group_rows[0]["latency_seed"],
+            "post_only": group_rows[0]["post_only"],
             "strategy": strategy,
             "half_spread": half_spread,
             "requote_interval_ms": requote_interval_ms,
@@ -156,16 +166,39 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
     Returns one flat row per (combo, axis, bin_label).
     """
     grouped: dict[Tuple[str, str, int, str], list] = {}
+    provenance_by_key: dict[Tuple[str, str, int, str], dict] = {}
     for row in detail_rows:
         key = _combo_key(row)
         grouped.setdefault(key, []).extend(row.get("_contexts", []))
+        provenance = {
+            field: row[field]
+            for field in (
+                "execution_model_version",
+                "equal_timestamp_policy",
+                "trade_gap_policy",
+                "entry_latency_ms",
+                "entry_jitter_ms",
+                "cancel_latency_ms",
+                "cancel_jitter_ms",
+                "latency_seed",
+                "post_only",
+            )
+        }
+        previous = provenance_by_key.setdefault(key, provenance)
+        if previous != provenance:
+            raise ValueError(
+                "quote-mechanics rows have incompatible execution provenance"
+            )
 
     out: List[dict] = []
-    for (strategy, half_spread, requote_interval_ms, queue_credit), contexts in grouped.items():
+    for key, contexts in grouped.items():
+        strategy, half_spread, requote_interval_ms, queue_credit = key
+        provenance = provenance_by_key[key]
         summary = summarize_pooled_contexts(contexts)
 
         def _emit(axis: str, bin_obj: FillRateBin):
             out.append({
+                **provenance,
                 "strategy": strategy,
                 "half_spread": half_spread,
                 "requote_interval_ms": requote_interval_ms,
@@ -274,6 +307,8 @@ def _parse_args():
     parser.add_argument("--tick-size", default="0.01")
     parser.add_argument("--latency-ms", type=int, default=10)
     parser.add_argument("--jitter-ms", type=int, default=0)
+    parser.add_argument("--cancel-latency-ms", type=int)
+    parser.add_argument("--cancel-jitter-ms", type=int)
     parser.add_argument("--maker-bps", type=int, default=2)
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-cancellation-credit", default="1.0",
@@ -284,7 +319,9 @@ def _parse_args():
     parser.add_argument("--adverse-horizon", default="30s")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path,
-                        default=Path("results/compare/quote_mechanics"))
+                        default=Path(
+                            "results/event_driven_v2/compare/quote_mechanics"
+                        ))
     parser.add_argument("--skip-missing", action="store_true")
     args = parser.parse_args()
     if args.queue_cancellation_mode is not None:
@@ -295,11 +332,16 @@ def _parse_args():
         args.queue_cancellation_credit = parse_queue_credit(
             args.queue_cancellation_credit
         )
+    if args.cancel_latency_ms is None:
+        args.cancel_latency_ms = args.latency_ms
+    if args.cancel_jitter_ms is None:
+        args.cancel_jitter_ms = args.jitter_ms
     return args
 
 
 def main():
     args = _parse_args()
+    guard_event_driven_output_path(args.output_dir)
     if args.end is not None:
         args.sessions = _sessions_from_end(args.start, args.end, args.session_hours)
     elif args.sessions is None:

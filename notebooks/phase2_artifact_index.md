@@ -1,17 +1,29 @@
 # Phase 2 Artifact Index
 
-Status: spot BTCUSDT Phase 2 development research arc complete. No candidate
+Status: the spot BTCUSDT Phase 2 development research arc is complete as a
+frozen historical V2 study under `legacy_book_update_v1`. The Phase 2.5 Python
+execution-model implementation has passed local acceptance under
+`event_driven_v2`; its development-panel V3 rerun is pending. No candidate
 strategy advanced to holdout, and the sealed holdout remains untouched.
 
 ## Canonical Writeups
 
-- Active V2 research note: `notebooks/research_writeup_v2.md`
+- Frozen V2 research note: `notebooks/research_writeup_v2.md`
+- Short public note: `notebooks/research_note_public.md`
+- Current execution contract: `notebooks/execution_model_v2.md`
 - Research log: `notebooks/research_log.md`
 - Frozen V1 reference, superseded by V2: `notebooks/research_writeup.md`
 - Holdout lock template, still unlocked: `notebooks/holdout_protocol.md`
 
 ## Frozen Provenance
 
+- Research artifact commit: `1066950`
+- Execution model: `legacy_book_update_v1`
+- Timing semantics: modeled arrivals activate on the next depth update;
+  cancellation requests take effect immediately
+- Frozen result root: `results/panels/btcusdt_l2_panel_v2`
+- Provenance marker:
+  `results/panels/btcusdt_l2_panel_v2/EXECUTION_MODEL.json`
 - Integrity manifest SHA-256:
   `a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61`
 - Selected panel SHA-256:
@@ -27,7 +39,37 @@ Primary files:
 - `results/panels/btcusdt_l2_panel_v2/development_windows.csv`
 - `results/panels/btcusdt_l2_panel_v2/holdout_windows.csv`
 
-## Phase A: Baseline Remeasurement
+All Phase A/B/C execution-derived values indexed below are historical results
+from that model and commit. Missing per-artifact execution-model metadata under
+the frozen root means `legacy_book_update_v1`; it must not be interpreted as
+`event_driven_v2`.
+
+## Phase 2.5: Event-Driven Execution Closure
+
+- Current Python model: `event_driven_v2`
+- Required result namespace:
+  `results/panels/btcusdt_l2_panel_v3_event_driven`
+- Model and acceptance contract: `notebooks/execution_model_v2.md`
+- Status: local implementation and deterministic acceptance checks complete;
+  the V3 development rerun is pending, so no V3 execution-derived result or
+  research verdict is yet validated
+- Affected outputs requiring a V3 development rerun: fills, PnL,
+  conditional-on-fill tests, queue diagnostics, and latency conclusions
+- V3 comparison rule: compare the same development windows descriptively with
+  exact artifact hashes and model provenance; do not reuse the historical
+  V2/V1 advancement-verdict ladder across changed execution semantics
+- Unaffected frozen inputs/analyses: raw integrity manifest, panel selection,
+  book-state hashes, and unconditional book-state signal studies
+- Holdout status: sealed; only frozen development windows may be used during
+  execution closure
+- C++ status: intentionally paused until modern C++ fundamentals are in place
+- Local acceptance checkpoint: `369 passed in 5.56s`, focused execution and
+  strategy subset `126 passed in 2.26s`, frozen V2 verifier passed, and the
+  real one-hour replay smoke passed
+- Full V3 runs must commit `ARTIFACT_MANIFEST.json`; verify with
+  `env PYTHONPATH=. python scripts/verify_v3_artifacts.py`
+
+## Frozen V2 Phase A: Baseline Remeasurement
 
 Question: does the V1 passive microprice negative survive the frozen 24-window
 development panel at queue-credit endpoints `{0.0, 1.0}`?
@@ -43,7 +85,7 @@ Expected verdict:
 - Queue credit `1.0`: `Strengthens V1`
 - Queue credit `0.0`: `Weakens V1`
 
-## Phase B: OFI Premise Test
+## Frozen V2 Phase B: OFI Premise Test
 
 Question: does order-flow imbalance give a passive maker a usable edge?
 
@@ -67,7 +109,7 @@ The frozen protocol therefore blocked `OFIGatedMM` from advancing. This does
 not claim that the unrun candidate would necessarily lose, because gating would
 change the fill set.
 
-## Phase C: Queue-Credit And Latency Stress
+## Frozen V2 Phase C: Queue-Credit And Latency Stress
 
 Question: is the baseline negative an artifact of queue-credit or sub-50ms
 latency assumptions?
@@ -141,7 +183,7 @@ env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
 ```
 
-Latest local closure check on 2026-06-16:
+Historical local V2 closure check on 2026-06-16:
 
 ```text
 223 passed in 5.37s
@@ -149,3 +191,12 @@ Latest local closure check on 2026-06-16:
 
 `tests/test_recorder.py` is a live network/recorder test and is intentionally
 excluded from the deterministic suite.
+
+The verifier checks the integrity and expected shape of the frozen artifacts;
+it does not rerun the legacy experiment, validate `event_driven_v2`, or prove
+that either execution model matches exchange ground truth. Within
+`legacy_book_update_v1`, the artifacts show that the passive baseline's
+negative result did not depend on the tested queue-credit grid or a particular
+tested sub-50ms entry latency. They do not establish the same result under
+`event_driven_v2`, or anything about other spreads, strategies, signals, or
+venues.

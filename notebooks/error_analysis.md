@@ -5,6 +5,13 @@ reviewer trust. It is intentionally stricter than a research log: resolved
 items remain here because they explain why current results supersede earlier
 ones.
 
+The committed V2 result set is historical: it was generated at research commit
+`1066950` under `legacy_book_update_v1`. The Phase 2.5 `event_driven_v2`
+Python implementation has passed local acceptance; see
+[`notebooks/execution_model_v2.md`](execution_model_v2.md). Until the frozen
+development panel is rerun under the V3 event-driven namespace, the newer model
+has no validated execution-derived research result.
+
 ## Resolved Issues
 
 ### Accidental Taker Fills
@@ -50,6 +57,27 @@ Current status:
 - V1 was not a trade-gap artifact.
 
 ## Open Model Risks
+
+### Private-Action Timing And Own-Order FIFO
+
+Frozen V2 activated a modeled order arrival on the next depth update and made a
+cancel request effective immediately. That timing omitted intervening-trade
+eligibility and cancel/fill races. It also did not fully conserve one recorded
+trade across overlapping own orders at the same price.
+
+Current status:
+
+- The frozen artifacts remain under
+  `results/panels/btcusdt_l2_panel_v2` with provenance marker
+  `EXECUTION_MODEL.json`; they are not silently regenerated.
+- `event_driven_v2` schedules exact order and cancel arrivals, uses an explicit
+  market-data-before-private equal-time rule, and models own-order FIFO with
+  trade-volume conservation.
+- Local implementation and deterministic acceptance testing pass. Fill sets,
+  PnL, conditional-on-fill analyses, queue diagnostics, and latency conclusions
+  still require the V3 development rerun before they are treated as current
+  evidence.
+- The holdout remains sealed.
 
 ### Queue Position From L2 Data
 
@@ -127,5 +155,6 @@ Required interpretation:
   locked, and committed.
 - Do not build `InventorySkewMM` or `VolAdaptiveMM` without a new
   pre-registered mechanism. The V2 evidence-expansion path is complete.
-- The C++ port may start now, but parity against Python state hashes comes
-  before benchmark claims.
+- The C++ performance port is intentionally paused until the project owner has
+  built a fundamental understanding of modern C++. When it resumes, parity
+  against the frozen Python reference must precede benchmark claims.

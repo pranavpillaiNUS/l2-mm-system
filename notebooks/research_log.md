@@ -1416,3 +1416,104 @@ Verification after the documentation change:
 Rebase the local `cpp-orderbook-parity` branch onto current `main`, run the full
 suite, and publish that branch. Then establish operation-level parity before
 implementing bindings or reporting benchmarks.
+
+---
+## 2026-07-14: Phase 2.5 Execution-Model Provenance Boundary
+
+### Question
+Can the Python execution reference be corrected without making current results
+look interchangeable with the already published V2 artifacts?
+
+### Provenance finding
+The committed artifacts under `results/panels/btcusdt_l2_panel_v2` were
+generated at research commit `1066950` under
+`legacy_book_update_v1`. A modeled order arrival became eligible only on the
+next depth update, and a cancellation request took effect immediately. Those
+semantics omit intervening-trade eligibility and cancel/fill races. Historical
+own-order handling also needed an explicit volume-conservation rule when
+delayed cancels leave overlapping orders at one price.
+
+The V2 numerical claims remain the record of the experiment that was actually
+run. They are not relabeled as current-engine results, and the frozen root must
+not be overwritten. Raw-file integrity, selected development and holdout
+windows, book-state hashes, and unconditional book-state signal results are not
+invalidated by the timing correction. Fills, PnL, conditional-on-fill studies,
+queue diagnostics, and latency conclusions require a new development rerun.
+
+### Phase 2.5 boundary
+
+- Current model identifier: `event_driven_v2`
+- Equal-time policy: recorded market data before private actions
+- New result namespace:
+  `results/panels/btcusdt_l2_panel_v3_event_driven`
+- Model and deterministic acceptance contract:
+  `notebooks/execution_model_v2.md`
+- Research status: Python implementation acceptance is complete locally; no
+  V3 execution-derived result or verdict is validated yet
+- Holdout status: sealed and unavailable for model development
+
+This stage must finish the event scheduler, delayed-cancel lifecycle,
+same-millisecond attribution, own-order FIFO/volume conservation, provenance
+guards, and deterministic acceptance cases before any V3 claim is made.
+
+The V3 panel runner must not call the frozen V2/V1 verdict classifier. Its
+Phase A endpoint output is a descriptive, provenance-checked execution-model
+comparison over the identical development-window set. A mean delta is not a
+paired confidence interval and is not an automatic advancement verdict.
+
+### C++ decision
+The C++ performance port is intentionally paused until the project owner has a
+fundamental understanding of modern C++. When work resumes, the completed
+Python event-driven model will be the parity reference; bindings and benchmark
+claims still come only after parity. This pause is a sequencing decision, not a
+performance result.
+
+---
+## 2026-07-14: Event-Driven Python Reference Acceptance
+
+### Implemented boundary
+
+- Exact scheduled order and cancellation arrivals share the replay clock with
+  recorded market data.
+- The conservative equal-time rule, delayed cancel/fill races, gap-group
+  censoring, replay-end expiry, own-order FIFO, and recorded-volume
+  conservation are explicit and tested.
+- Every execution-derived artifact carries model, timing, gap-policy, latency,
+  post-only, and queue-credit provenance.
+- Current writers cannot target the frozen V2 result root. The V3 runner is
+  pinned to the frozen development panel and verifies the integrity manifest
+  plus every selected raw depth/trade hash before resuming work.
+- Bootstrap inputs use an exact run/start allowlist with containment checks.
+  Resume markers bind commands, source, input contents, the current expected
+  output set, and output contents.
+- Cross-model reporting is descriptive only and requires the canonical
+  five-hour experiment; the historical verdict classifier is not reused.
+
+### Acceptance evidence
+
+```text
+369 passed in 5.56s
+126 focused simulator/engine/merger/strategy tests passed in 2.26s
+all frozen V2 artifact checks passed
+```
+
+A real 2026-04-12 09:00 UTC one-hour BTCUSDT smoke replay processed 48,257
+events and terminated with eight maker fills, zero taker fills, two explicit
+replay-end expirations, and zero pending orders. This is a mechanics smoke test,
+not a strategy result.
+
+The final acceptance pass also made `max_position` a hard working-exposure
+envelope: pending entries and cancels in flight count against the limit, and a
+delayed cancel/replace cannot add a quote whose worst-case fill would breach
+it. The official full-panel runner now writes a tracked artifact manifest with
+source, panel, raw-input, derivation, and output hashes; a separate V3 verifier
+checks that manifest without relying on ignored status files.
+
+### Research status and next action
+
+The Python implementation boundary is accepted locally. No V3 economic result
+has been generated, published, or validated, and the holdout remains sealed.
+The next action is the isolated 24-window development rerun into
+`results/panels/btcusdt_l2_panel_v3_event_driven`, followed by review of the
+descriptive execution-model sensitivity report. C++ remains paused until modern
+C++ fundamentals are in place.

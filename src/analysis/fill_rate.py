@@ -43,7 +43,7 @@ class OrderContext:
     # Lifecycle
     queued_time_ms: Optional[int]
     terminal_time_ms: Optional[int]
-    final_status: str   # filled | partial_then_cancelled | cancelled_unfilled | post_only_rejected | open
+    final_status: str   # filled/cancelled/invalidated/expired/open classification
 
     # Context at submission
     mid_at_placed: Optional[Decimal]
@@ -62,7 +62,12 @@ class OrderContext:
 
     @property
     def filled(self) -> bool:
-        return self.final_status in ("filled", "partial_then_cancelled")
+        return self.final_status in (
+            "filled",
+            "partial_then_cancelled",
+            "partial_then_invalidated",
+            "partial_then_expired",
+        )
 
 
 @dataclass
@@ -126,6 +131,8 @@ def compute_order_contexts(
 
         queued = next((e for e in events if e.event_type == "queued"), None)
         cancelled = next((e for e in events if e.event_type == "cancelled"), None)
+        invalidated = next((e for e in events if e.event_type == "invalidated"), None)
+        expired = next((e for e in events if e.event_type == "expired"), None)
         filled_evt = next((e for e in events if e.event_type == "filled"), None)
 
         queued_time_ms = queued.timestamp_ms if queued else None
@@ -141,6 +148,20 @@ def compute_order_contexts(
             else:
                 final_status = "cancelled_unfilled"
             terminal_time_ms = cancelled.timestamp_ms
+        elif invalidated is not None:
+            final_status = (
+                "partial_then_invalidated"
+                if order_id in first_fill
+                else "gap_invalidated"
+            )
+            terminal_time_ms = invalidated.timestamp_ms
+        elif expired is not None:
+            final_status = (
+                "partial_then_expired"
+                if order_id in first_fill
+                else "replay_expired"
+            )
+            terminal_time_ms = expired.timestamp_ms
         else:
             final_status = "open"
             terminal_time_ms = None

@@ -433,7 +433,10 @@ def extract_queue_diagnostics(events: Sequence[OrderEvent]) -> List[QueueOrderDi
         final_event = next(
             (
                 e for e in reversed(order_events)
-                if e.event_type in ("filled", "cancelled", "partial_fill", "queued", "placed")
+                if e.event_type in (
+                    "filled", "cancelled", "invalidated", "expired",
+                    "partial_fill", "queued", "placed",
+                )
             ),
             None,
         )

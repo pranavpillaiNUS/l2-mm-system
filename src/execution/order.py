@@ -30,6 +30,8 @@ class OrderStatus(Enum):
     PARTIAL = "partial"       # partially filled, still active
     FILLED = "filled"         # completely filled
     CANCELLED = "cancelled"   # cancelled before full fill
+    INVALIDATED = "invalidated"  # local state discarded after a data gap
+    EXPIRED = "expired"          # replay ended before exchange lifecycle did
 
 
 @dataclass
@@ -68,6 +70,24 @@ class Order:
     filled_quantity: Decimal = field(default=Decimal("0"))
     queue_ahead: Optional[Decimal] = None   # volume ahead in FIFO queue at arrival
 
+    # Queue decomposition.  ``queue_ahead`` remains the public total used by
+    # diagnostics; these components let the simulator distinguish observed
+    # public volume from earlier simulated orders at the same price.  Public
+    # cancellations may improve only the external component, while cancelling
+    # one of our own older orders releases only the own-order component.
+    external_queue_ahead: Decimal = field(default=Decimal("0"))
+    own_queue_ahead: Decimal = field(default=Decimal("0"))
+    visible_queue_at_arrival: Decimal = field(default=Decimal("0"))
+    fifo_floor_adjustment: Decimal = field(default=Decimal("0"))
+    queue_sequence: Optional[int] = None
+
+    # A cancellation request is in flight while the order itself remains
+    # PENDING/ACTIVE/PARTIAL and therefore fillable.  A separate status is
+    # deliberately avoided because entry and cancellation are independent
+    # lifecycle dimensions.
+    cancel_requested_time_ms: Optional[int] = None
+    cancel_arrival_time_ms: Optional[int] = None
+
     @property
     def remaining_quantity(self) -> Decimal:
         return self.quantity - self.filled_quantity
@@ -78,7 +98,16 @@ class Order:
 
     @property
     def is_done(self) -> bool:
-        return self.status in (OrderStatus.FILLED, OrderStatus.CANCELLED)
+        return self.status in (
+            OrderStatus.FILLED,
+            OrderStatus.CANCELLED,
+            OrderStatus.INVALIDATED,
+            OrderStatus.EXPIRED,
+        )
+
+    @property
+    def cancel_pending(self) -> bool:
+        return self.cancel_arrival_time_ms is not None and not self.is_done
 
 
 @dataclass

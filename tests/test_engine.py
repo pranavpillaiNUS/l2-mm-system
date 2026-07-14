@@ -14,7 +14,11 @@ from typing import List
 from src.execution.order import (
     Fill, Order, OrderRequest, OrderSide, OrderStatus, OrderType,
 )
-from src.execution.simulator import SimConfig
+from src.execution.simulator import (
+    EQUAL_TIMESTAMP_POLICY,
+    EXECUTION_MODEL_VERSION,
+    SimConfig,
+)
 from src.replay.engine import (
     Action, CancelRequest, ReplayConfig, ReplayEngine, ReplayResult,
 )
@@ -157,6 +161,63 @@ class CancelOnFillStrategy:
         self.orders[order.order_id] = order
 
 
+class MarketOnceStrategy:
+    """Submits one market buy on the first usable book callback."""
+
+    def __init__(self):
+        self.order = None
+        self._submitted = False
+
+    def on_book_update(self, book, timestamp_ms):
+        if self._submitted:
+            return []
+        self._submitted = True
+        return [OrderRequest(
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity=Decimal("0.5"),
+        )]
+
+    def on_trade(self, trade, book):
+        return []
+
+    def on_fill(self, fill):
+        return []
+
+    def on_order_placed(self, request, order):
+        self.order = order
+
+
+class CancelAtSecondBookStrategy:
+    """Place once, then leave a cancellation in flight at replay end."""
+
+    def __init__(self):
+        self.order = None
+        self.book_updates = 0
+
+    def on_book_update(self, book, timestamp_ms):
+        self.book_updates += 1
+        if self.book_updates == 1:
+            return [OrderRequest(
+                side=OrderSide.BUY,
+                order_type=OrderType.LIMIT,
+                quantity=Decimal("0.1"),
+                price=Decimal("100.00"),
+            )]
+        if self.book_updates == 2:
+            return [CancelRequest(self.order.order_id)]
+        return []
+
+    def on_trade(self, trade, book):
+        return []
+
+    def on_fill(self, fill):
+        return []
+
+    def on_order_placed(self, request, order):
+        self.order = order
+
+
 # --- tests ---
 
 def test_starts_in_gap_skips_diffs_until_snapshot():
@@ -240,6 +301,110 @@ def test_basic_replay_with_fill():
               f"qty={fill.quantity}, fee={fill.fee})")
 
 
+def test_order_arrives_before_trade_without_intervening_depth():
+    """An order becomes eligible at its timestamp, not at the next depth tick."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trade_time = _BASE_MS + 20
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+        ])
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:00.020000+00:00", T=trade_time,
+                   agg_id=1, price="100.00", qty="1.2", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(base_latency_ms=10, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.stats.order_arrivals == 2
+        assert result.stats.fills == 1
+        fill = result.fills[0]
+        assert fill.timestamp_ms == trade_time
+        buy = next(order for order in strategy.orders.values()
+                   if order.side == OrderSide.BUY)
+        arrivals = [event for event in result.events
+                    if event.order_id == buy.order_id
+                    and event.event_type == "arrived"]
+        assert [event.timestamp_ms for event in arrivals] == [_BASE_MS + 10]
+
+
+def test_equal_time_trade_precedes_order_arrival():
+    """Recorded market data wins an unresolved millisecond arrival tie."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trade_time = _BASE_MS + 20
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+        ])
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:00.020000+00:00", T=trade_time,
+                   agg_id=1, price="100.00", qty="1.2", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(base_latency_ms=20, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.stats.fills == 0
+        buy = next(order for order in strategy.orders.values()
+                   if order.side == OrderSide.BUY)
+        assert buy.status == OrderStatus.EXPIRED
+        assert buy.queue_ahead == Decimal("1.0")
+        assert result.stats.replay_end_invalidations == 2
+
+
+def test_same_ms_depth_and_trade_do_not_create_false_cancel_credit():
+    """Same-ms traded depth is reconciled before queue credit is granted."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tied_time = _BASE_MS + 1000
+        fill_time = _BASE_MS + 2000
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=tied_time, U=101, u=101,
+                  bids=[["100.00", "0.0"]], asks=[]),
+        ])
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:01+00:00", T=tied_time,
+                   agg_id=1, price="100.00", qty="1.0", m=True),
+            _trade("2026-04-21T00:00:02+00:00", T=fill_time,
+                   agg_id=2, price="100.00", qty="0.1", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(base_latency_ms=0, jitter_ms=0),
+        )).run(strategy)
+
+        assert len(result.fills) == 1
+        assert result.fills[0].timestamp_ms == fill_time
+        buy = next(order for order in strategy.orders.values()
+                   if order.side == OrderSide.BUY)
+        cancellation_drains = [
+            event for event in result.events
+            if event.order_id == buy.order_id
+            and event.event_type == "queue_drain"
+            and event.detail.get("reason") == "cancellation"
+        ]
+        assert cancellation_drains == []
+
+
 def test_gap_detection_cancels_active_orders():
     """A sequence gap cancels all active orders."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -268,11 +433,11 @@ def test_gap_detection_cancels_active_orders():
         assert result.stats.gaps_detected == 1
         assert result.stats.events_during_gap == 1  # the gap diff itself is skipped
 
-        # Both orders should be cancelled (gap cancels all active)
-        all_cancelled = all(o.status == OrderStatus.CANCELLED
-                           for o in strategy.orders.values())
-        assert all_cancelled
-        assert result.stats.orders_cancelled == 2
+        # Both orders should be invalidated, not counted as exchange cancels.
+        assert all(o.status == OrderStatus.INVALIDATED
+                   for o in strategy.orders.values())
+        assert result.stats.gap_invalidations == 2
+        assert result.stats.orders_cancelled == 0
         print("PASS: gap detection cancels all active orders")
 
 
@@ -308,12 +473,95 @@ def test_gap_detection_cancels_pending_orders():
         result = ReplayEngine(config).run(strategy)
 
         assert result.stats.gaps_detected == 1
-        assert result.stats.orders_cancelled == 2
+        assert result.stats.gap_invalidations == 2
+        assert result.stats.orders_cancelled == 0
         assert len(strategy.orders) == 2
-        assert all(o.status == OrderStatus.CANCELLED
+        assert all(o.status == OrderStatus.INVALIDATED
                    for o in strategy.orders.values())
         assert not any(e.event_type == "arrived" for e in result.events)
         print("PASS: gap detection cancels pending orders before arrival")
+
+
+def test_private_arrival_inside_later_detected_gap_cannot_fill():
+    """A gap flag censors private actions in the preceding unknown interval."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000,
+                  U=200, u=200, bids=[], asks=[]),
+        ])
+
+        strategy = MarketOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(base_latency_ms=500, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.fills == []
+        assert result.stats.order_arrivals == 0
+        assert result.stats.gap_invalidations == 1
+        assert strategy.order.status == OrderStatus.INVALIDATED
+        assert not any(event.event_type == "arrived" for event in result.events)
+
+
+def test_replay_end_expires_outstanding_private_state():
+    """The replay boundary leaves no ambiguous pending or active orders."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(base_latency_ms=10, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.stats.order_arrivals == 0
+        assert result.stats.replay_end_invalidations == 2
+        assert result.stats.pending_actions_at_end == 2
+        assert result.stats.pending_cancels_at_end == 0
+        assert all(order.status == OrderStatus.EXPIRED
+                   for order in strategy.orders.values())
+        assert all(order.is_done for order in strategy.orders.values())
+        assert not any(event.event_type == "arrived" for event in result.events)
+
+
+def test_replay_end_reports_in_flight_cancel_before_expiring_order():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["99.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000,
+                  U=101, u=101, bids=[], asks=[]),
+        ])
+
+        strategy = CancelAtSecondBookStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(
+                base_latency_ms=0,
+                jitter_ms=0,
+                cancel_latency_ms=10,
+                cancel_jitter_ms=0,
+            ),
+        )).run(strategy)
+
+        assert result.stats.cancel_requests == 1
+        assert result.stats.orders_cancelled == 0
+        assert result.stats.pending_actions_at_end == 1
+        assert result.stats.pending_cancels_at_end == 1
+        assert result.stats.replay_end_invalidations == 1
+        assert strategy.order.status == OrderStatus.EXPIRED
+        assert any(event.event_type == "expired" for event in result.events)
 
 
 def test_gap_recovery_after_snapshot():
@@ -359,6 +607,29 @@ def test_gap_recovery_after_snapshot():
         assert result.stats.depth_diffs == 4
         assert result.stats.total_events == 6
         print("PASS: snapshot after gap restores normal operation")
+
+
+def test_additional_depth_discontinuity_is_counted_while_already_paused():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000,
+                  U=200, u=200, bids=[], asks=[]),
+            _diff("2026-04-21T00:00:02+00:00", E=_BASE_MS + 2000,
+                  U=300, u=300, bids=[], asks=[]),
+        ])
+
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[],
+            sim_config=_sim_config(),
+        )).run(NullStrategy())
+
+        assert result.stats.gaps_detected == 2
+        assert result.stats.depth_gaps_detected == 2
+        assert result.stats.events_during_gap == 2
 
 
 def test_trades_skipped_during_gap():
@@ -484,11 +755,47 @@ def test_trade_gap_policy_pauses_until_snapshot_and_cancels_orders():
         assert result.stats.gaps_detected == 1
         assert result.stats.events_during_gap == 2
         assert result.stats.fills == 0
-        assert result.stats.orders_cancelled == 2
-        assert all(order.status == OrderStatus.CANCELLED
+        assert result.stats.gap_invalidations == 2
+        assert result.stats.orders_cancelled == 0
+        assert all(order.status == OrderStatus.INVALIDATED
                    for order in strategy.orders.values())
         assert engine.book.best_bid == Decimal("99.00")
         assert engine.book.best_bid_qty == Decimal("3.0")
+
+
+def test_strict_trade_gap_censors_entire_same_millisecond_group():
+    """A later gap marker prevents an earlier same-ms trade from filling."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["99.00", "1.0"]], asks=[["101.00", "1.0"]]),
+        ])
+        tied_time = _BASE_MS + 1000
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:01+00:00", T=tied_time,
+                   agg_id=1, price="100.00", qty="0.5", m=True),
+            # Missing aggregate trade id 2 taints the complete timestamp group.
+            _trade("2026-04-21T00:00:01+00:00", T=tied_time,
+                   agg_id=3, price="100.00", qty="0.1", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(base_latency_ms=0, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.fills == []
+        assert result.stats.trade_events == 2
+        assert result.stats.trade_gaps_detected == 1
+        assert result.stats.gaps_detected == 1
+        assert result.stats.events_during_gap == 2
+        assert result.stats.gap_invalidations == 2
+        assert all(order.status == OrderStatus.INVALIDATED
+                   for order in strategy.orders.values())
 
 
 def test_cancel_request_from_strategy():
@@ -503,6 +810,10 @@ def test_cancel_request_from_strategy():
                       bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
             _diff("2026-04-21T00:00:01+00:00", E=t_diff, U=101, u=101,
                   bids=[], asks=[]),
+            # Allows the delayed cancellation acknowledgement to occur before
+            # replay end without changing the displayed book.
+            _diff("2026-04-21T00:00:03+00:00", E=_BASE_MS + 3000,
+                  U=102, u=102, bids=[], asks=[]),
         ])
 
         trade_file = Path(tmpdir) / "trades.jsonl.gz"
@@ -526,6 +837,7 @@ def test_cancel_request_from_strategy():
         statuses = {o.order_id: o.status for o in strategy.orders.values()}
         assert OrderStatus.FILLED in statuses.values()
         assert OrderStatus.CANCELLED in statuses.values()
+        assert result.stats.cancel_requests == 1
         assert result.stats.orders_cancelled == 1
         print("PASS: strategy CancelRequest cancels the other side after fill")
 
@@ -675,6 +987,8 @@ def test_empty_replay():
     assert result.stats.total_events == 0
     assert len(result.fills) == 0
     assert len(result.checkpoints) == 0
+    assert result.execution_model_version == EXECUTION_MODEL_VERSION
+    assert result.equal_timestamp_policy == EQUAL_TIMESTAMP_POLICY
     print("PASS: empty replay produces zero stats")
 
 

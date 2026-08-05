@@ -1,0 +1,188 @@
+\section{Execution-Model Contract}
+
+\subsection{Why execution is part of the estimand}
+
+For a passive maker, the fill set is generated jointly by market events and the
+simulator's rules. Changing arrival timing, cancellation timing, queue
+advancement, or post-only handling can change which trades fill an order. It can
+therefore change P\&L, markouts, conditional signal tests, and apparent latency
+sensitivity. Execution assumptions are not an implementation footnote; they
+define the sample on which the strategy is evaluated.
+
+L2 data reports aggregate quantity at a price, not individual order identities.
+No replay using this dataset observes true queue rank. The implementation is a
+documented execution approximation, not an exchange twin.
+
+\subsection{Historical and current semantics}
+
+\begin{table}[H]
+\centering
+\caption{Execution-model boundary.}
+\label{tab:model-comparison}
+\begin{tabularx}{\textwidth}{@{}L{0.25\textwidth}YY@{}}
+\toprule
+Feature & \LegacyModel & \CurrentModel \\
+\midrule
+New-order arrival & Eligible on the next depth update after modeled arrival & Scheduled at the exact arrival millisecond on the model clock \\
+Cancellation & Effective immediately when requested & Scheduled separately; order stays fillable while cancel is in flight \\
+Cancel/fill race & Absent & Explicit; a fill can beat a late cancel \\
+Equal-time private action & Implicit through depth activation & All recorded market data at the millisecond precedes private arrivals \\
+Own orders at one price & Incomplete separation of public and own queue & Non-overlapping own FIFO ranks with trade-volume conservation \\
+Gap state & Strict replay policy added, but legacy artifacts retain old private semantics & Whole timestamp group invalidated fail-closed until snapshot resync \\
+Snapshot timing & Returned state applied at a pre-fetch local tag & Local request-time resync barrier; recovery gated by post-response receipt order and released on depth \code{E}; new captures store request and response times \\
+Artifact root & \path{results/panels/btcusdt_l2_panel_v2} & \path{results/panels/btcusdt_l2_panel_v3_event_driven} \\
+Research status & Frozen historical evidence & Mechanics accepted; economic rerun pending \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Clock and equal-timestamp policy}
+
+The replay clock has two classes of event. Its recorded-data axis combines local
+request time for fail-closed resync barriers, depth \code{E} for ordinary diffs
+and recovered-state release, and trade \code{T} for trades:
+
+\begin{enumerate}
+  \item recorded market data, ordered depth before trade for unresolved
+        millisecond ties and preserving source order within each stream; and
+  \item simulated private arrivals for new orders and cancellations, preserving
+        stable insertion order.
+\end{enumerate}
+
+Private actions strictly before a market-data timestamp are processed first.
+At an identical millisecond, the complete recorded market-data group is
+processed before private arrivals. A new order arriving at the same millisecond
+as a trade is therefore not eligible for that trade; a cancel arriving at the
+same millisecond loses the race. This is a conservative policy for unresolved
+timestamps, not a statement about the venue's internal matching sequence.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  event/.style={draw=Navy,rounded corners=2pt,fill=PaleBlue,align=center,
+                minimum width=2.55cm,minimum height=0.85cm,font=\small},
+  private/.style={draw=Orange,rounded corners=2pt,fill=PaleOrange,align=center,
+                  minimum width=2.55cm,minimum height=0.85cm,font=\small},
+  arrow/.style={-{Latex[length=2mm]},thick,draw=Slate}
+]
+  \draw[thick,Slate] (0,0) -- (12.8,0);
+  \node[below] at (0,0) {$t-1$};
+  \node[below] at (6.4,0) {$t$};
+  \node[below] at (12.8,0) {$t+1$};
+  \node[private] (before) at (2.0,1.0) {Private arrival\\strictly before $t$};
+  \node[event] (depth) at (5.0,1.0) {Depth events\\at $t$};
+  \node[event] (trade) at (7.8,1.0) {Trade events\\at $t$};
+  \node[private] (equal) at (10.7,1.0) {Private arrivals\\at $t$};
+  \draw[arrow] (before) -- (depth);
+  \draw[arrow] (depth) -- (trade);
+  \draw[arrow] (trade) -- (equal);
+\end{tikzpicture}
+\caption{\CurrentModel\ timestamp policy. The horizontal placement inside
+the $t$ group shows processing precedence, not sub-millisecond observation.}
+\label{fig:timestamp-policy}
+\end{figure}
+
+Depth-decrease attribution is deferred until every trade at the same
+millisecond has been observed. Otherwise the depth-before-trade rule could
+mistake traded quantity for a cancellation and grant queue improvement twice.
+
+\subsection{Order and cancellation lifecycle}
+
+Submitting an \code{OrderRequest} creates a pending order and schedules its
+arrival at
+\begin{equation}
+  t_{\mathrm{arrive}} = t_{\mathrm{submit}} + L_e + J_e,
+\end{equation}
+where $L_e$ is base entry latency and $J_e$ is a seeded uniform integer jitter
+bounded so that delay cannot be negative. Cancellation uses a separate latency
+and independent random stream:
+\begin{equation}
+  t_{\mathrm{cancel}} = \max\left(t_{\mathrm{request}} + L_c + J_c,
+  t_{\mathrm{arrive}}\right).
+\end{equation}
+
+While entry is pending, its quantity is counted as potential exposure but it is
+not eligible for market fills. Once active, the order remains fillable until
+the cancellation reaches the simulated exchange. Lifecycle events distinguish
+request from effect:
+\code{cancel_requested}, \code{cancelled}, and \code{cancel_too_late}. A
+post-only limit that would cross on arrival is cancelled with an explicit
+reason rather than silently reclassified as a passive fill.
+
+\subsection{Queue model and own-order FIFO}
+
+When a resting order arrives, its modeled quantity ahead is decomposed as
+\begin{equation}
+  Q^{\mathrm{ahead}}_i = Q^{\mathrm{external}}_i + Q^{\mathrm{own}}_i.
+\end{equation}
+The external component starts from displayed L2 quantity, subject to a FIFO
+floor imposed by earlier live own orders. The own component is the remaining
+quantity of earlier simulated orders at the same side and price. A public depth
+decrease not explained by recorded trades improves only the external component:
+\begin{equation}
+  Q^{\mathrm{external}}_{i,t+1}
+  = Q^{\mathrm{external}}_{i,t}\left(1-c\rho_t\right),
+  \qquad c\in[0,1],
+\end{equation}
+where $c$ is queue-cancellation credit and $\rho_t$ is the inferred fraction of
+the displayed queue removed without matching trade volume. The two historical
+endpoints are $c=0$ and $c=1$; neither is claimed to be calibrated ground truth.
+
+Recorded trade quantity advances non-overlapping FIFO ranks. The simulator
+plans and validates the complete transition before mutating any order and
+asserts
+\begin{equation}
+  \sum_i q^{\mathrm{maker\ fill}}_{i,t}
+  \le q^{\mathrm{recorded\ trade}}_t.
+\end{equation}
+Cancelling an earlier own order releases its unfilled quantity from later own
+queues. Decimal comparisons use only a scale-aware $10^{-24}$ relative
+tolerance for division residue; the tolerance cannot create fill budget.
+
+\subsection{Risk envelope}
+
+Position is not the only relevant exposure during cancel/replace. If multiple
+same-side entries are pending or cancels are in flight, all may still fill. The
+strategy therefore checks worst-case working exposure:
+\begin{equation}
+  \left|I_t + \sum_{i\in\mathcal{F}_t^{\mathrm{same}}}
+  s_i q^{\mathrm{remaining}}_i + s_{\mathrm{new}}q_{\mathrm{new}}\right|
+  \le I_{\max},
+\end{equation}
+where $\mathcal{F}_t^{\mathrm{same}}$ includes active orders, pending entries
+that may become fillable, and active orders with cancels in flight. An invariant
+breach aborts replay; it is not recorded as a harmless temporary overshoot.
+
+\subsection{Gaps and replay termination}
+
+A known sequence gap invalidates the entire timestamp group before any event in
+that group can fill an order or invoke strategy logic. Local orders and pending
+actions become invalid because their queue state is no longer trustworthy.
+Replay resumes only at a valid snapshot. This is fail-closed research
+bookkeeping, not a claim that the exchange cancelled those orders instantly.
+
+Private events scheduled after the last recorded market event are not executed
+against an assumed future book. Remaining live orders are terminalized as
+expired, and pending action counts are reported separately.
+
+\subsection{Known execution limits}
+
+\begin{itemize}
+  \item Aggregate L2 cannot reveal true market-by-order rank, hidden liquidity,
+        or where cancellations occurred relative to the simulated order.
+  \item The modeled clock mixes recorded local request time for resync barriers,
+        depth event time \code{E} for release and ordinary diffs, trade matching
+        time \code{T}, and local receipt order used to gate snapshots.
+        Those fields are not guaranteed to be perfectly comparable, and
+        millisecond resolution cannot identify true within-millisecond matching
+        order. The post-response receipt gate removes request-start placement,
+        but its selected boundary remains on exchange \code{E}; it does not
+        calibrate client observation or feed latency.
+  \item Market-data latency is not modeled separately from private-message
+        latency.
+  \item Counterfactual taker execution shares a shadow liquidity ledger only
+        until the next observed depth update; taker-heavy research needs market
+        impact and stronger book reconciliation.
+  \item No execution model here has been calibrated against live order
+        acknowledgements and fills from an exchange account.
+\end{itemize}

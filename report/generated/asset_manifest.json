@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "description": "Inputs and outputs for the technical report",
+  "generator": {
+    "path": "scripts/build_report_assets.py",
+    "sha256": "ffa637e222ad474b75d01849965e0b78f711f1b67511c681c1f916b119dc25ea",
+    "matplotlib_version": "3.10.8",
+    "numpy_version": "2.4.1",
+    "python_version": "3.11.14",
+    "source_date_epoch": 1785801600
+  },
+  "inputs": {
+    "results/panels/btcusdt_l2_panel_v2/phase_a_verdict.json": "afa2e387ad95ff2fcdde71d8552ed6a617af2dfdaa6e53b3d750e7c8f154ff71",
+    "results/panels/btcusdt_l2_panel_v2/window_selection_summary.json": "77d7bb8e58033299db2c6f4220bf104e9bf9aa177c5ee56cd3ce514f5bec2539",
+    "results/panels/btcusdt_l2_panel_v2/integrity_manifest.json": "1e5915973af4721b5ddab33f00c5bc9be395428aed3da6a1a054324794a963ee",
+    "results/panels/btcusdt_l2_panel_v2/ofi_signal/btcusdt_microprice_ofi_20260412_09_to_20260509_13_24blocks_1000ms/summary.json": "4e6a18bdd81e77187795ff6d532448b3a3bd239956d0da169f5e774b23a1977d",
+    "results/panels/btcusdt_l2_panel_v2/ofi_signal/btcusdt_microprice_ofi_20260412_09_to_20260509_13_24blocks_1000ms_qc0/summary.json": "3c84cb2bfa1e31bf8d2b161b1d01834fa31a062bf194d1f79751b9d24fca979d",
+    "results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/summary/summary.json": "6d1a0dd81a9727e233a185778a33f432f91111effdd9ddf75d3b0a0a4b7a11e8",
+    "results/panels/btcusdt_l2_panel_v2/fee_break_even/btcusdt_microprice_hs2.00_rq5000_panel24/summary.json": "9c9c71bc5182353ebbd010bd3f1f380a5ec2fdf1168384464e85193ab7da879f",
+    "results/panels/btcusdt_l2_panel_v2/EXECUTION_MODEL.json": "3efb46f139bf8140cbd002c72d7d6a61ae329ad28a519feae2f519d9a18b7c1c",
+    "results/replay_correctness/snapshot_timing_panel24.json": "bd277f939e2e3e1d9b4b4fcc2f3227ea3dd18b8755f43014a9e6d70e9ca2678f",
+    "scripts/audit_snapshot_timing.py": "60e4da20dded9dfd231c3349c15b6bc7fa37f887cf13ebfcb63e38c3cf1103d0",
+    "src/replay/depth_parser.py": "9ea47d4a830744ab7d29f77c4492a91f75e717be3c04680f17e88b7698f97358",
+    "results/panels/btcusdt_l2_panel_v2/development_windows.csv": "c779138fdffb739715c53cfa27c75b3c8ca140bc4f5a6128f60f2251948bd362"
+  },
+  "outputs": {
+    "report/figures/phase_a_ci.pdf": "26bd75f39994d35ffa07d50ae0f1407cfa50c9424a7f953067e79b8e4d417c5a",
+    "report/figures/phase_a_ci.png": "d18b6c1e565569063cde3fb993734bdffcc41f7270604b2fec81fd1fc31e78ae",
+    "report/figures/ofi_population_vs_fills.pdf": "bcb899e62445695401ca1bffca476e9191b82019682629860eb08dd61ff8d208",
+    "report/figures/ofi_population_vs_fills.png": "d081e03f3fd88c79b745d9d00400a0810a9e729ebf4f6d45856fd2f2a32b42ee",
+    "report/figures/queue_credit_stress.pdf": "a04928f4289fc59dd47b2dfc04cfc36d330e595637144808d53cbc70a311ff84",
+    "report/figures/queue_credit_stress.png": "90fb50b027358958f3f5c72636cce48bf492879f2b9478091f9c7f3b2a132376",
+    "report/figures/panel_timeline.pdf": "d3d945d87cb6444dab259f2e8c2666b2c81eeb3de9d2ecaceec91a56d5380597",
+    "report/figures/panel_timeline.png": "b4c69df4474975bf7bdeed722f6cd95659e65ee5068e77e574a7c324e0808be2",
+    "report/generated/results.tex": "7dc9a81e9e9872f7044cda3ced17e4f3699d6270aa54df95cf8ffd8d9070005b"
+  }
+}

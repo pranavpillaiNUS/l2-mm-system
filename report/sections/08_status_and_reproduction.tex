@@ -1,0 +1,132 @@
+\section{Current Status and Reproduction}
+
+\subsection{Where the project is now}
+
+\begin{table}[H]
+\centering
+\caption{Publication-time status.}
+\begin{tabularx}{\textwidth}{@{}L{0.23\textwidth}L{0.20\textwidth}Y@{}}
+\toprule
+Workstream & Status & Meaning \\
+\midrule
+Bar backtester & Educational precursor & Reusable framework and tests remain; historical performance claims are not treated as rigorous evidence. \\
+Frozen L2 study & Complete under legacy model & Phase A/B/C artifacts, gates, panel identity, and audits are committed and verifiable. \\
+Event-driven Python model & Mechanics accepted & Private scheduling, post-response-gated snapshot recovery, delayed cancels, own FIFO, conservation, gaps, and risk invariants pass deterministic tests. \\
+V3 development economics & Pending & No execution-derived result from \CurrentModel\ is published yet. \\
+Holdout & Strategy-sealed & Identities and regime descriptors were examined, but no candidate strategy run exists. \\
+C++ performance port & Intentionally paused & It begins only after the Python V3 result is frozen and a separate modern C++ foundations phase is complete. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The immediate research milestone is the clean V3 development rerun under
+\CurrentModel\ and \code{post_response_proxy_depth_boundary_v1}, including an explicit
+before/after snapshot-timing comparison. It is not the C++ port and it is not a
+holdout run.
+
+\subsection{Fresh-clone verification}
+
+The repository targets Python 3.11. At the 4 August 2026 checkpoint, a fresh
+clone reports 376 deterministic tests passed and three optional raw-data smoke
+checks skipped. All 379 pass when the selected captures are restored. From the
+repository root:
+
+\begin{lstlisting}[style=projectcode]
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+env PYTHONPATH=. pytest -q
+env PYTHONPATH=. python scripts/demo_event_driven_execution.py
+env PYTHONPATH=. python scripts/verify_v2_artifacts.py
+\end{lstlisting}
+
+The synthetic simulator demo is deliberately tiny: a resting buy arrives, a
+cancellation is requested, a recorded sell reaches the queue first, and the
+delayed cancel is reported too late. It exercises execution lifecycle mechanics
+without raw data; it does not exercise full replay timestamp batching, gap
+recovery, empirical economics, or throughput.
+
+The V2 verifier checks the manifest and panel identities, execution-model
+marker, Phase A verdict, Phase B gate status, Phase C grid, same-millisecond
+audit, panel-file hashes, and selected holdout identifiers across tracked
+result paths and contents. It validates committed evidence; it does not
+recompute replay results from raw messages.
+
+\subsection{Building this report}
+
+Report scalars and vector figures are regenerated only from an allowlist of
+canonical frozen artifacts. The builder checks the execution-model marker and
+input shape, including the distinction between 24 window rows and one pooled
+row per queue/latency configuration.
+
+\begin{lstlisting}[style=projectcode]
+make report
+make report-check
+\end{lstlisting}
+
+The first command rebuilds report inputs and the PDF. The second rebuilds and
+then verifies that the generated asset manifest matches the committed copy.
+Input/output SHA-256 values are in
+\artifact{report/generated/asset_manifest.json}. The compiled document is
+\artifact{report/l2_mm_research_report.pdf}.
+
+\subsection{Full development rerun}
+
+With the raw depth/trade layout described in \artifact{DATA.md}, the current
+development runner defaults to the frozen development-window file and writes
+only to the V3 namespace:
+
+\begin{lstlisting}[style=projectcode]
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase all
+\end{lstlisting}
+
+Before relying on this command, use \code{--help} and inspect the committed
+defaults. The runner verifies the development-panel file hash, refuses the
+strategy-sealed holdout, and guards the frozen V2 directory. V3 artifact
+verification remains impossible until this run produces its manifest.
+
+\subsection{Suggested reviewer routes}
+
+A reviewer can understand the project at three depths:
+
+\begin{description}[leftmargin=6.2em,style=nextline]
+  \item[Five minutes] Read the repository README, the executive summary, and
+        the status table above.
+  \item[Thirty minutes] Read Sections 3--7 and run the synthetic demo plus V2
+        artifact verifier.
+  \item[Code review] Start at \artifact{src/replay/engine.py} and
+        \artifact{src/execution/simulator.py}; use
+        \artifact{tests/test_execution_simulator.py} and
+        \artifact{tests/test_engine.py} as executable specifications, then
+        inspect \artifact{src/analysis/ofi_signal.py} for the research estimand.
+\end{description}
+
+\subsection{Roadmap to the performance boundary}
+
+\begin{enumerate}
+  \item Run the fixed baseline over all 24 development windows under
+        \CurrentModel\ and the post-response-gated snapshot policy at both queue
+        endpoints.
+  \item Regenerate OFI conditional-on-fill evidence and queue/latency stress,
+        then compare fill identity and economics with the legacy study.
+  \item If a candidate clears a newly committed development rule, lock it and
+        perform the one-shot holdout strategy evaluation; otherwise close the
+        research arc without evaluating a candidate there.
+  \item Freeze a deterministic Python reference, golden event traces, artifact
+        schemas, and parity tolerances.
+  \item Complete a separate modern C++ foundations phase before implementing
+        any hot-path port. Later performance work must reproduce the Python
+        contract before it is benchmarked.
+\end{enumerate}
+
+\enlargethispage{4\baselineskip}
+\subsection{Conclusion}
+
+The repository does not present a profitable market-making strategy. It
+presents something more credible at its current stage: a tested microstructure
+research system, a frozen negative experiment with auditable stopping logic,
+and a documented correction from coarse private timing to an event-driven
+execution reference. The remaining scientific question is whether the
+development conclusions survive the current model. The project stops at
+that boundary before any C++ performance implementation.

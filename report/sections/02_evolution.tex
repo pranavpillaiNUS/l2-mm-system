@@ -1,0 +1,121 @@
+\section{Project Evolution}
+
+\subsection{Phase 1: an educational backtesting scaffold}
+
+The project began with BTCUSDT hourly OHLCV bars. Four simple strategy families
+were implemented behind a common interface: momentum, mean reversion, moving
+average crossover, and Bollinger bands. The surrounding framework separated
+configuration, data loading, portfolio accounting, transaction costs, metrics,
+plotting, parameter sweeps, and walk-forward orchestration.
+
+That phase produced valuable engineering lessons: fees could erase a gross
+edge; stateful strategy instances had to be recreated between runs; expanding
+window selection changed parameter rankings; and orchestration code required as
+much testing as individual components. Those lessons directly informed the L2
+design.
+
+The historical Phase 1 performance table is \emph{not} treated as rigorous
+strategy evidence in this report. A later publication audit identified four
+limitations:
+
+\begin{enumerate}
+  \item strategies observe the current bar close and execute at that same close;
+  \item hourly equity observations were annualized with 365 periods per year;
+  \item the displayed ``OOS Sharpe'' is a mean of monthly Sharpe estimates rather
+        than the Sharpe of one stitched OOS return series; and
+  \item the historical optimizer source was overwritten by the plotting pass.
+        A runner has since been reconstructed from the logged grids, but the
+        original performance artifacts are not promoted to current evidence.
+\end{enumerate}
+
+The current metrics helper now infers the observation frequency from its
+timestamp index, and a regression test covers the hourly-versus-daily scaling.
+The historical Phase 1 CSVs were not rewritten, so their published ratios
+retain the original limitation.
+
+These issues do not affect the independently implemented L2 replay. They do mean
+that Phase 1 should be read as an engineering precursor and a record of learning,
+not as evidence that any bar strategy generalizes. This distinction is now made
+explicit rather than allowing precise-looking ratios to imply a stronger study.
+
+\subsection{Why bars were insufficient}
+
+Market making depends on phenomena that bars remove:
+
+\begin{itemize}
+  \item whether a limit order was passive when it reached the exchange;
+  \item volume ahead at a price and how trades advance queue position;
+  \item partial fills and residual inventory;
+  \item entry and cancellation latency;
+  \item event ordering when book changes and trades share a timestamp; and
+  \item whether a fill is followed by a favorable or adverse price move.
+\end{itemize}
+
+The project therefore shifted from optimizing directional bar signals to
+reconstructing a deterministic L2 event path and treating execution as part of
+the hypothesis.
+
+\subsection{Phase 2: replay, execution, and a frozen study}
+
+Phase 2 added data recorders, snapshot-aware parsers, an L2 book, depth/trade
+merging, execution simulation, passive quoting strategies, and markout/P\&L
+analysis. Exploratory work selected a microprice reference, a 2 USDT
+half-spread, and a five-second requote interval. Six anchor windows were later
+retained inside a larger 24-window development panel. Because those anchors
+were involved in exploration, the final panel is broader and pre-selected but
+not a wholly untouched confirmation sample. The report preserves that fact.
+
+The expanded study was organized as:
+
+\begin{description}[leftmargin=5.4em,style=nextline]
+  \item[Phase A] remeasure the fixed passive baseline at queue-credit endpoints;
+  \item[Phase B] test whether OFI satisfies a population and fill-conditioned
+        premise gate before running a strategy that uses it; and
+  \item[Phase C] stress queue-cancellation credit and entry latency, then close
+        the development arc if no candidate qualifies.
+\end{description}
+
+No candidate qualified. No candidate strategy was evaluated on the holdout.
+
+\subsection{Phase 2.5: execution-model closure}
+
+After the study was frozen, review of private-event timing found that the
+historical engine used the next depth event as the activation point for an order
+whose modeled arrival might have occurred earlier. Cancels were immediate, so
+cancel/fill races were absent. Overlapping own orders also required a stronger
+FIFO decomposition to guarantee that one recorded trade could not fill more
+simulated volume than it contained.
+
+The response was a provenance boundary:
+
+\begin{itemize}
+  \item historical artifacts were labeled \LegacyModel;
+  \item the frozen result directory became write-protected to current scripts;
+  \item the new implementation was named \CurrentModel;
+  \item current results were assigned a distinct V3 namespace; and
+  \item cross-model comparisons were restricted to descriptive sensitivity,
+        not treated as estimates from the same execution process.
+\end{itemize}
+
+This is the current stage. The Python mechanics are tested; V3 development
+economics remain pending.
+
+\subsection{Timeline and decision discipline}
+
+\begin{table}[H]
+\centering
+\caption{Condensed project timeline.}
+\begin{tabularx}{\textwidth}{@{}L{0.15\textwidth}L{0.25\textwidth}Y@{}}
+\toprule
+Period & Milestone & Research consequence \\
+\midrule
+Jan--Apr 2026 & Bar framework and walk-forward exercise & Established reusable interfaces and exposed the importance of costs and state isolation. \\
+Apr--May 2026 & L2 recorder, replay, execution, and exploratory baseline & Profit contaminated by accidental taker fills was rejected after post-only enforcement; a later positive one-window passive result failed broader-window evaluation. \\
+May 2026 & Reconciliation, markouts, queue and same-ms audits & Shifted emphasis from headline P\&L to fill quality and model risk. \\
+Jun 2026 & Frozen 24-window Phase A/B/C study & Baseline remained unattractive; OFI premise gate blocked the candidate; the holdout stayed strategy-sealed. \\
+Jul 2026 & Private-event timing and own-FIFO correction & Froze legacy evidence and accepted \CurrentModel\ as the Python reference. \\
+Aug 2026 & Public-release audit and technical report & Narrowed overstrong claims, demoted Phase 1 performance, and separated clone-level verification from full-data replay. \\
+Next & V3 development-panel rerun & Determine whether current-model fills and economics preserve or change the historical conclusions. \\
+\bottomrule
+\end{tabularx}
+\end{table}

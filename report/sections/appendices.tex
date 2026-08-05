@@ -1,0 +1,124 @@
+\section{Canonical Configuration}
+
+\begin{table}[H]
+\centering
+\caption{Frozen V2 baseline configuration.}
+\begin{tabularx}{\textwidth}{@{}L{0.34\textwidth}Y@{}}
+\toprule
+Field & Value \\
+\midrule
+Venue / instrument & Binance spot BTCUSDT \\
+Strategy / reference & \code{MicropriceMM} / top-of-book microprice \\
+Windowing & 24 development windows; each sums five independently initialized one-hour sessions \\
+Half-spread / order quantity & 2.00 USDT / 0.001 BTC \\
+Maximum position & 0.01 BTC \\
+Requote interval & 5,000 ms \\
+Entry latency / jitter & 10 ms / 0 ms \\
+Fees & maker 2 bps; taker 5 bps \\
+Queue cancellation credit & endpoints 0 and 1; Phase C grid 0, .25, .5, .75, 1 \\
+Market-data tie rule & depth before trade for identical millisecond timestamps \\
+Legacy snapshot time & pre-fetch local tag; removed from strategy ordering only in the current model \\
+Execution model & \LegacyModel \\
+Frozen research commit & \code{1066950} \\
+Integrity manifest & \texttt{a3a99b0a616a} (full logical identity in artifact) \\
+Selected panel & \texttt{760c55b7c092} (full panel identity in artifact) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Current Execution Acceptance Matrix}
+
+\begin{longtable}{@{}L{0.30\textwidth}L{0.14\textwidth}L{0.48\textwidth}@{}}
+\caption{Key \CurrentModel\ acceptance properties.}\label{tab:acceptance}\\
+\toprule
+Property & Status & Executable evidence \\
+\midrule
+\endfirsthead
+\toprule
+Property & Status & Executable evidence \\
+\midrule
+\endhead
+Exact new-order scheduling & Accepted & Private arrivals occur at modeled milliseconds, including times with no depth update. \\
+Delayed cancellation & Accepted & Request/effect are distinct and a fill can beat a cancel in flight. \\
+Equal-time policy & Accepted & Full market-data group precedes private arrivals; insertion order is stable. \\
+Snapshot recovery gate & Accepted & A local request-time barrier pauses replay; a sequence-valid post-response receipt gates release on selected depth \code{E}; strategy sees only the final recovered state. \\
+Own-order FIFO & Accepted & Earlier own quantity forms non-overlapping rank ahead of later own orders. \\
+Trade-volume conservation & Accepted & Aggregate maker fill cannot exceed recorded aggressor quantity. \\
+Queue-credit isolation & Accepted & Public inferred cancellation cannot erase own quantity ahead. \\
+Hard exposure invariant & Accepted & Active, pending, and cancel-in-flight quantities are counted before quote placement. \\
+Gap handling & Accepted & Gap timestamp group is invalidated and replay pauses until snapshot resynchronization. \\
+Replay end & Accepted & Live orders expire and pending entries/cancels are reported. \\
+Artifact separation & Accepted & Current model is guarded against writes beneath the frozen V2 root. \\
+Development-panel economics & Pending & No V3 execution-derived results are published. \\
+\bottomrule
+\end{longtable}
+
+The detailed model contract is
+\artifact{notebooks/execution_model_v2.md}. Implementation tests are indexed
+under \directory{tests} and grouped by behavior.
+
+\section{Claim-to-Evidence Map}
+
+Current implementations have evolved since the frozen study. For historical
+claims, the implementation links below therefore point to the full frozen
+research commit; current links are used only for later audits and verifiers.
+
+\begin{longtable}{@{}L{0.27\textwidth}L{0.33\textwidth}L{0.32\textwidth}@{}}
+\caption{Fast audit map for principal claims.}\label{tab:claim-map}\\
+\toprule
+Claim & Canonical artifact & Frozen implementation or verifier \\
+\midrule
+\endfirsthead
+\toprule
+Claim & Canonical artifact & Frozen implementation or verifier \\
+\midrule
+\endhead
+Data eligibility and identity & \frozenartifact{results/panels/btcusdt_l2_panel_v2/integrity_manifest.json} & \frozenartifact{scripts/build_l2_integrity_manifest.py} \\
+Development/holdout selection & \frozenartifact{results/panels/btcusdt_l2_panel_v2/window_selection_summary.json} & \frozenartifact{scripts/select_l2_windows.py} \\
+Legacy execution boundary & \artifact{results/panels/btcusdt_l2_panel_v2/EXECUTION_MODEL.json} & \artifact{src/execution/provenance.py} \\
+Phase A interval & \frozenartifact{results/panels/btcusdt_l2_panel_v2/phase_a_verdict.json} & \frozenartifact{scripts/bootstrap_baseline_ci.py} \\
+Fee hurdle & \frozenartifact{results/panels/btcusdt_l2_panel_v2/fee_break_even/btcusdt_microprice_hs2.00_rq5000_panel24/summary.json} & \frozenartifact{scripts/analyze_fee_break_even.py} \\
+Microprice premise & \frozenartifact{results/panels/btcusdt_l2_panel_v2/microprice_signal/btcusdt_20260412_09_to_20260509_13_24windows_1000ms/summary.json} & \frozenartifact{src/analysis/microprice_signal.py} \\
+OFI population and fill gate & \frozenartifact{results/panels/btcusdt_l2_panel_v2/ofi_signal/btcusdt_microprice_ofi_20260412_09_to_20260509_13_24blocks_1000ms/summary.json} & \frozenartifact{src/analysis/ofi_signal.py} \\
+Queue-credit stress & \frozenartifact{results/panels/btcusdt_l2_panel_v2/queue_credit_sweep/summary/summary.json} & \frozenartifact{src/analysis/queue_credit_summary.py} \\
+Tail concentration & \frozenartifact{results/panels/btcusdt_l2_panel_v2/tail_diagnostics/btcusdt_microprice_hs2.00_rq5000_panel24/summary.json} & \frozenartifact{src/analysis/tail_diagnostics.py} \\
+Same-ms audit & \frozenartifact{results/panels/btcusdt_l2_panel_v2/same_ms_audit/btcusdt_microprice_hs2.00_rq5000_panel24/summary.json} & \frozenartifact{scripts/audit_same_ms_attribution.py} \\
+Snapshot-time exposure & \artifact{results/replay_correctness/snapshot_timing_panel24.json} & \artifact{scripts/audit_snapshot_timing.py} \\
+No candidate holdout strategy result & \artifact{notebooks/holdout_protocol.md} & \artifact{scripts/verify_v2_artifacts.py} \\
+Report presentation & \artifact{report/generated/asset_manifest.json} & \artifact{scripts/build_report_assets.py} \\
+\bottomrule
+\end{longtable}
+
+\section{Repository Map}
+
+\begin{description}[leftmargin=8.1em,style=nextline]
+  \item[\code{src/replay}] book reconstruction, parsers, event merger, replay clock;
+  \item[\code{src/execution}] order lifecycle, queue model, fills, fees, provenance;
+  \item[\code{src/strategies}] baseline and gated market-making strategies;
+  \item[\code{src/analysis}] estimands, accounting, diagnostics, uncertainty, gates;
+  \item[\code{scripts}] record, replay, run panels, analyze, verify, and build report assets;
+  \item[\code{tests}] deterministic unit, invariant, integration, and artifact-contract tests;
+  \item[\code{results/panels}] frozen selected derived artifacts, not raw market data;
+  \item[\code{notebooks}] protocols, research log, historical writeups, and model notes;
+  \item[\code{report}] this source, generated figures/macros, and compiled PDF.
+\end{description}
+
+\section{Terminology}
+
+\begin{description}[leftmargin=9.5em,style=nextline,itemsep=0pt,parsep=0pt,topsep=0.2em]
+  \item[Artifact-verifiable] A fresh clone can check a committed result's
+        schema, identity, and decision contract without recomputing raw replay.
+  \item[Development] The 24-window panel on which baselines, premises, and
+        model sensitivities were evaluated.
+  \item[Holdout] Twelve strategy-sealed windows reserved for one locked
+        candidate; identities and regime descriptors were inspected, but no
+        candidate has been evaluated.
+  \item[Matched net/BTC] Sum of matched-lot net P\&L divided by sum of matched
+        quantity; pooled rows are quantity-weighted, not averages of windows.
+  \item[Population signal] Association measured over regularly sampled book
+        states, whether or not the strategy fills.
+  \item[Fill-conditioned signal] Association measured only for book states
+        selected by historical passive fills.
+  \item[Queue credit] Fraction of inferred public non-trade depth reduction
+        credited as advancement ahead of the simulated order.
+\end{description}

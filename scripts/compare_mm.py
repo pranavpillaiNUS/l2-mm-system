@@ -325,6 +325,7 @@ def _aggregate_rows(rows: Iterable[dict]) -> List[dict]:
         aggregates.append({
             "execution_model_version": strategy_rows[0]["execution_model_version"],
             "equal_timestamp_policy": strategy_rows[0]["equal_timestamp_policy"],
+            "snapshot_time_policy": strategy_rows[0]["snapshot_time_policy"],
             "trade_gap_policy": strategy_rows[0]["trade_gap_policy"],
             "entry_latency_ms": strategy_rows[0]["entry_latency_ms"],
             "entry_jitter_ms": strategy_rows[0]["entry_jitter_ms"],

@@ -1,15 +1,23 @@
 # BTCUSDT L2 Market-Making Research Note
 
 Status: frozen V1 six-window artifact. V2 scaffolding, the frozen 24-window
-development panel, and the sealed 12-window holdout are documented in
+development panel, and the strategy-sealed 12-window holdout are documented in
 `notebooks/research_writeup_v2.md`. This note remains intentionally focused on
 the corrected V1 result.
+
+> **Legacy boundary.** V1 is superseded and is not current strategy evidence.
+> Its execution activated entries on depth updates, cancelled immediately, and
+> applied REST snapshot state at a local tag captured before the request
+> completed. Each nominal five-hour result also sums five separately initialized
+> one-hour episodes with hourly residual marking and reset. Current semantics and
+> the snapshot timing audit are documented in `notebooks/execution_model_v2.md`
+> and `results/replay_correctness/snapshot_timing_panel24.json`.
 
 ## Executive Summary
 
 This project builds a deterministic L2 replay and execution simulator for BTCUSDT passive market-making research. The goal is not to present a strategy demo. The goal is to show a credible research workflow: reconstruct the book, model execution frictions, find and remove backtest artifacts, and explain why the tested baseline does or does not have edge.
 
-What this work establishes: passive market-making on BTCUSDT under realistic execution does not show stable edge from microprice signal alone across the windows tested.
+What this work establishes: passive market-making on BTCUSDT under the specified aggregate-L2 execution approximation does not show stable edge from microprice signal alone across the windows tested.
 
 What this work does not establish: whether OFI, inventory-aware quoting, or different symbol/regime combinations would change that.
 
@@ -17,7 +25,12 @@ The current six-window result is a credible negative or conditional result, depe
 
 ## System
 
-The replay system reconstructs BTCUSDT L2 books from recorded depth snapshots and diffs, merges them with aggregate trades by exchange timestamp, and drives a strategy through an event loop. Prices and quantities use `Decimal`, the order book is deterministic, and state hashing is available for replay checks.
+The replay system reconstructs BTCUSDT L2 books from recorded depth snapshots
+and diffs, merges depth event time `E` with aggregate-trade matching time `T` on
+a modeled clock, and drives a strategy through an event loop. The legacy
+snapshot tag was local request-start time, not an exchange timestamp. Prices
+and quantities use `Decimal`, the order book is deterministic, and state hashing
+is available for replay checks.
 
 The execution simulator models:
 
@@ -105,7 +118,10 @@ Pooled no-cancellation results:
 | Tail-excluded matched | +4.8635 | 4.6838 | 0.0000 | +39.9596 |
 | Body-only matched | +0.1990 | 2.1183 | 0.0000 | +1.7599 |
 
-Full-strategy rows are endpoint-sensitive because residual inventory is marked at the window-close mid. They are economically complete, but they can be dominated by the last mark. Matched-lot rows isolate completed round trips, but exclude residual inventory tails.
+Full-strategy rows are endpoint-sensitive because residual inventory is marked
+at each hourly session-end mid and then discarded without modeled liquidation.
+They are not continuous five-hour portfolio paths. Matched-lot rows isolate
+completed round trips but exclude residual inventory tails.
 
 ## Queue Sensitivity
 

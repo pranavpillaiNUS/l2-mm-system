@@ -28,6 +28,7 @@ from src.execution.provenance import (
 )
 from src.execution.queue_credit import parse_queue_credit, queue_credit_suffix
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 ALLOWED_OFI_VERDICTS = {
@@ -38,6 +39,7 @@ CANONICAL_QUEUE_CREDITS = {Decimal("0"), Decimal("1")}
 CANONICAL_OFI_PROVENANCE = {
     "execution_model_version": EXECUTION_MODEL_VERSION,
     "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+    "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
     "trade_gap_policy": "pause_until_snapshot",
     "entry_latency_ms": 10,
     "entry_jitter_ms": 0,
@@ -387,7 +389,7 @@ def main():
     if panel_sha256 != DEVELOPMENT_PANEL_SHA256:
         raise ValueError(
             "OFIGatedMM development runner requires the frozen development "
-            "panel; sealed holdout execution needs a separate authorized workflow"
+            "panel; strategy-sealed holdout execution needs a separate authorized workflow"
         )
     parsed_credits = []
     for value in args.queue_credits:

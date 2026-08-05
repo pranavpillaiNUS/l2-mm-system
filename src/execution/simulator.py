@@ -182,7 +182,7 @@ class ExecutionSimulator:
         self._queue_seq = 0
         self._last_direct_market_time_ms: Optional[int] = None
 
-        # (exchange arrival time, stable insertion sequence, kind, order_id)
+        # (modeled arrival time, stable insertion sequence, kind, order_id)
         self._scheduled: List[Tuple[int, int, str, str]] = []
 
         # cancellation tracking: book qty at each price from the last depth event
@@ -533,7 +533,7 @@ class ExecutionSimulator:
         book: Orderbook,
         timestamp_ms: int,
     ) -> List[Fill]:
-        """Activate one order at its exact scheduled exchange arrival."""
+        """Activate one order at its scheduled modeled arrival."""
         fills: List[Fill] = []
         self._log("arrived", order.order_id, timestamp_ms, {})
 

@@ -7,11 +7,14 @@ notebooks/current_stage_brief.md
 .pytest_cache/
 
 *.png
+!report/figures/*.png
 *.log
 *.jsonl
 *.jsonl.gz
 *.json.gz
 *.csv
+!results/panels/btcusdt_l2_panel_v2/development_windows.csv
+!results/panels/btcusdt_l2_panel_v2/holdout_windows.csv
 !results/panels/btcusdt_l2_panel_v3_event_driven/**/*.csv
 *.parquet
 
@@ -23,3 +26,4 @@ data/
 results/panels/*/status*/
 results/panels/*/hourly_depth_descriptors.json
 results/panels/**/*_cache.json
+report/build/

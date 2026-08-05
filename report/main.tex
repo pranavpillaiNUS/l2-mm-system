@@ -1,0 +1,245 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=0.82in,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{mdframed}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bookmark}
+
+\definecolor{Ink}{HTML}{000000}
+\definecolor{Navy}{HTML}{17324D}
+\definecolor{Blue}{HTML}{0072B2}
+\definecolor{Orange}{HTML}{E69F00}
+\definecolor{BluishGreen}{HTML}{009E73}
+\definecolor{Vermillion}{HTML}{D55E00}
+\definecolor{Slate}{HTML}{5F6B73}
+\definecolor{LightGray}{HTML}{E6E6E6}
+\definecolor{PanelGray}{HTML}{F1F1F1}
+\definecolor{PaleBlue}{HTML}{EEF5FA}
+\definecolor{PaleTeal}{HTML}{EDF8F5}
+\definecolor{PaleOrange}{HTML}{FFF7E8}
+\definecolor{PaleGray}{HTML}{F4F6F7}
+
+\hypersetup{
+  colorlinks=true,
+  unicode=true,
+  pdfencoding=auto,
+  pdflang={en-US},
+  pdfdisplaydoctitle=true,
+  linkcolor=Ink,
+  citecolor=Ink,
+  urlcolor=Ink,
+  pdftitle={Event-Driven L2 Replay},
+  pdfauthor={Pranav Pillai},
+  pdfsubject={BTCUSDT passive market-making research and execution simulation},
+  pdfkeywords={market microstructure, limit order book, market making, OFI, replay}
+}
+
+\setlist[itemize]{leftmargin=1.45em,itemsep=0.25em,topsep=0.35em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.25em,topsep=0.35em}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\titleformat{\section}{\Large\bfseries\color{Ink}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{Ink}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{Ink}}{\thesubsubsection}{0.55em}{}
+\titlespacing*{\section}{0pt}{2.1ex plus 0.8ex}{0.9ex}
+\titlespacing*{\subsection}{0pt}{1.7ex plus 0.5ex}{0.55ex}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{Ink}L2 Market Microstructure System}
+\rhead{\small\color{Ink}Pranav Pillai}
+\cfoot{\small\color{Ink}\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+\newmdenv[
+  backgroundcolor=PanelGray,
+  linecolor=Ink,
+  linewidth=0.8pt,
+  roundcorner=3pt,
+  skipabove=0.8em,
+  skipbelow=0.8em,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt
+]{statusbox}
+
+\newmdenv[
+  backgroundcolor=LightGray,
+  linecolor=Ink,
+  linewidth=0.8pt,
+  roundcorner=3pt,
+  skipabove=0.8em,
+  skipbelow=0.8em,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt
+]{cautionbox}
+
+\lstdefinestyle{projectcode}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{PaleGray},
+  frame=single,
+  rulecolor=\color{PaleGray},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.7em,
+  belowskip=0.7em
+}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\repo}{\href{https://github.com/pranavpillaiNUS/l2-mm-system}{github.com/pranavpillaiNUS/l2-mm-system}}
+\newcommand{\artifact}[1]{\href{https://github.com/pranavpillaiNUS/l2-mm-system/blob/main/#1}{\nolinkurl{#1}}}
+\newcommand{\directory}[1]{\href{https://github.com/pranavpillaiNUS/l2-mm-system/tree/main/#1}{\nolinkurl{#1}}}
+\newcommand{\frozenartifact}[1]{\href{https://github.com/pranavpillaiNUS/l2-mm-system/blob/106695026ca64ae232f07103ae380b49c2a4d49f/#1}{\nolinkurl{#1}}}
+\newcommand{\ReportVersion}{0.1}
+\newcommand{\ReportDate}{4 August 2026}
+\newcommand{\LegacyModel}{\code{legacy_book_update_v1}}
+\newcommand{\CurrentModel}{\code{event_driven_v2}}
+
+\input{generated/results.tex}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+
+\begin{titlepage}
+  \thispagestyle{empty}
+  \vspace*{0.8cm}
+  \noindent{\color{Ink}\rule{\textwidth}{1.8pt}}
+  \vspace{0.8cm}
+
+  {\Huge\bfseries\color{Ink} Event-Driven L2 Replay\par}
+  \vspace{0.45cm}
+  {\Large An artifact-verifiable BTCUSDT market-making case study\par}
+
+  \vspace{1.1cm}
+  {\large Pranav Pillai\par}
+  \vspace{0.2cm}
+  {\normalsize Report version \ReportVersion\quad--\quad\ReportDate\par}
+  {\small Frozen research snapshot: \code{1066950}\par}
+  \vspace{0.15cm}
+  {\normalsize Repository: \repo\par}
+
+  \vspace{1.0cm}
+  \begin{statusbox}
+    \textbf{Scope in one sentence.} This repository is a tested Python research
+    system for deterministic limit-order-book reconstruction, event-driven
+    execution simulation, and hypothesis testing; it makes no claim of a
+    profitable live strategy or exchange-validated production execution.
+  \end{statusbox}
+
+  \vspace{0.5cm}
+  \textbf{Central finding.} In the frozen 24-window development study,
+  normalized order-flow imbalance was strongly associated with one-second
+  forward mid-price movement at the population level (HAC
+  $t=\OFITStat$, effect $\OFIEffect$ bps per signal standard deviation), but
+  the pre-specified fill-conditioned screen failed at both queue-model
+  endpoints. The conditional bucket pattern was non-monotone, so the proposed
+  OFI-gated maker was not advanced and no candidate strategy was evaluated on
+  the holdout.
+
+  \vspace{0.55cm}
+  \begin{cautionbox}
+    \textbf{Model-version boundary.} All economic numbers in this report are
+    frozen historical evidence produced by \LegacyModel. The current Python
+    behavioral reference, \CurrentModel, has passed implementation acceptance but its
+    development-panel economic rerun is pending. The old and current models are
+    deliberately not conflated.
+  \end{cautionbox}
+
+  \vfill
+  {\small\color{Ink}
+    Venue and instrument: Binance spot BTCUSDT. L2 research period: April--May
+    2026. Software: Python 3.11. The raw capture is not distributed; canonical
+    derived artifacts and integrity identities are committed.
+  }
+  \vspace{0.4cm}
+  \noindent{\color{Ink}\rule{\textwidth}{1.8pt}}
+\end{titlepage}
+
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+\begin{abstract}
+This report documents the design, failure analysis, and present state of a
+market-microstructure research system. The system records Binance spot depth
+and trades, reconstructs the L2 book with decimal arithmetic, merges events
+deterministically, simulates post-only passive orders with modeled queue
+position and latency, and produces auditable P\&L, markout, queue, and signal
+diagnostics. An earlier hourly bar backtester established reusable interfaces
+but is retained only as an educational precursor because its same-close
+execution and return annualization are too coarse for rigorous strategy
+evidence.
+
+The frozen development study used 24 non-overlapping five-hour windows and two
+endpoints for queue cancellation credit. The passive microprice baseline did not
+demonstrate stable positive economics. Normalized one-second OFI had a strong,
+monotone population association with forward mid drift, but its pre-specified
+conditional comparison was only \OFIConditionalQcOne\ bps under proportional
+credit and \OFIConditionalQcZero\ bps under no credit, below a 1.0 bps screening
+threshold. Because the full conditional dose-response was non-monotone, the
+evidence did not justify advancing the candidate. No candidate strategy was
+evaluated on the 12-window holdout; only its pre-strategy regime descriptors
+were examined.
+
+A subsequent audit found that the historical simulator quantized private order
+arrival to book updates and applied cancels immediately. Rather than relabel the
+old results, the project froze them under \LegacyModel\ and built
+\CurrentModel, with exact scheduling on the model's millisecond clock,
+post-response-gated snapshot recovery, cancel/fill races, own-order FIFO,
+trade-volume conservation, fail-closed gaps, and a hard working-exposure
+envelope. At the 4 August 2026 publication checkpoint, a fresh clone reports
+376 deterministic tests passed and three optional raw-data smoke checks skipped
+under Python 3.11; all 379 pass when the selected captures are restored. The live
+recorder check is a separate manual network operation. Economic results under
+the current model remain pending. The project contribution is therefore the combination of a transparent
+negative/conditional development result, explicit model-risk boundaries, and
+an artifact-verifiable Python behavioral reference for later performance work.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+\input{sections/01_executive}
+\input{sections/02_evolution}
+\input{sections/03_data_and_architecture}
+\input{sections/04_execution_model}
+\input{sections/05_research_design}
+\input{sections/06_results}
+\input{sections/07_failures_and_limits}
+\input{sections/08_status_and_reproduction}
+
+\clearpage
+\appendix
+\input{sections/appendices}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

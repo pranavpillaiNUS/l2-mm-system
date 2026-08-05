@@ -77,7 +77,31 @@ Current status:
   PnL, conditional-on-fill analyses, queue diagnostics, and latency conclusions
   still require the V3 development rerun before they are treated as current
   evidence.
-- The holdout remains sealed.
+- The holdout remains strategy-sealed.
+
+### Snapshot Timing Proxy
+
+The legacy depth recorder stamped a REST snapshot before starting its blocking
+request. Replay then applied the returned book at that request-start tag and
+could expose a strategy to state before the response was observable.
+
+Current status:
+
+- New captures record `request_time` and response-completion `recv_time`
+  separately.
+- Current replay pauses at snapshot request, gates recovery on a sequence-valid
+  post-response receipt (or legacy upper-bound proxy), and releases only the
+  final reconstructed state under `post_response_proxy_depth_boundary_v1`.
+  Unbridged or unreleased snapshots do not resume replay.
+- Depth and trade streams fail if their modeled timestamps decrease.
+- The 120-hour development audit found a 250.5 ms median and 2,335 ms maximum
+  from the legacy tag to the first later local depth receipt. Two no-credit and
+  four proportional-credit fills came from orders placed before the selected
+  policy boundary. These are proxy counts, not upper bounds and not evidence of
+  economic invariance, because queue age can affect later fills.
+- V3 must regenerate replay-derived book samples, fills, and economics under
+  the new policy. Release remains on exchange `E`, so client observation and
+  feed latency are still uncalibrated.
 
 ### Queue Position From L2 Data
 
@@ -102,8 +126,9 @@ Completed V2 stress:
   endpoint latencies `{0, 10, 50}ms`.
 - Matched net per BTC worsened monotonically from about `-9.75` at credit
   `0.0` to about `-23.65` at credit `1.0`.
-- Matched and full-strategy PnL were invariant to latency in `[0, 50]ms` at the
-  tested spread.
+- Matched and full-strategy PnL were numerically invariant to latency in
+  `[0, 50]ms` because legacy eligibility was quantized to depth updates. This is
+  a model diagnostic, not evidence of real sub-50 ms latency robustness.
 - The V1 matched-lot positive under no cancellation credit did not generalize
   to the 24-window panel.
 
@@ -154,7 +179,8 @@ Required interpretation:
 - Do not run candidate holdout replays before the holdout protocol is filled,
   locked, and committed.
 - Do not build `InventorySkewMM` or `VolAdaptiveMM` without a new
-  pre-registered mechanism. The V2 evidence-expansion path is complete.
-- The C++ performance port is intentionally paused until the project owner has
-  built a fundamental understanding of modern C++. When it resumes, parity
+  pre-specified mechanism committed before evaluation. The V2
+  evidence-expansion path is complete.
+- The C++ performance port is deferred until the Python reference is frozen and
+  a separate modern C++ fundamentals phase is complete. When it resumes, parity
   against the frozen Python reference must precede benchmark claims.

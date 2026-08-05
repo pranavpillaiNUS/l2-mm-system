@@ -27,6 +27,7 @@ from src.execution.simulator import (
     EQUAL_TIMESTAMP_POLICY,
     EXECUTION_MODEL_VERSION,
 )
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _d(value) -> Decimal:
@@ -57,6 +58,7 @@ def _expected_provenance(args) -> dict:
     return {
         "execution_model_version": args.execution_model_version,
         "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+        "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
         "trade_gap_policy": args.trade_gap_policy,
         "entry_latency_ms": args.latency_ms,
         "entry_jitter_ms": args.jitter_ms,
@@ -451,6 +453,7 @@ def main():
             "latency_seed": args.latency_seed,
             "execution_model_version": args.execution_model_version,
             "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+            "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
             "maker_bps": args.maker_bps,
             "taker_bps": args.taker_bps,
             "queue_cancellation_credit": args.queue_cancellation_credit,

@@ -124,6 +124,7 @@ def test_queue_credit_provenance_is_canonical_across_decimal_spellings():
     ("field", "value", "message"),
     [
         ("trade_gap_policy", "invented", "invalid trade-gap policy"),
+        ("snapshot_time_policy", "request_start", "snapshot-time policy"),
         ("post_only", False, "must be post-only"),
         ("entry_latency_ms", 10.5, "invalid latency or seed"),
     ],

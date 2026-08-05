@@ -5,6 +5,9 @@ These protect the one irreversible failure mode in the recorder: perp data must
 NEVER be written into the spot raw tree. Spot and perp must use distinct output
 directories and dataset prefixes, and each must point at its own venue host.
 """
+import io
+import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -55,3 +58,23 @@ def test_invalid_market_rejected(tmp_path: Path) -> None:
         SimpleRecorder(symbol="btcusdt", output_dir=tmp_path, market="options")
     with pytest.raises(ValueError):
         TradeRecorder(symbol="btcusdt", output_dir=tmp_path, market="options")
+
+
+def test_snapshot_records_request_and_response_times(tmp_path: Path) -> None:
+    rec = SimpleRecorder(symbol="btcusdt", output_dir=tmp_path)
+    rec._current_file = io.StringIO()
+    rec._fetch_snapshot = lambda: {
+        "lastUpdateId": 1,
+        "bids": [],
+        "asks": [],
+    }
+    request_time = datetime.utcnow() - timedelta(seconds=1)
+    before_response = datetime.utcnow()
+
+    rec._write_snapshot(request_time)
+
+    after_response = datetime.utcnow()
+    record = json.loads(rec._current_file.getvalue())
+    response_time = datetime.fromisoformat(record["recv_time"])
+    assert record["request_time"] == request_time.isoformat()
+    assert before_response <= response_time <= after_response

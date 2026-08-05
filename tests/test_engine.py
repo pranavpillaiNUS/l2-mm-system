@@ -28,9 +28,9 @@ from src.replay.trade_parser import TradeEvent
 
 # --- file builders ---
 
-# Snapshot exchange_time_ms is derived from recv_time. Use a fixed UTC
-# timestamp so the test is timezone-independent.
+# Use fixed UTC timestamps so modeled release times are timezone-independent.
 _BASE_RECV = "2026-04-21T00:00:00+00:00"
+_BRIDGE_RECV = "2026-04-21T00:00:00.001000+00:00"
 _BASE_MS = int(datetime.fromisoformat(_BASE_RECV).timestamp() * 1000)
 
 
@@ -231,6 +231,8 @@ def test_starts_in_gap_skips_diffs_until_snapshot():
             # Snapshot -- exits gap
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "5.0"]], asks=[["101.00", "3.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS + 1, U=101, u=101,
+                  bids=[], asks=[]),
         ])
 
         config = ReplayConfig(
@@ -239,7 +241,7 @@ def test_starts_in_gap_skips_diffs_until_snapshot():
         strategy = NullStrategy()
         result = ReplayEngine(config).run(strategy)
 
-        assert result.stats.total_events == 2
+        assert result.stats.total_events == 4
         assert result.stats.events_during_gap == 1  # the diff
         assert result.stats.snapshots == 1
         print("PASS: diffs before first snapshot are skipped")
@@ -276,8 +278,8 @@ def test_basic_replay_with_fill():
         strategy = QuoteOnceStrategy()
         result = ReplayEngine(config).run(strategy)
 
-        # Strategy should have been called on both depth events
-        assert strategy.book_update_count == 2
+        # Reconstruction is internal; strategy sees only the final bridge state.
+        assert strategy.book_update_count == 1
 
         # One fill: our buy at 100 filled by the market sell
         assert result.stats.fills == 1
@@ -310,6 +312,7 @@ def test_order_arrives_before_trade_without_intervening_depth():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
         ])
         _write_gz(trade_file, [
             _trade("2026-04-21T00:00:00.020000+00:00", T=trade_time,
@@ -344,6 +347,7 @@ def test_equal_time_trade_precedes_order_arrival():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
         ])
         _write_gz(trade_file, [
             _trade("2026-04-21T00:00:00.020000+00:00", T=trade_time,
@@ -375,7 +379,8 @@ def test_same_ms_depth_and_trade_do_not_create_false_cancel_credit():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
-            _diff("2026-04-21T00:00:01+00:00", E=tied_time, U=101, u=101,
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
+            _diff("2026-04-21T00:00:01+00:00", E=tied_time, U=102, u=102,
                   bids=[["100.00", "0.0"]], asks=[]),
         ])
         _write_gz(trade_file, [
@@ -489,6 +494,7 @@ def test_private_arrival_inside_later_detected_gap_cannot_fill():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
             _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000,
                   U=200, u=200, bids=[], asks=[]),
         ])
@@ -514,6 +520,7 @@ def test_replay_end_expires_outstanding_private_state():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
         ])
 
         strategy = QuoteOnceStrategy()
@@ -541,6 +548,8 @@ def test_replay_end_reports_in_flight_cancel_before_expiring_order():
                       bids=[["99.00", "1.0"]], asks=[["101.00", "1.0"]]),
             _diff("2026-04-21T00:00:01+00:00", E=_BASE_MS + 1000,
                   U=101, u=101, bids=[], asks=[]),
+            _diff("2026-04-21T00:00:02+00:00", E=_BASE_MS + 2000,
+                  U=102, u=102, bids=[], asks=[]),
         ])
 
         strategy = CancelAtSecondBookStrategy()
@@ -605,8 +614,48 @@ def test_gap_recovery_after_snapshot():
         assert result.stats.events_during_gap == 2
         # Total depth diffs = 4 (diff1, gap, gap_diff, diff2)
         assert result.stats.depth_diffs == 4
-        assert result.stats.total_events == 6
+        assert result.stats.total_events == 8  # 2 barriers + 2 snapshots + 4 diffs
         print("PASS: snapshot after gap restores normal operation")
+
+
+def test_snapshot_resync_barrier_invalidates_before_intervening_trade():
+    """A reconnect request pauses an already-live book before recovery."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        depth_file = Path(tmpdir) / "depth.jsonl.gz"
+        trade_file = Path(tmpdir) / "trades.jsonl.gz"
+        recovery = _snapshot(
+            "2026-04-21T00:00:02+00:00",
+            last_update_id=200,
+            bids=[["99.00", "1.0"]],
+            asks=[["101.00", "1.0"]],
+        )
+        recovery["request_time"] = "2026-04-21T00:00:01+00:00"
+        _write_gz(depth_file, [
+            _snapshot(_BASE_RECV, last_update_id=100,
+                      bids=[["100.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
+            recovery,
+            _diff("2026-04-21T00:00:02.100000+00:00", E=_BASE_MS + 2100,
+                  U=201, u=201, bids=[], asks=[]),
+        ])
+        _write_gz(trade_file, [
+            _trade("2026-04-21T00:00:01.500000+00:00", T=_BASE_MS + 1500,
+                   agg_id=1, price="100.00", qty="2.0", m=True),
+        ])
+
+        strategy = QuoteOnceStrategy()
+        result = ReplayEngine(ReplayConfig(
+            depth_files=[depth_file],
+            trade_files=[trade_file],
+            sim_config=_sim_config(base_latency_ms=0, jitter_ms=0),
+        )).run(strategy)
+
+        assert result.fills == []
+        assert result.stats.snapshot_resyncs == 2
+        assert result.stats.events_during_gap == 1
+        assert result.stats.gap_invalidations == 2
+        assert all(order.status == OrderStatus.INVALIDATED
+                   for order in strategy.orders.values())
 
 
 def test_additional_depth_discontinuity_is_counted_while_already_paused():
@@ -771,6 +820,7 @@ def test_strict_trade_gap_censors_entire_same_millisecond_group():
         _write_gz(depth_file, [
             _snapshot(_BASE_RECV, last_update_id=100,
                       bids=[["99.00", "1.0"]], asks=[["101.00", "1.0"]]),
+            _diff(_BRIDGE_RECV, _BASE_MS, U=101, u=101, bids=[], asks=[]),
         ])
         tied_time = _BASE_MS + 1000
         _write_gz(trade_file, [
@@ -917,6 +967,8 @@ def test_book_sampling_records_only_outside_gaps():
                   bids=[["98.00", "2.0"]], asks=[]),
             _snapshot(t_recovery, last_update_id=300,
                       bids=[["102.00", "4.0"]], asks=[["103.00", "2.0"]]),
+            _diff("2026-04-21T00:00:05+00:00", E=_BASE_MS + 5000,
+                  U=301, u=301, bids=[], asks=[]),
         ])
 
         config = ReplayConfig(
@@ -928,13 +980,11 @@ def test_book_sampling_records_only_outside_gaps():
         result = ReplayEngine(config).run(NullStrategy())
 
         timestamps = [sample.timestamp_ms for sample in result.book_samples]
-        assert timestamps == [_BASE_MS, t_diff, _BASE_MS + 4000]
-        assert result.book_samples[0].mid == Decimal("100.50")
-        assert result.book_samples[0].best_bid_qty == Decimal("5.0")
+        assert timestamps == [t_diff, _BASE_MS + 5000]
+        assert result.book_samples[0].best_bid == Decimal("100.50")
+        assert result.book_samples[0].best_bid_qty == Decimal("2.0")
         assert result.book_samples[0].best_ask_qty == Decimal("3.0")
-        assert result.book_samples[1].best_bid == Decimal("100.50")
-        assert result.book_samples[1].best_bid_qty == Decimal("2.0")
-        assert result.book_samples[2].mid == Decimal("102.50")
+        assert result.book_samples[1].mid == Decimal("102.50")
         print("PASS: book sampling records only usable book states")
 
 
@@ -993,7 +1043,7 @@ def test_empty_replay():
 
 
 def test_stats_add_up():
-    """total_events = depth_diffs + snapshots + trade_events."""
+    """Total events include resync barriers, snapshots, diffs, and trades."""
     with tempfile.TemporaryDirectory() as tmpdir:
         depth_file = Path(tmpdir) / "depth.jsonl.gz"
         _write_gz(depth_file, [
@@ -1020,8 +1070,10 @@ def test_stats_add_up():
         result = ReplayEngine(config).run(NullStrategy())
 
         s = result.stats
-        assert s.total_events == s.depth_diffs + s.snapshots + s.trade_events
-        assert s.total_events == 5  # 1 snapshot + 2 diffs + 2 trades
+        assert s.total_events == (
+            s.snapshot_resyncs + s.depth_diffs + s.snapshots + s.trade_events
+        )
+        assert s.total_events == 6  # 1 barrier + 1 snapshot + 2 diffs + 2 trades
         print(f"PASS: total_events ({s.total_events}) = "
               f"diffs ({s.depth_diffs}) + snapshots ({s.snapshots}) + "
               f"trades ({s.trade_events})")

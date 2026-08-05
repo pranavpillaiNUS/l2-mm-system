@@ -5,7 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "l2mm"
 version = "0.1.0"
+description = "Deterministic L2 replay and market-making research system"
+readme = "README.md"
+authors = [{name = "Pranav Pillai"}]
 requires-python = ">=3.11"
+dependencies = [
+    "matplotlib==3.10.8",
+    "numpy==2.4.1",
+    "pandas==2.3.3",
+    "PyYAML==6.0.3",
+    "sortedcontainers==2.4.0",
+    "websockets==16.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

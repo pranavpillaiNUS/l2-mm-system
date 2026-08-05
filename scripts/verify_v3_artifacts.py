@@ -19,6 +19,7 @@ from scripts.run_l2_panel import (
 )
 from src.execution.provenance import guard_event_driven_output_path
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _decimal_equals(value: object, expected: str) -> bool:
@@ -64,6 +65,8 @@ def verify(output_root: Path, status_dir: Path) -> dict:
         raise ValueError("V3 artifact manifest has the wrong execution model")
     if payload.get("equal_timestamp_policy") != EQUAL_TIMESTAMP_POLICY:
         raise ValueError("V3 artifact manifest has the wrong timestamp policy")
+    if payload.get("snapshot_time_policy") != SNAPSHOT_TIME_POLICY:
+        raise ValueError("V3 artifact manifest has the wrong snapshot-time policy")
     if payload.get("trade_gap_policy") != "pause_until_snapshot":
         raise ValueError("V3 artifact manifest has the wrong trade-gap policy")
     if payload.get("source_fingerprint") != _source_fingerprint():

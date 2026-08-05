@@ -23,6 +23,7 @@ from src.execution.provenance import (
 )
 from src.execution.queue_credit import parse_queue_credit, queue_credit_suffix
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _load_starts(path: Path) -> list[datetime]:
@@ -69,6 +70,7 @@ def _can_reuse_phase_a(args, start: datetime, credit: str, latency: int) -> bool
     expected = {
         "execution_model_version": EXECUTION_MODEL_VERSION,
         "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+        "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
         "trade_gap_policy": "pause_until_snapshot",
         "entry_latency_ms": args.phase_a_latency_ms,
         "entry_jitter_ms": getattr(args, "phase_a_jitter_ms", 0),
@@ -180,7 +182,7 @@ def main():
     if _file_sha256(args.windows_csv) != DEVELOPMENT_PANEL_SHA256:
         raise ValueError(
             "queue-credit development sweep requires the frozen development "
-            "panel; sealed holdout execution is not authorized"
+            "panel; strategy-sealed holdout execution is not authorized"
         )
     if args.hours <= 0 or args.session_hours <= 0 or args.hours % args.session_hours:
         raise ValueError("hours must be positive and divisible by session-hours")
@@ -243,6 +245,7 @@ def main():
             rows.append({
                 "execution_model_version": EXECUTION_MODEL_VERSION,
                 "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+                "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
                 "trade_gap_policy": "pause_until_snapshot",
                 "queue_cancellation_credit": credit,
                 "latency_ms": latency,

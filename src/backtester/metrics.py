@@ -136,7 +136,7 @@ def calculate_metrics(
     total_slippage: float,
     total_volume: float,
     risk_free_rate: float = 0.0,
-    periods_per_year: int = 365,
+    periods_per_year: Optional[float] = None,
 ) -> PerformanceMetrics:
     if len(equity_series) < 2:
         raise ValueError("Need at least 2 equity points")
@@ -146,17 +146,22 @@ def calculate_metrics(
     total_return = (final_equity - initial_cash) / initial_cash
     total_return_pct = total_return * 100
     
+    if periods_per_year is None:
+        periods_per_year = _infer_periods_per_year(equity_series)
+
     # Time period
-    days = (equity_series.index[-1] - equity_series.index[0]).days
-    years = max(days / 365, 1/365)
+    elapsed_seconds = (
+        equity_series.index[-1] - equity_series.index[0]
+    ).total_seconds()
+    years = max(elapsed_seconds / (365.25 * 24 * 60 * 60), 1 / 365.25)
     
     # CAGR
     annualized_return = (1 + total_return) ** (1 / years) - 1
     
-    # Daily returns
+    # Per-observation returns
     returns = equity_series.pct_change().dropna()
-    daily_vol = returns.std()
-    annualized_volatility = daily_vol * np.sqrt(periods_per_year)
+    period_vol = returns.std()
+    annualized_volatility = period_vol * np.sqrt(periods_per_year)
     
     # === Drawdown ===
     drawdown = calculate_drawdown_series(equity_series)
@@ -164,15 +169,23 @@ def calculate_metrics(
     max_drawdown_duration_days = calculate_max_drawdown_duration(equity_series)
     
     # === Risk-Adjusted Ratios ===
-    excess_daily = returns.mean() - (risk_free_rate / periods_per_year)
+    excess_period = returns.mean() - (risk_free_rate / periods_per_year)
     
     # Sharpe
-    sharpe_ratio = (excess_daily / daily_vol * np.sqrt(periods_per_year)) if daily_vol > 0 else 0.0
+    sharpe_ratio = (
+        excess_period / period_vol * np.sqrt(periods_per_year)
+        if period_vol > 0
+        else 0.0
+    )
     
     # Sortino
     downside = returns[returns < 0]
-    downside_std = downside.std() if len(downside) > 1 else daily_vol
-    sortino_ratio = (excess_daily / downside_std * np.sqrt(periods_per_year)) if downside_std > 0 else 0.0
+    downside_std = downside.std() if len(downside) > 1 else period_vol
+    sortino_ratio = (
+        excess_period / downside_std * np.sqrt(periods_per_year)
+        if downside_std > 0
+        else 0.0
+    )
     
     # Calmar
     calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else 0.0
@@ -214,3 +227,15 @@ def calculate_metrics(
         total_slippage=total_slippage,
         total_volume=total_volume,
     )
+
+
+def _infer_periods_per_year(equity_series: pd.Series) -> float:
+    """Infer annualization from the median positive timestamp interval."""
+    if not isinstance(equity_series.index, pd.DatetimeIndex) or len(equity_series) < 2:
+        return 365.25
+    deltas = equity_series.index.to_series().diff().dropna().dt.total_seconds()
+    positive = deltas[deltas > 0]
+    if positive.empty:
+        return 365.25
+    median_seconds = float(positive.median())
+    return (365.25 * 24 * 60 * 60) / median_seconds

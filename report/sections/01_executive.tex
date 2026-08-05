@@ -1,0 +1,126 @@
+\section{Executive Summary}
+
+\subsection{Research question}
+
+The project asks a narrower question than ``can an order-book signal predict
+the next price move?'' It asks whether a signal remains useful after the
+strategy's own execution process selects which observations become passive
+fills. That distinction is central to market making. A resting limit order is
+most likely to trade when an aggressor reaches it, and that event can be
+informative about the next move. A population-level forecast can therefore be
+real while the subset of states in which the maker is filled remains toxic.
+This is the adverse-selection problem described in classical microstructure
+models such as \citet{glosten1985}, and OFI is motivated by the empirical link
+between order-book events and short-horizon price impact in
+\citet{cont2014}.
+
+The system was built to measure that gap between \emph{signal association} and
+\emph{execution-conditioned economics} without hiding assumptions about queue
+position, event ordering, fees, or missing data.
+
+\subsection{What was built}
+
+The current repository contains four connected capabilities:
+
+\begin{itemize}
+  \item a bar-level backtesting scaffold retained as project history;
+  \item spot and perpetual-futures data recorders, with spot L2 and trade data
+        forming the completed research dataset;
+  \item a deterministic event replay and execution simulator with post-only
+        behavior, configurable latency, partial fills, L2-derived FIFO queue
+        position, and maker/taker fee assignment; and
+  \item a research pipeline for integrity screening, panel selection,
+        bootstrap intervals, OFI diagnostics, model stress, decision gates,
+        artifact hashing, and a strategy-sealed holdout.
+\end{itemize}
+
+The most important engineering work occurred after the historical study. Model
+audits showed that the old simulator activated private orders only on the next
+book update, made cancellations immediate, and applied REST snapshot state at a
+local tag captured before the request completed. The current \CurrentModel\
+implementation instead schedules order and cancel arrivals on the replay clock,
+gates legacy snapshot recovery on a post-response receipt proxy, models
+cancel/fill races, conserves recorded trade volume across overlapping own
+orders, and refuses to write into the frozen result root.
+
+\subsection{Evidence and decision}
+
+The frozen development experiment covers \DevelopmentWindows\ non-overlapping
+five-hour windows. The passive microprice baseline was negative in 18 of 24
+windows at each tested queue endpoint. The proportional-credit mean was
+\PhaseAQcOneMean\ USDT per window with a 95\% window-bootstrap interval
+$[\PhaseAQcOneLow,\PhaseAQcOneHigh]$; the no-credit mean was
+\PhaseAQcZeroMean\ with interval
+$[\PhaseAQcZeroLow,\PhaseAQcZeroHigh]$.
+
+Normalized OFI was much stronger than microprice as a population signal. At one
+second, the pooled association had HAC $t=\OFITStat$, $R^2=\OFIRSquared$, and
+an effect of \OFIEffect\ bps per signal standard deviation. All 24 per-window
+coefficients were positive, and the six unconditional bucket averages were
+monotone.
+
+The pre-specified conditional screen nevertheless failed. It compared the
+most-populated adverse side-aligned bucket with the most-populated nonnegative
+bucket at a 30-second horizon. The separation was
+\OFIConditionalQcOne\ bps under proportional queue credit and
+\OFIConditionalQcZero\ bps with no credit, below the 1.0 bps screen. The full
+bucket pattern was non-monotone, including a smaller intermediate bucket with a
+more favorable mean. Consequently, the correct conclusion is not that OFI is
+universally useless after conditioning. It is that the defined conditional
+gate did not yield a robust, monotone separation strong enough to justify a
+candidate run. The \code{OFIGatedMM} candidate was blocked and no holdout
+strategy result was generated.
+
+\subsection{Why the negative result matters}
+
+The project rejected several opportunities to report an attractive but weakly
+supported result:
+
+\begin{itemize}
+  \item Early apparent profitability contained taker fills created by latency;
+        post-only enforcement removed that interpretation.
+  \item Snapshot synchronization and stale-diff issues were corrected and the
+        affected study was regenerated.
+  \item A strong unconditional OFI statistic was not treated as executable edge
+        after the fill-conditioned gate failed.
+  \item A candidate was not tried on the strategy-sealed holdout after failing its
+        development premise.
+  \item A later execution-timing flaw created a new model and artifact namespace
+        instead of being retroactively attached to old results.
+\end{itemize}
+
+For a research record, this audit trail is more informative than a fragile
+positive backtest. It demonstrates the ability to define an estimand, identify
+where simulation assumptions enter it, reject contaminated evidence, and stop
+an experiment when the protocol says to stop.
+
+\subsection{Version map}
+
+The project has similarly named study and model versions. Table
+\ref{tab:version-map} is the authoritative map.
+
+\begin{table}[H]
+\centering
+\caption{Study and execution-model version map.}
+\label{tab:version-map}
+\begin{tabularx}{\textwidth}{@{}L{0.21\textwidth}L{0.31\textwidth}Y@{}}
+\toprule
+Label & Meaning & Status and permitted claim \\
+\midrule
+Study V1 & Six-window exploratory study & Frozen and superseded by the larger historical study. \\
+Artifact V2 & 24-window Phase A/B/C development study & Frozen historical evidence; generated at research commit \code{1066950}. \\
+Legacy model & Historical private-timing and queue semantics & Superseded; the source of V2 execution-derived numbers. \\
+Current model & Current Python behavioral reference & Mechanics accepted locally; no development-panel economics yet. \\
+Artifact V3 & Results produced by \CurrentModel & Pending; the development rerun has not been executed. \\
+Holdout & 12 selected five-hour windows & Strategy-sealed; no candidate strategy output exists. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{statusbox}
+\textbf{Current public interpretation.} The repository is ready to demonstrate
+the engineering reference and the discipline of the frozen case study. It is
+not yet ready to claim that the historical economic conclusion survives the
+current execution model. The V3 development rerun is the next research
+milestone.
+\end{statusbox}

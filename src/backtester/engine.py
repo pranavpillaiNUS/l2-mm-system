@@ -79,7 +79,7 @@ class BacktestEngine:
         portfolio = Portfolio(initial_cash=self.config.initial_cash)
         
         # Run through each bar
-        signals = [] # Hehehe CS2040 coming in clutch.
+        signals = []
         for i in range(len(df)):
             timestamp = df.index[i]
             row = df.iloc[i]

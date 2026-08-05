@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from scripts.run_l2_panel import _reconciliation_output_paths
 from scripts.sweep_queue_credit import _can_reuse_phase_a, _run_dir_name
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _args(root: Path) -> SimpleNamespace:
@@ -74,6 +75,7 @@ def test_phase_c_reuses_existing_phase_a_endpoint_at_canonical_latency(tmp_path:
             "execution_provenance": {
                 "execution_model_version": EXECUTION_MODEL_VERSION,
                 "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+                "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
                 "trade_gap_policy": "pause_until_snapshot",
                 "entry_latency_ms": 10,
                 "entry_jitter_ms": 0,

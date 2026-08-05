@@ -1,10 +1,19 @@
 # V2 Holdout Protocol
 
-Status: **UNLOCKED TEMPLATE. Do not run candidate strategy holdout results until
-this file is filled, committed, and changed to `LOCKED`.**
+Status: **HISTORICAL UNLOCKED TEMPLATE. Do not use this file to authorize a
+future holdout run.**
+
+This template was written for the blocked OFI candidate and was never locked.
+It remains as protocol history. Any different future candidate requires a new,
+generic holdout protocol committed before evaluation; this file must not be
+retrofitted after development results are known.
 
 Current Phase 2 status: no active candidate qualified for holdout. OFI was
 blocked by the Phase B conditional-on-fill gate, so `OFIGatedMM` did not advance.
+
+The holdout is strategy-sealed, not unseen: its window identities and
+pre-strategy regime descriptors were inspected during panel selection. No
+candidate strategy has been evaluated on those windows.
 
 ## Lock Record
 

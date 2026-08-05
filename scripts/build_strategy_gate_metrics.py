@@ -14,6 +14,7 @@ from src.execution.provenance import (
 )
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _summary_credit(params: dict) -> Decimal:
@@ -29,6 +30,7 @@ def _metric_row(summary: dict) -> dict:
     return {
         "execution_model_version": artifact_execution_model(summary),
         "equal_timestamp_policy": provenance.get("equal_timestamp_policy"),
+        "snapshot_time_policy": provenance.get("snapshot_time_policy"),
         "trade_gap_policy": provenance.get("trade_gap_policy"),
         "entry_latency_ms": provenance.get("entry_latency_ms"),
         "entry_jitter_ms": provenance.get("entry_jitter_ms"),
@@ -81,6 +83,7 @@ def _matches_execution_provenance(summary: dict, args, expected_credit: Decimal)
     expected = {
         "execution_model_version": args.execution_model_version,
         "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+        "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
         "trade_gap_policy": args.trade_gap_policy,
         "entry_latency_ms": args.latency_ms,
         "entry_jitter_ms": args.jitter_ms,

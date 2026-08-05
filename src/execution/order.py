@@ -62,7 +62,7 @@ class Order:
     order_type: OrderType
     quantity: Decimal            # original ordered quantity
     placed_time_ms: int          # when the strategy decided to place it
-    arrival_time_ms: int         # placed_time_ms + latency (when it reaches exchange)
+    arrival_time_ms: int         # placed_time_ms + modeled one-way latency
     price: Optional[Decimal] = None
 
     # mutable - updated by the simulator
@@ -81,8 +81,8 @@ class Order:
     fifo_floor_adjustment: Decimal = field(default=Decimal("0"))
     queue_sequence: Optional[int] = None
 
-    # A cancellation request is in flight while the order itself remains
-    # PENDING/ACTIVE/PARTIAL and therefore fillable.  A separate status is
+    # A cancellation request can be in flight while an entry is still pending
+    # or while an active/partial order remains fillable. A separate status is
     # deliberately avoided because entry and cancellation are independent
     # lifecycle dimensions.
     cancel_requested_time_ms: Optional[int] = None

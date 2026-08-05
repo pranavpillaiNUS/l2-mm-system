@@ -115,7 +115,7 @@ class BaseMMStrategy(ABC):
         # A real exchange would reject these (post-only / maker-only flag).
         # The order reaches the exchange after modeled latency, so this client-
         # side check avoids obviously stale/aggressive intent. The simulator
-        # independently enforces post-only again at exact exchange arrival.
+        # independently enforces post-only again at modeled arrival.
         if desired_bid is not None and desired_bid >= book.best_ask:
             self.postonly_suppressed += 1
             desired_bid = None
@@ -126,9 +126,10 @@ class BaseMMStrategy(ABC):
         current_bid = self._live_price(self._bid_order)
         current_ask = self._live_price(self._ask_order)
 
-        # Hard position envelope. Pending orders and cancels in flight remain
-        # fillable, so a cancel/replace may add a new quote only when every
-        # live same-side order filling would still stay inside max_position.
+        # Hard position envelope. Pending entries can become fillable; active
+        # orders stay fillable while cancels are in flight. A cancel/replace may
+        # add a quote only when all working same-side quantity filling would
+        # still stay inside max_position.
         desired_bid = self._risk_checked_price(
             OrderSide.BUY, desired_bid, current_bid
         )
@@ -232,7 +233,7 @@ class BaseMMStrategy(ABC):
         return order.price
 
     def _live_remaining(self, side: OrderSide) -> Decimal:
-        """Worst-case remaining quantity from all fillable orders on a side."""
+        """Worst-case remaining quantity from all working orders on a side."""
         return sum(
             (
                 order.remaining_quantity
@@ -268,7 +269,7 @@ class BaseMMStrategy(ABC):
         return desired_price if worst_existing >= -self.max_position else None
 
     def _risk_reducing_cancels(self) -> List[Action]:
-        """Cancel fillable orders if externally supplied state breaks the envelope."""
+        """Cancel working orders if externally supplied state breaks the envelope."""
         actions: List[Action] = []
         if self.position + self._live_remaining(OrderSide.BUY) > self.max_position:
             actions.extend(

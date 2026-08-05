@@ -160,8 +160,8 @@ def test_ofi_fill_toxicity_side_aligns_signal():
 def test_ofi_fill_toxicity_excludes_same_ms_book_move():
     """A book sample stamped exactly at the fill must not leak into OFI or mid.
 
-    The 1_000ms sample carries a large adverse jump that represents the
-    fill-causing move. With strictly-pre-fill anchoring, the reference mid and
+    The 1_000ms sample carries a large adverse jump associated with the
+    simulated fill. With strictly-pre-fill anchoring, the reference mid and
     the OFI window must come only from samples before 1_000, so the measured
     pre-fill mid is the calm 100.50 and the prior OFI is zero (flat book).
     """
@@ -169,7 +169,7 @@ def test_ofi_fill_toxicity_excludes_same_ms_book_move():
     samples = [
         sample(0, "100.00", "5", "101.00", "5"),
         sample(500, "100.00", "5", "101.00", "5"),
-        # Same-ms-as-fill sample with a big upward jump (the fill-causing move).
+        # Same-ms-as-fill sample with a large associated upward move.
         sample(1_000, "200.00", "50", "201.00", "1"),
         sample(2_000, "200.00", "50", "201.00", "1"),
     ]

@@ -2,6 +2,16 @@
 
 What I know now that I didn't know at the start. Written after completing the backtesting framework, 4 strategies, parameter sweeps, and walk-forward validation on BTCUSDT 2024 hourly data.
 
+> **Publication note (2026-08-04):** this is a contemporaneous learning record,
+> not current strategy evidence. A later audit found same-close signal/execution
+> timing, incorrect hourly annualization, an average of monthly Sharpe estimates
+> labeled as OOS Sharpe, and optimizer source that was later reconstructed from
+> the logged grids. Treat the numerical interpretations below as historical
+> observations and hypotheses. The current metrics helper corrects the
+> frequency inference, but the historical CSVs were not rewritten. The L2 system
+> was implemented independently and is assessed separately in the technical
+> report.
+
 
 ## Quantitative Findings
 

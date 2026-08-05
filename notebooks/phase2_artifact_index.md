@@ -4,7 +4,8 @@ Status: the spot BTCUSDT Phase 2 development research arc is complete as a
 frozen historical V2 study under `legacy_book_update_v1`. The Phase 2.5 Python
 execution-model implementation has passed local acceptance under
 `event_driven_v2`; its development-panel V3 rerun is pending. No candidate
-strategy advanced to holdout, and the sealed holdout remains untouched.
+strategy advanced to holdout. Holdout identities and pre-strategy regime
+descriptors were examined, but no candidate strategy result exists.
 
 ## Canonical Writeups
 
@@ -17,10 +18,11 @@ strategy advanced to holdout, and the sealed holdout remains untouched.
 
 ## Frozen Provenance
 
-- Research artifact commit: `1066950`
+- Research artifact commit: `106695026ca64ae232f07103ae380b49c2a4d49f`
 - Execution model: `legacy_book_update_v1`
 - Timing semantics: modeled arrivals activate on the next depth update;
-  cancellation requests take effect immediately
+  cancellation requests take effect immediately; REST snapshot state is applied
+  at a local tag captured before the blocking request completed
 - Frozen result root: `results/panels/btcusdt_l2_panel_v2`
 - Provenance marker:
   `results/panels/btcusdt_l2_panel_v2/EXECUTION_MODEL.json`
@@ -44,9 +46,15 @@ from that model and commit. Missing per-artifact execution-model metadata under
 the frozen root means `legacy_book_update_v1`; it must not be interpreted as
 `event_driven_v2`.
 
+Frozen metadata erratum: the panel fee summary's
+`full_strategy_endpoint_note` says “window-close mid.” The actual run sums five
+separately marked and reset one-hour sessions. The JSON remains unchanged to
+preserve its hash; this is a wording correction, not a numeric revision.
+
 ## Phase 2.5: Event-Driven Execution Closure
 
 - Current Python model: `event_driven_v2`
+- Snapshot-time policy: `post_response_proxy_depth_boundary_v1`
 - Required result namespace:
   `results/panels/btcusdt_l2_panel_v3_event_driven`
 - Model and acceptance contract: `notebooks/execution_model_v2.md`
@@ -58,11 +66,13 @@ the frozen root means `legacy_book_update_v1`; it must not be interpreted as
 - V3 comparison rule: compare the same development windows descriptively with
   exact artifact hashes and model provenance; do not reuse the historical
   V2/V1 advancement-verdict ladder across changed execution semantics
-- Unaffected frozen inputs/analyses: raw integrity manifest, panel selection,
-  book-state hashes, and unconditional book-state signal studies
-- Holdout status: sealed; only frozen development windows may be used during
-  execution closure
-- C++ status: intentionally paused until modern C++ fundamentals are in place
+- Unaffected frozen inputs: raw-file integrity and panel selection. The snapshot
+  timing correction means replay-derived book samples, state hashes, and
+  unconditional signals also require regeneration or comparison.
+- Holdout status: strategy-sealed; only frozen development windows may be used
+  during execution closure
+- C++ status: deferred until the Python reference is frozen and a separate
+  modern C++ fundamentals phase is complete
 - Local acceptance checkpoint: `369 passed in 5.56s`, focused execution and
   strategy subset `126 passed in 2.26s`, frozen V2 verifier passed, and the
   real one-hour replay smoke passed
@@ -103,16 +113,17 @@ Expected verdict:
 - Pooled 1s HAC t-stat: about `+64.63`
 - Pooled 1s beta times signal standard deviation: about `+0.1233 bps`
 
-Interpretation: OFI is a strong population-level signal, but its predictive
-content did not survive conditioning on this maker's baseline passive fills.
-The frozen protocol therefore blocked `OFIGatedMM` from advancing. This does
-not claim that the unrun candidate would necessarily lose, because gating would
-change the fill set.
+Interpretation: OFI is a strong population-level signal, but the pre-specified
+fill-conditioned gate failed at both queue endpoints and the complete
+conditional bucket response was non-monotone. The frozen protocol therefore
+blocked `OFIGatedMM` from advancing. This does not claim that OFI universally
+disappears after fills or that the unrun candidate would necessarily lose,
+because gating would change the fill set.
 
 ## Frozen V2 Phase C: Queue-Credit And Latency Stress
 
-Question: is the baseline negative an artifact of queue-credit or sub-50ms
-latency assumptions?
+Question: how does the baseline change across queue-credit assumptions, and
+what does the legacy sub-50 ms sweep reveal about its activation rule?
 
 Primary artifact:
 
@@ -124,7 +135,29 @@ Expected pooled rows:
 - Endpoint latencies: `0`, `10`, `50` ms for credits `0.0` and `1.0`
 - Matched net per BTC worsens monotonically from about `-9.75` at credit `0.0`
   to about `-23.65` at credit `1.0`
-- Matched and full-strategy PnL are invariant to latency in `[0, 50]ms`
+- Matched and full-strategy PnL are numerically invariant to latency in
+  `[0, 50]ms` because legacy order eligibility was quantized to the next depth
+  update. This is not evidence of genuine sub-50 ms latency robustness.
+
+## Snapshot-Time Audit
+
+Question: how early did the legacy pre-fetch snapshot tag precede an observable
+post-request market-data boundary?
+
+Primary artifact:
+
+- `results/replay_correctness/snapshot_timing_panel24.json`
+
+Expected result:
+
+- 120 selected development depth files; 120 valid bridges; zero unbridged
+  snapshots
+- Tag to first later local depth receipt: median `250.5 ms`, p90 `672.9 ms`,
+  maximum `2,335 ms`
+- Frozen fills from orders placed before the selected policy boundary: `2 / 1,595` at no
+  credit and `4 / 2,041` under proportional credit
+- These proxy counts do not bound every pre-observation or later queue-age
+  effect; V3 must rerun under `post_response_proxy_depth_boundary_v1`
 
 ## Same-Millisecond Attribution Audit
 
@@ -146,8 +179,9 @@ Expected result:
 
 ## Holdout Status
 
-The holdout is sealed. `notebooks/holdout_protocol.md` must remain an unlocked
-template unless a future pre-registered candidate clears development first.
+The holdout is strategy-sealed. `notebooks/holdout_protocol.md` must remain an
+unlocked template unless a future pre-specified candidate clears development
+first.
 
 Expected status:
 
@@ -160,10 +194,11 @@ Expected status:
 
 ## Perp Recording QA
 
-Perp is recording-only and remains parked for analysis. A local capture-quality
-check on 2026-06-15 confirmed:
+Perp is recording-only and remains parked for analysis. A historical local
+capture-quality check on 2026-06-15 observed:
 
-- tmux sessions `rec_btcusdt_perp` and `rec_btcusdt_perp_trades` are live
+- tmux sessions `rec_btcusdt_perp` and `rec_btcusdt_perp_trades` were live at
+  the time of that check; no current-liveness claim is made
 - latest perp depth file starts with a REST snapshot payload under `data`
 - snapshot has `1000` bid levels, `1000` ask levels, and `lastUpdateId`
 - first bridge diff satisfies the futures snapshot bridge condition
@@ -180,7 +215,7 @@ Run:
 
 ```bash
 env PYTHONPATH=. python scripts/verify_v2_artifacts.py
-env PYTHONPATH=. pytest -q tests --ignore=tests/test_recorder.py
+env PYTHONPATH=. pytest -q
 ```
 
 Historical local V2 closure check on 2026-06-16:
@@ -189,14 +224,15 @@ Historical local V2 closure check on 2026-06-16:
 223 passed in 5.37s
 ```
 
-`tests/test_recorder.py` is a live network/recorder test and is intentionally
-excluded from the deterministic suite.
+The live recorder check is intentionally separate from the test suite and can
+be run manually with `scripts/smoke_test_recorder.py`.
 
 The verifier checks the integrity and expected shape of the frozen artifacts;
 it does not rerun the legacy experiment, validate `event_driven_v2`, or prove
 that either execution model matches exchange ground truth. Within
-`legacy_book_update_v1`, the artifacts show that the passive baseline's
-negative result did not depend on the tested queue-credit grid or a particular
-tested sub-50ms entry latency. They do not establish the same result under
-`event_driven_v2`, or anything about other spreads, strategies, signals, or
-venues.
+`legacy_book_update_v1`, matched economics remained negative across the tested
+queue-credit grid. Identical sub-50 ms point estimates diagnose the model's
+next-depth-update activation quantization; they do not validate latency
+insensitivity. The artifacts do not establish the same result under
+`event_driven_v2`, the post-response-gated snapshot policy, or anything about other
+spreads, strategies, signals, or venues.

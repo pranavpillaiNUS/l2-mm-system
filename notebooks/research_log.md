@@ -1,10 +1,18 @@
 # Research Log
 
+> **Publication note (2026-08-04):** this is a chronological working record.
+> Early entries intentionally preserve contemporaneous shorthand, tentative
+> interpretations, and results later superseded by stricter methods. Current
+> public claims are governed by the root README, technical report, V2 artifact
+> index, and execution-model contract. Older uses of “sealed” mean the narrower
+> current term “strategy-sealed”: identities and regime descriptors were known,
+> but no candidate strategy was evaluated.
+
 ---
 ## 2026-02-28: Initial Data Exploration
 
 ### Question
-What does BTCUSDT 2024 hourly data actually look like fr?
+What does BTCUSDT 2024 hourly data actually look like?
 
 ### Findings
 - 8,761 bars from 2023-12-31 to 2024-12-30
@@ -1093,9 +1101,9 @@ tightened enough to establish the negative at the 95% level. The conclusion
 strengthened even though the mean rose.
 
 ### What could be artifact
-- Full-strategy net PnL is endpoint-sensitive (residual inventory marked at
-  window close). Matched-lot economics are cleaner and still cross zero, so the
-  firmer negative is partly residual-inventory driven.
+- Full-strategy net PnL is endpoint-sensitive. Matched-lot intervals cross zero,
+  while the full-strategy result also includes hourly residual-inventory marks;
+  the evidence does not identify one component as the causal driver.
 - The proportional endpoint is the more generous queue assumption; `0.0`
   (no credit) `Weakens` rather than `Strengthens`. The headline is explicitly
   queue-model conditional.
@@ -1104,9 +1112,10 @@ strengthened even though the mean rose.
 
 ### What this proves
 The passive microprice-only baseline shows no stable positive edge on the
-broader, cleaner, pre-selected panel, and under the realistic queue model the
-negative is now statistically reliable (CI excludes zero). The V1 result was not
-a six-window small-sample fluke.
+broader, pre-selected panel. Under the proportional-credit endpoint, the
+window-level bootstrap CI excludes zero; the no-credit endpoint crosses zero.
+This strengthens the development evidence without establishing a venue-calibrated
+queue model or proving that the six-window result was not sample-specific.
 
 ### What this does not prove
 Nothing about OFI, inventory-aware, or vol-adaptive quoting; nothing about perp
@@ -1149,7 +1158,8 @@ toxicity at 30s. Deterministic suite `223 passed` immediately before the run.
 The conditional fill-toxicity computation was tightened to strictly-pre-fill
 samples: the reference book and the OFI window now use the most recent sample
 STRICTLY before the fill (`bisect_left`, `end_inclusive=False`), so a book sample
-stamped at the fill millisecond (which can encode the fill-causing move) cannot
+stamped at the fill millisecond (which can encode the same-ms market move
+associated with the simulated fill) cannot
 leak into the OFI or the reference mid. A leakage tripwire was added to
 `tests/test_ofi_signal.py`: a same-ms move guard, plus a random-walk / shuffle
 test that requires `|t| ~ 0` when the OFI-to-drift pairing is destroyed (observed
@@ -1186,8 +1196,9 @@ Unconditional, pooled, queue-independent (`qc0 == qc1`):
 | 5m | 423,102 | +0.2958 | +7.48 | 0.0006 | +0.3069 bps |
 
 - Per-window 1s: 24 of 24 windows have positive beta (100 percent same-sign),
-  `|t|` from 4.48 to 26.90 (every window individually significant), beta from
-  0.0646 to 0.1431.
+  with individual HAC `|t|` values from 4.48 to 26.90 and betas from 0.0646 to
+  0.1431. These descriptive per-window tests are not a family-wise or clustered
+  panel inference procedure.
 - 1s bucket dose-response is clean and monotone: average forward drift rises from
   `-0.276 bps` (OFI `< -1.0`) through zero to `+0.284 bps` (OFI `>= 1.0`).
 - Unconditional gate: same-sign 100 percent (bar 75), `|t| 64.63` (bar 2),
@@ -1201,9 +1212,10 @@ bucket):
 | 1.0 proportional | +0.1272 bps | 201 | fail_signal |
 | 0.0 none | -0.3756 bps | 154 | fail_signal |
 
-Both are far below the `1.0 bps` separation bar, sign-inconsistent across queue
-models, and well powered (`n >= 30`). Conditional status `fail_signal`, overall
-verdict `blocked`.
+Both are far below the `1.0 bps` separation bar and sign-inconsistent across
+queue models. The selected bucket counts exceed the predefined `n >= 30`
+screen; that is not a formal power analysis. Conditional status `fail_signal`,
+overall verdict `blocked`.
 
 ### Interpretation (centerpiece)
 OFI is a real, strong, monotone predictor of forward mid drift at the population
@@ -1517,3 +1529,65 @@ The next action is the isolated 24-window development rerun into
 `results/panels/btcusdt_l2_panel_v3_event_driven`, followed by review of the
 descriptive execution-model sensitivity report. C++ remains paused until modern
 C++ fundamentals are in place.
+
+---
+## 2026-08-04: Public-Release Evidence-Scope Audit
+
+### Purpose
+
+Prepare the repository for external review without allowing precise-looking
+historical outputs to imply stronger evidence than the implementation supports.
+
+### Corrections
+
+- Phase 1 is now labeled an educational engineering precursor. Its strategies
+  observe a bar close and execute at that close; hourly returns were annualized
+  with 365; the displayed OOS Sharpe is an average of monthly Sharpes rather
+  than one stitched OOS estimate; and the optimizer source was overwritten by
+  the plotting pass. Phase 1 performance tables are therefore not used as
+  rigorous strategy evidence.
+- The Phase B OFI conclusion is narrowed. The pre-specified conditional gate
+  compares the most-populated negative and nonnegative side-aligned buckets,
+  not the extreme buckets. Counts above 30 meet a minimum-count rule, not a
+  formal power calculation. The full conditional pattern is non-monotone, with
+  a smaller intermediate bucket that appears more favorable. The defensible
+  conclusion is that the defined gate failed at both queue endpoints and did
+  not justify candidate evaluation; it is not that OFI universally disappears
+  after conditioning or that the unrun candidate would lose.
+- “Pre-registered” is replaced in current public summaries by “pre-specified in
+  repository history.” There was no external registry.
+- The holdout is described as strategy-sealed, not unseen. Its identities and
+  regime descriptors were examined, but no candidate strategy was evaluated.
+- Clone-level tests and artifact verification are separated from full replay.
+  Raw data is not distributed, so empirical replay requires the local files
+  whose hashes are recorded in the integrity manifest.
+
+### Publication boundary
+
+The integrated LaTeX report and repository README now lead with the L2 system,
+the legacy/current execution-model boundary, negative/conditional development
+evidence, and the pending V3 rerun. The C++ performance port remains outside the
+current scope.
+
+### Snapshot timing proxy audit
+
+A final provenance review found that the legacy recorder captured a snapshot's
+`recv_time` before making the blocking REST request. The returned book was
+therefore applied at request start rather than at an observable response time.
+
+- All 120 selected development depth files have a valid snapshot bridge.
+- Tag to first later local depth receipt: median `250.5 ms`, p90 `672.9 ms`,
+  maximum `2,335 ms`.
+- Frozen fills from orders placed before the selected policy boundary: `2 / 1,595` with no
+  cancellation credit and `4 / 2,041` with proportional credit.
+- These counts do not prove invariance because early placement can alter queue
+  age and later eligibility.
+
+The current recorder now stores request and response times separately. Current
+replay uses `post_response_proxy_depth_boundary_v1`: it pauses at request,
+requires a sequence-valid post-response receipt or legacy proxy, exposes only
+the final reconstructed state, withholds unbridged snapshots, and rejects
+nonmonotone modeled input streams. Release remains on exchange `E`, so this is
+not a calibrated client-observation clock. The V3 development rerun must cover
+all replay-derived book-state and execution evidence under this policy before
+the Python reference is frozen.

@@ -168,7 +168,7 @@ def test_v3_runner_rejects_noncanonical_or_holdout_panel(
     try:
         main()
     except ValueError as exc:
-        assert "sealed holdout is not authorized" in str(exc)
+        assert "strategy-sealed holdout is not authorized" in str(exc)
     else:
         raise AssertionError("noncanonical development panel should be rejected")
 

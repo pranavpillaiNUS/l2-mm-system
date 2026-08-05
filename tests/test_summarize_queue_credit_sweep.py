@@ -14,6 +14,7 @@ from scripts.summarize_queue_credit_sweep import (
 )
 from src.execution.provenance import LEGACY_EXECUTION_MODEL_VERSION
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _summary_payload(
@@ -67,6 +68,7 @@ def _summary_payload(
         summary["execution_provenance"] = {
             "execution_model_version": execution_model_version,
             "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+            "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
             "trade_gap_policy": "pause_until_snapshot",
             "entry_latency_ms": latency_ms,
             "entry_jitter_ms": 0,
@@ -124,6 +126,7 @@ def _manifest_row(
     return {
         "execution_model_version": EXECUTION_MODEL_VERSION,
         "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+        "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
         "trade_gap_policy": "pause_until_snapshot",
         "queue_cancellation_credit": credit,
         "latency_ms": latency_ms,

@@ -120,6 +120,7 @@ def _write_rows(path: Path, rows: Sequence[dict]) -> None:
     fieldnames = [
         "execution_model_version",
         "equal_timestamp_policy",
+        "snapshot_time_policy",
         "trade_gap_policy",
         "entry_latency_ms",
         "entry_jitter_ms",
@@ -258,7 +259,7 @@ def main():
             "economic_measure": "quantity_weighted_net_per_btc",
             "full_strategy_endpoint_note": (
                 "full_strategy rows are endpoint-sensitive because residual "
-                "inventory is marked at the window-close mid"
+                "inventory is marked at each session-end mid before hourly reset"
             ),
         },
         "inputs": [run.run_dir.name for run in runs],

@@ -330,6 +330,7 @@ def _require_current_params_match_provenance(
     pairs = {
         "execution_model_version": "execution_model_version",
         "equal_timestamp_policy": "equal_timestamp_policy",
+        "snapshot_time_policy": "snapshot_time_policy",
         "trade_gap_policy": "trade_gap_policy",
         "latency_ms": "entry_latency_ms",
         "jitter_ms": "entry_jitter_ms",

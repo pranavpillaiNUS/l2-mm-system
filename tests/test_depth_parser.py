@@ -6,8 +6,10 @@ Run with: python tests/test_depth_parser.py
 import gzip
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+
+import pytest
 
 from src.replay.depth_parser import DepthParser, DepthEvent
 
@@ -19,7 +21,7 @@ def make_diff(U: int, u: int, E: int = None) -> dict:
     if E is None:
         E = U * 100  # arbitrary exchange timestamp
     return {
-        "recv_time": "2026-04-21T10:00:00.000000",
+        "recv_time": "2026-04-21T10:00:00.001000",
         "data": {
             "e": "depthUpdate",
             "E": E,
@@ -52,6 +54,10 @@ def write_gz(records: list, path: Path) -> None:
             f.write(json.dumps(rec) + "\n")
 
 
+def without_resync(events: list[DepthEvent]) -> list[DepthEvent]:
+    return [event for event in events if event.event_type != "resync"]
+
+
 # --- tests ---
 
 def test_parse_single_diff():
@@ -59,7 +65,7 @@ def test_parse_single_diff():
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([make_diff(U=100, u=105, E=9999)], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert len(events) == 1
 
         e = events[0]
@@ -77,13 +83,17 @@ def test_parse_single_diff():
 def test_parse_snapshot():
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
-        write_gz([make_snapshot(last_update_id=999)], p)
+        write_gz([
+            make_snapshot(last_update_id=999),
+            make_diff(U=1000, u=1005, E=9999),
+        ], p)
 
-        events = list(DepthParser([p]).events())
-        assert len(events) == 1
+        events = without_resync(list(DepthParser([p]).events()))
+        assert len(events) == 2
 
         e = events[0]
         assert e.event_type == "snapshot"
+        assert e.exchange_time_ms == 9999
         assert e.first_update_id is None
         assert e.last_update_id == 999
         assert e.has_gap is False
@@ -92,18 +102,67 @@ def test_parse_snapshot():
     print("PASS: snapshot parsed correctly")
 
 
-def test_snapshot_naive_recv_time_is_treated_as_utc():
+def test_snapshot_source_time_is_retained_but_bridge_time_orders_replay():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        write_gz([
+            make_snapshot(last_update_id=999),
+            make_diff(U=1000, u=1005, E=9999),
+        ], p)
+
+        event = without_resync(list(DepthParser([p]).events()))[0]
+
+        assert event.recv_time == datetime(2026, 4, 21, 10, 0, 0)
+        assert event.exchange_time_ms == 9999
+    print("PASS: snapshot source tag retained; bridge time orders replay")
+
+
+def test_snapshot_waits_for_post_response_proxy_and_hides_intermediate_state():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        snapshot = make_snapshot(last_update_id=999)
+        first = make_diff(U=1000, u=1000, E=10_000)
+        first["recv_time"] = snapshot["recv_time"]
+        second = make_diff(U=1001, u=1001, E=10_010)
+        write_gz([snapshot, first, second], p)
+
+        events = without_resync(list(DepthParser([p]).events()))
+
+        assert [event.exchange_time_ms for event in events] == [10_010] * 3
+        assert [event.source_exchange_time_ms for event in events] == [
+            None,
+            10_000,
+            10_010,
+        ]
+        assert [event.dispatch_strategy for event in events] == [False, False, True]
+
+
+def test_new_snapshot_uses_recorded_response_completion_cutoff():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir) / "depth.jsonl.gz"
+        snapshot = make_snapshot(last_update_id=999)
+        snapshot["request_time"] = snapshot["recv_time"]
+        snapshot["recv_time"] = "2026-04-21T10:00:00.100000"
+        first = make_diff(U=1000, u=1000, E=10_000)
+        first["recv_time"] = "2026-04-21T10:00:00.050000"
+        second = make_diff(U=1001, u=1001, E=10_010)
+        second["recv_time"] = "2026-04-21T10:00:00.101000"
+        write_gz([snapshot, first, second], p)
+
+        events = without_resync(list(DepthParser([p]).events()))
+
+        assert [event.exchange_time_ms for event in events] == [10_010] * 3
+        assert events[-1].dispatch_strategy is True
+
+
+def test_unbridged_snapshot_is_not_emitted():
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([make_snapshot(last_update_id=999)], p)
 
-        event = list(DepthParser([p]).events())[0]
-
-        expected = int(
-            datetime(2026, 4, 21, 10, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
-        )
-        assert event.exchange_time_ms == expected
-    print("PASS: naive snapshot recv_time is interpreted as UTC")
+        events = list(DepthParser([p]).events())
+        assert [event.event_type for event in events] == ["resync"]
+    print("PASS: unbridged snapshot emits only a fail-closed resync barrier")
 
 
 def test_no_gap_in_continuous_sequence():
@@ -116,7 +175,7 @@ def test_no_gap_in_continuous_sequence():
             make_diff(U=111, u=115),
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert all(not e.has_gap for e in events)
     print("PASS: continuous sequence has no gaps")
 
@@ -130,7 +189,7 @@ def test_gap_detected_between_diffs():
             make_diff(U=108, u=112),  # gap: expected U=106
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert events[0].has_gap is False
         assert events[1].has_gap is True
     print("PASS: gap detected when U != prev_u + 1")
@@ -142,7 +201,7 @@ def test_first_diff_never_flagged_as_gap():
         p = Path(tmpdir) / "depth.jsonl.gz"
         write_gz([make_diff(U=500, u=510)], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert events[0].has_gap is False
     print("PASS: first diff is never flagged as a gap")
 
@@ -158,7 +217,7 @@ def test_snapshot_resets_gap_tracking():
             make_diff(U=201, u=210),              # continues from snapshot - not a gap
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert events[0].has_gap is False   # first diff
         assert events[1].has_gap is False   # snapshot
         assert events[2].has_gap is False   # diff after snapshot - reset, not flagged
@@ -177,7 +236,7 @@ def test_stale_diffs_after_snapshot_are_dropped_until_bridge():
             make_diff(U=201, u=205),
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
 
         assert len(events) == 2
         assert events[0].event_type == "snapshot"
@@ -196,10 +255,11 @@ def test_first_non_stale_diff_after_snapshot_must_bridge():
             make_diff(U=205, u=210),
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
 
-        assert len(events) == 2
-        assert events[1].has_gap is True
+        assert len(events) == 1
+        assert events[0].event_type == "diff"
+        assert events[0].has_gap is True
     print("PASS: first non-stale post-snapshot diff must bridge snapshot")
 
 
@@ -213,7 +273,7 @@ def test_gap_after_snapshot_detected():
             make_diff(U=215, u=220),  # gap: expected U=211
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert events[1].has_gap is False
         assert events[2].has_gap is True
     print("PASS: gap between diffs after snapshot still detected")
@@ -255,7 +315,7 @@ def test_snapshot_at_file_start_then_diffs():
             make_diff(U=1006, u=1010),
         ], p)
 
-        events = list(DepthParser([p]).events())
+        events = without_resync(list(DepthParser([p]).events()))
         assert len(events) == 3
         assert events[0].event_type == "snapshot"
         assert events[1].event_type == "diff"
@@ -269,19 +329,19 @@ def test_events_on_real_file():
     # and yields reasonable-looking events
     real_file = Path("data/raw/btcusdt/btcusdt_depth_20260421_1900.jsonl.gz")
     if not real_file.exists():
-        print("SKIP: test_events_on_real_file (no real data file found)")
-        return
+        pytest.skip("raw depth smoke-test file is not available")
 
     events = list(DepthParser([real_file]).events())
     assert len(events) > 0
-    # first event should be a snapshot (post-Apr-12 file)
-    assert events[0].event_type == "snapshot"
+    # A fail-closed resync barrier precedes the recovered snapshot.
+    assert events[0].event_type == "resync"
+    assert events[1].event_type == "snapshot"
     # After stale post-snapshot diffs are dropped, yielded events should be
     # monotonic by timestamp for the normal hourly files.
     timestamps = [event.exchange_time_ms for event in events]
     assert timestamps == sorted(timestamps)
     # all events have valid types
-    assert all(e.event_type in ("snapshot", "diff") for e in events)
+    assert all(e.event_type in ("resync", "snapshot", "diff") for e in events)
     # count gaps
     gaps = sum(1 for e in events if e.has_gap)
     print(f"PASS: real file - {len(events)} events, {gaps} gap(s)")
@@ -290,7 +350,10 @@ def test_events_on_real_file():
 if __name__ == "__main__":
     test_parse_single_diff()
     test_parse_snapshot()
-    test_snapshot_naive_recv_time_is_treated_as_utc()
+    test_snapshot_source_time_is_retained_but_bridge_time_orders_replay()
+    test_snapshot_waits_for_post_response_proxy_and_hides_intermediate_state()
+    test_new_snapshot_uses_recorded_response_completion_cutoff()
+    test_unbridged_snapshot_is_not_emitted()
     test_no_gap_in_continuous_sequence()
     test_gap_detected_between_diffs()
     test_first_diff_never_flagged_as_gap()

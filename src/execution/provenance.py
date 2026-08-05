@@ -5,6 +5,7 @@ from typing import Mapping
 
 from src.execution.queue_credit import parse_queue_credit
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 LEGACY_EXECUTION_MODEL_VERSION = "legacy_book_update_v1"
@@ -12,6 +13,7 @@ FROZEN_V2_PANEL_DIRNAME = "btcusdt_l2_panel_v2"
 EXECUTION_PROVENANCE_FIELDS = (
     "execution_model_version",
     "equal_timestamp_policy",
+    "snapshot_time_policy",
     "trade_gap_policy",
     "entry_latency_ms",
     "entry_jitter_ms",
@@ -52,6 +54,7 @@ def execution_provenance_for_replay(
             "trade_gap_policy must be 'ignore' or 'pause_until_snapshot'"
         )
     provenance = dict(sim_config.provenance)
+    provenance["snapshot_time_policy"] = SNAPSHOT_TIME_POLICY
     provenance["trade_gap_policy"] = trade_gap_policy
     return provenance
 
@@ -136,6 +139,10 @@ def require_event_driven_provenance(
     if provenance["equal_timestamp_policy"] != EQUAL_TIMESTAMP_POLICY:
         raise ValueError(
             "event-driven artifact uses an incompatible equal-timestamp policy"
+        )
+    if provenance["snapshot_time_policy"] != SNAPSHOT_TIME_POLICY:
+        raise ValueError(
+            "event-driven artifact uses an incompatible snapshot-time policy"
         )
     if provenance["trade_gap_policy"] not in {
         "ignore", "pause_until_snapshot"

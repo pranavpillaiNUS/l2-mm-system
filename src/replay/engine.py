@@ -11,12 +11,13 @@ The engine processes events in timestamp order:
   4. Fills from the simulator are dispatched to the strategy
 
 Gap handling: the engine starts in gap state (book uninitialized). A snapshot
-exits gap state and resyncs the book. A sequence gap in depth diffs, or an
-aggTrade gap under the strict policy, re-enters gap state. During a gap, events
-are counted but not dispatched -- the book is unreliable and strategy
-callbacks would see stale data. All local open orders are explicitly
-invalidated on gap entry because queue positions and pending intent are no
-longer trustworthy; this is not counted as an exchange cancellation.
+request emits a resynchronization barrier; the completed snapshot recovery
+exits gap state. A sequence gap in depth diffs, or an aggTrade gap under the
+strict policy, also enters gap state. During a gap, events are counted but not
+dispatched -- the book is unreliable and strategy callbacks would see stale
+data. All local open orders are explicitly invalidated on gap entry because
+queue positions and pending intent are no longer trustworthy; this is not
+counted as an exchange cancellation.
 
 Order management: strategies return Actions (OrderRequests or CancelRequests)
 from callbacks. The engine submits orders through the simulator and notifies
@@ -97,6 +98,7 @@ class ReplayConfig:
 @dataclass
 class ReplayStats:
     total_events: int = 0
+    snapshot_resyncs: int = 0
     depth_diffs: int = 0
     snapshots: int = 0
     trade_events: int = 0
@@ -260,6 +262,13 @@ class ReplayEngine:
     # --- event handlers ---
 
     def _on_depth(self, event: DepthEvent, strategy: Strategy) -> bool:
+        if event.event_type == "resync":
+            self._stats.snapshot_resyncs += 1
+            if not self._in_gap:
+                self._in_gap = True
+                self._cancel_all(event.exchange_time_ms)
+            return False
+
         if event.event_type == "snapshot":
             self._stats.snapshots += 1
             self.book.apply_snapshot(event.bids, event.asks, event.last_update_id)
@@ -270,6 +279,9 @@ class ReplayEngine:
                 # are invalid after a gap. The strategy will re-quote on the
                 # next callback.
                 self._cancel_all(event.exchange_time_ms)
+
+            if not event.dispatch_strategy:
+                return False
 
             self._record_book_sample(event.exchange_time_ms)
             actions = strategy.on_book_update(self.book, event.exchange_time_ms)
@@ -291,6 +303,8 @@ class ReplayEngine:
             return False
 
         self.book.apply_diff(event.bids, event.asks, event.last_update_id)
+        if not event.dispatch_strategy:
+            return False
         self._record_book_sample(event.exchange_time_ms)
         actions = strategy.on_book_update(self.book, event.exchange_time_ms)
         self._apply_actions(actions, event.exchange_time_ms, strategy)
@@ -336,7 +350,9 @@ class ReplayEngine:
         self._stats.total_events += 1
         self._stats.events_during_gap += 1
         if isinstance(event, DepthEvent):
-            if event.event_type == "snapshot":
+            if event.event_type == "resync":
+                self._stats.snapshot_resyncs += 1
+            elif event.event_type == "snapshot":
                 self._stats.snapshots += 1
             else:
                 self._stats.depth_diffs += 1

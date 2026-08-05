@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from src.replay.depth_parser import DepthEvent, DepthParser
 from src.replay.trade_parser import TradeEvent, TradeParser
 from src.replay.event_merger import EventMerger
@@ -127,13 +129,26 @@ def test_event_types_preserved():
     print("PASS: event types preserved through merge")
 
 
+def test_rejects_nonmonotone_depth_stream():
+    depth = [make_depth(200), make_depth(100)]
+
+    with pytest.raises(ValueError, match="depth stream is not monotone"):
+        list(EventMerger(iter(depth), iter([])).events())
+
+
+def test_rejects_nonmonotone_trade_stream():
+    trades = [make_trade(200), make_trade(100)]
+
+    with pytest.raises(ValueError, match="trade stream is not monotone"):
+        list(EventMerger(iter([]), iter(trades)).events())
+
+
 def test_smoke_on_real_files():
     depth_file = Path("data/raw/btcusdt/btcusdt_depth_20260421_1900.jsonl.gz")
     trade_file = Path("data/raw/btcusdt_trades/btcusdt_trades_20260421_1900.jsonl.gz")
 
     if not depth_file.exists() or not trade_file.exists():
-        print("SKIP: smoke test on real files (data not found)")
-        return
+        pytest.skip("raw merger smoke-test files are not available")
 
     depth_parser = DepthParser([depth_file])
     trade_parser = TradeParser([trade_file])
@@ -172,5 +187,7 @@ if __name__ == "__main__":
     test_both_streams_empty()
     test_output_is_globally_sorted()
     test_event_types_preserved()
+    test_rejects_nonmonotone_depth_stream()
+    test_rejects_nonmonotone_trade_stream()
     test_smoke_on_real_files()
     print("\nAll tests passed.")

@@ -86,6 +86,7 @@ def _aggregate_sweep_rows(rows: Iterable[dict]) -> List[dict]:
         aggregates.append({
             "execution_model_version": group_rows[0]["execution_model_version"],
             "equal_timestamp_policy": group_rows[0]["equal_timestamp_policy"],
+            "snapshot_time_policy": group_rows[0]["snapshot_time_policy"],
             "trade_gap_policy": group_rows[0]["trade_gap_policy"],
             "entry_latency_ms": group_rows[0]["entry_latency_ms"],
             "entry_jitter_ms": group_rows[0]["entry_jitter_ms"],
@@ -175,6 +176,7 @@ def _aggregate_fill_rate_rows(detail_rows: List[dict]) -> List[dict]:
             for field in (
                 "execution_model_version",
                 "equal_timestamp_policy",
+                "snapshot_time_policy",
                 "trade_gap_policy",
                 "entry_latency_ms",
                 "entry_jitter_ms",

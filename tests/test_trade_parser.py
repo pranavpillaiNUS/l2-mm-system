@@ -10,6 +10,8 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from src.replay.trade_parser import TradeParser, TradeEvent
 
 
@@ -176,8 +178,7 @@ def test_exchange_time_is_T_not_E():
 def test_events_on_real_file():
     real_file = Path("data/raw/btcusdt_trades/btcusdt_trades_20260421_1900.jsonl.gz")
     if not real_file.exists():
-        print("SKIP: test_events_on_real_file (no real data file found)")
-        return
+        pytest.skip("raw trade smoke-test file is not available")
 
     events = list(TradeParser([real_file]).events())
     assert len(events) > 0

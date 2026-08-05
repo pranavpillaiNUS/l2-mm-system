@@ -15,6 +15,7 @@ from src.execution.provenance import (
     require_safe_path_component,
 )
 from src.execution.queue_credit import parse_queue_credit, queue_credit_suffix
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 DEVELOPMENT_PANEL_SHA256 = (
@@ -148,6 +149,7 @@ def _write_artifact_manifest(args, starts: list[datetime]) -> Path:
         "source_fingerprint": _source_fingerprint(),
         "execution_model_version": "event_driven_v2",
         "equal_timestamp_policy": "market_data_before_private_actions_v1",
+        "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
         "trade_gap_policy": "pause_until_snapshot",
         "development_panel": {
             "path": str(args.windows_csv),
@@ -781,7 +783,7 @@ def main():
         raise ValueError(
             "V3 development runner requires the frozen development panel "
             f"SHA-256 {DEVELOPMENT_PANEL_SHA256}; found {panel_sha256}. "
-            "The sealed holdout is not authorized in this workflow."
+            "The strategy-sealed holdout is not authorized in this workflow."
         )
     starts = _load_window_starts(args.windows_csv, args.hours)
     _verify_raw_inputs(args, starts)

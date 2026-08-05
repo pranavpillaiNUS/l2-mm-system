@@ -24,6 +24,7 @@ from src.execution.provenance import (
 )
 from src.execution.queue_credit import parse_queue_credit
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 _FIXED_PARAM_FIELDS = (
@@ -49,6 +50,7 @@ _VARIED_PARAM_FIELDS = (
 _FIXED_PROVENANCE_FIELDS = (
     "execution_model_version",
     "equal_timestamp_policy",
+    "snapshot_time_policy",
     "trade_gap_policy",
     "entry_jitter_ms",
     "cancel_jitter_ms",
@@ -63,6 +65,7 @@ _VARIED_PROVENANCE_FIELDS = (
 _MANIFEST_PROVENANCE_FIELDS = (
     "execution_model_version",
     "equal_timestamp_policy",
+    "snapshot_time_policy",
     "trade_gap_policy",
     "queue_cancellation_credit",
     "latency_ms",
@@ -175,6 +178,7 @@ def _expected_provenance(manifest_row: Mapping[str, str]) -> dict[str, object]:
     expected = {
         "execution_model_version": manifest_row["execution_model_version"],
         "equal_timestamp_policy": manifest_row["equal_timestamp_policy"],
+        "snapshot_time_policy": manifest_row["snapshot_time_policy"],
         "trade_gap_policy": manifest_row["trade_gap_policy"],
         "entry_latency_ms": _manifest_int(manifest_row, "latency_ms"),
         "entry_jitter_ms": _manifest_int(manifest_row, "entry_jitter_ms"),
@@ -191,6 +195,8 @@ def _expected_provenance(manifest_row: Mapping[str, str]) -> dict[str, object]:
         raise ValueError("sweep manifest must select event_driven_v2 artifacts")
     if expected["equal_timestamp_policy"] != EQUAL_TIMESTAMP_POLICY:
         raise ValueError("sweep manifest uses an incompatible equal-timestamp policy")
+    if expected["snapshot_time_policy"] != SNAPSHOT_TIME_POLICY:
+        raise ValueError("sweep manifest uses an incompatible snapshot-time policy")
     if expected["trade_gap_policy"] not in {"ignore", "pause_until_snapshot"}:
         raise ValueError("sweep manifest uses an invalid trade-gap policy")
     if expected["post_only"] is not True:

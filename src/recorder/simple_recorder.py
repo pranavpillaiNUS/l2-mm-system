@@ -3,7 +3,7 @@ Minimal L2 recorder for Binance depth stream.
 
 Captures raw WebSocket messages to gzipped JSON files.
 Also fetches REST snapshots at connect and every hour for book reconstruction.
-Run in background, keep pc on
+Run as a long-lived process with durable storage and external supervision.
 
 Usage:
     python -m src.recorder.simple_recorder --symbol btcusdt
@@ -69,13 +69,19 @@ class SimpleRecorder:
             print(f"  Snapshot fetch failed: {e}")
             return None
     
-    def _write_snapshot(self, recv_time: datetime) -> None:
-        """Fetch and write a snapshot to the current file.
-        Tagged with type=snapshot so replay engine can tell it apart from diffs."""
+    def _write_snapshot(self, request_time: datetime) -> None:
+        """Fetch and write a snapshot with request and response timestamps.
+
+        ``recv_time`` is captured only after the blocking REST response has
+        completed. ``request_time`` preserves the start of the request for
+        latency audits. Legacy captures used request start as ``recv_time``.
+        """
         snapshot = self._fetch_snapshot()
         if snapshot and self._current_file:
+            recv_time = datetime.utcnow()
             record = {
                 "recv_time": recv_time.isoformat(),
+                "request_time": request_time.isoformat(),
                 "type": "snapshot",
                 "data": snapshot,
             }

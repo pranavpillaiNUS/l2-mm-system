@@ -14,6 +14,7 @@ from src.execution.simulator import (
     EXECUTION_MODEL_VERSION,
     SimConfig,
 )
+from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
 
 
 def _write_panel(path: Path, *, starts: list[str] | None = None) -> None:
@@ -97,6 +98,7 @@ def _write_baseline(
             "latency_seed": 42,
             "execution_model_version": EXECUTION_MODEL_VERSION,
             "equal_timestamp_policy": EQUAL_TIMESTAMP_POLICY,
+            "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
             "trade_gap_policy": "pause_until_snapshot",
         })
         payload["execution_provenance"] = execution_provenance_for_replay(

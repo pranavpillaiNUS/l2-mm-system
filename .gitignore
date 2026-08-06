@@ -5,6 +5,7 @@ notebooks/rebuild_journal.md
 notebooks/current_stage_brief.md
 
 .pytest_cache/
+*.egg-info/
 
 *.png
 !report/figures/*.png

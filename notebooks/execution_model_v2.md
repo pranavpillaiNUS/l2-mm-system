@@ -176,7 +176,7 @@ execution model.
 
 The V3 runner accepts only the frozen `development_windows.csv` content
 (SHA-256
-`0dd76f47449802ba8a6723192bbc54cc36c009d8970c25f64ae3c8e38b188256`).
+`c779138fdffb739715c53cfa27c75b3c8ca140bc4f5a6128f60f2251948bd362`).
 Before a completed step can be resumed, it verifies the frozen integrity
 manifest file and identity plus the SHA-256 of every selected depth and trade
 file. Resume markers bind the command, source tree, inputs, complete expected

@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import scripts.run_l2_panel as panel_runner
+from scripts.compare_execution_model_baseline import FROZEN_DEVELOPMENT_PANEL_SHA256
 from scripts.run_l2_panel import (
     _is_complete,
     _run_step,
@@ -171,6 +172,42 @@ def test_v3_runner_rejects_noncanonical_or_holdout_panel(
         assert "strategy-sealed holdout is not authorized" in str(exc)
     else:
         raise AssertionError("noncanonical development panel should be rejected")
+
+
+def test_v3_dry_run_accepts_committed_development_panel(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+):
+    """Exercise the shipped CSV and pins rather than a patched fixture hash."""
+    windows = Path(
+        "results/panels/btcusdt_l2_panel_v2/development_windows.csv"
+    )
+    panel_sha256 = hashlib.sha256(windows.read_bytes()).hexdigest()
+    assert panel_sha256 == FROZEN_DEVELOPMENT_PANEL_SHA256
+    checked_starts = []
+    monkeypatch.setattr(
+        panel_runner,
+        "_verify_raw_inputs",
+        lambda args, starts: checked_starts.extend(starts),
+    )
+    output_root = tmp_path / "v3"
+    monkeypatch.setattr(sys, "argv", [
+        "run_l2_panel.py",
+        "--output-root", str(output_root),
+        "--status-dir", str(output_root / "status"),
+        "--phase", "all",
+        "--dry-run",
+    ])
+
+    main()
+
+    output = capsys.readouterr().out
+    assert len(checked_starts) == 24
+    assert output.count("[run] reconcile_") == 48
+    assert output.count("[run] ofi_signal_") == 2
+    assert "[run] execution_model_comparison" in output
+    assert not output_root.exists()
 
 
 def test_committed_artifact_manifest_captures_code_raw_and_outputs(

@@ -1,5 +1,8 @@
 PYTHON ?= python3
 TECTONIC ?= tectonic
+CMAKE ?= cmake
+CPP_BUILD ?= cpp/build
+CMAKE_ARGS ?=
 
 REPORT_PDF := report/l2_mm_research_report.pdf
 
@@ -9,6 +12,19 @@ export PYTHONHASHSEED := 0
 export SOURCE_DATE_EPOCH := 1785801600
 
 .PHONY: report-assets report report-check report-clean
+
+.PHONY: cpp-build cpp-test cpp-benchmark
+
+cpp-build:
+	$(CMAKE) -S cpp -B $(CPP_BUILD) -DCMAKE_BUILD_TYPE=Release $(CMAKE_ARGS)
+	$(CMAKE) --build $(CPP_BUILD) --parallel 2
+
+cpp-test: cpp-build
+	$(CMAKE) --build $(CPP_BUILD) --target test
+	env PYTHONPATH=. L2MM_CPP_BINARY=$(abspath $(CPP_BUILD)/l2mm_orderbook) $(PYTHON) -m pytest -q tests/test_cpp_parity.py tests/test_cpp_parity_vectors.py
+
+cpp-benchmark: cpp-test
+	env PYTHONPATH=. $(PYTHON) scripts/benchmark_orderbook.py --binary $(CPP_BUILD)/l2mm_orderbook
 
 report-assets:
 	env PYTHONPATH=. $(PYTHON) scripts/verify_v2_artifacts.py

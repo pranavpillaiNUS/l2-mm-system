@@ -1,0 +1,408 @@
+{
+  "contract_version": 1,
+  "source": "frozen from src/replay/orderbook.py state_hash on 2026-06-18",
+  "scale": {
+    "price_decimals": 8,
+    "qty_decimals": 8,
+    "int_scale": 100000000
+  },
+  "serialization": {
+    "hash_algorithm": "sha256",
+    "encoding": "utf-8",
+    "json_separators": [
+      ",",
+      ":"
+    ],
+    "key_order": [
+      "bids",
+      "asks",
+      "last_update_id"
+    ],
+    "bid_order": "descending_price_best_first",
+    "ask_order": "ascending_price_best_first",
+    "level_form": "[\"<price>\",\"<qty>\"]",
+    "last_update_id_form": "bare JSON integer, or null when unset"
+  },
+  "rolling_digest_definition": "sha256 over the ASCII state_hash hex of every state in order (fresh empty book first, then after each op); per case, then a global sha256 over the per-case rolling digests in declared order",
+  "global_rolling_digest": "3ba3cdd3f17c1079da3f01c511aef4bab77abbd6b5e13738e08eed1551267c9d",
+  "cases": [
+    {
+      "name": "empty_book",
+      "ops": [],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        }
+      ],
+      "rolling_digest": "545bdd5a107984ea735af99b193562d9bffdd4f4f41ae4cde133c3eae1b15b97"
+    },
+    {
+      "name": "snapshot_out_of_order_sort",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74574.60000000",
+              "0.50000000"
+            ],
+            [
+              "74574.79000000",
+              "1.41823000"
+            ],
+            [
+              "74574.78000000",
+              "0.00283000"
+            ]
+          ],
+          "asks": [
+            [
+              "74575.10000000",
+              "2.00000000"
+            ],
+            [
+              "74574.90000000",
+              "0.30000000"
+            ],
+            [
+              "74575.00000000",
+              "0.10000000"
+            ]
+          ],
+          "last_update_id": 92090441860
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"1.41823000\"],[\"74574.78000000\",\"0.00283000\"],[\"74574.60000000\",\"0.50000000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"],[\"74575.00000000\",\"0.10000000\"],[\"74575.10000000\",\"2.00000000\"]],\"last_update_id\":92090441860}",
+          "state_hash": "96424de9415df90322059aca6e8945e822e31674002594008f0ad47ff23dbcdd",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 3,
+          "n_asks": 3
+        }
+      ],
+      "rolling_digest": "ec47dac74ab150ee271c7a26956aca4cc98873caaa65d3a22f407c116713e037"
+    },
+    {
+      "name": "snapshot_then_update_add_remove",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74574.79000000",
+              "1.41823000"
+            ],
+            [
+              "74574.78000000",
+              "0.00283000"
+            ]
+          ],
+          "asks": [
+            [
+              "74574.90000000",
+              "0.30000000"
+            ],
+            [
+              "74575.00000000",
+              "0.10000000"
+            ]
+          ],
+          "last_update_id": 92090441860
+        },
+        {
+          "op": "diff",
+          "bids": [
+            [
+              "74574.79000000",
+              "2.00000000"
+            ],
+            [
+              "74574.50000000",
+              "0.05000000"
+            ],
+            [
+              "74000.00000000",
+              "0.00000000"
+            ]
+          ],
+          "asks": [
+            [
+              "74575.00000000",
+              "0.00000000"
+            ]
+          ],
+          "last_update_id": 92090441861
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"1.41823000\"],[\"74574.78000000\",\"0.00283000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"],[\"74575.00000000\",\"0.10000000\"]],\"last_update_id\":92090441860}",
+          "state_hash": "b14383fc914951962bc176a834dfdfc10a82d1ed8c087905b3e14830c8312dc5",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 2,
+          "n_asks": 2
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"2.00000000\"],[\"74574.78000000\",\"0.00283000\"],[\"74574.50000000\",\"0.05000000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"]],\"last_update_id\":92090441861}",
+          "state_hash": "bf78bd2a43c75324eefa564b2e275b2e6b490bf3b9b1cd4c5f268418e6742213",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 3,
+          "n_asks": 1
+        }
+      ],
+      "rolling_digest": "25af3b1c808b07fbce8f5c9448dc14e2319b6965b524d404a8448c6b657abddc"
+    },
+    {
+      "name": "resnapshot_clears_book",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74574.79000000",
+              "1.41823000"
+            ]
+          ],
+          "asks": [
+            [
+              "74574.90000000",
+              "0.30000000"
+            ]
+          ],
+          "last_update_id": 92090441860
+        },
+        {
+          "op": "diff",
+          "bids": [
+            [
+              "74574.50000000",
+              "0.05000000"
+            ]
+          ],
+          "asks": [],
+          "last_update_id": 92090441861
+        },
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74580.00000000",
+              "0.70000000"
+            ]
+          ],
+          "asks": [
+            [
+              "74581.00000000",
+              "0.90000000"
+            ]
+          ],
+          "last_update_id": 92090450000
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"1.41823000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"]],\"last_update_id\":92090441860}",
+          "state_hash": "f17b7d50c6bd9fc3e5aa21ae5a6509ea1af5bb252ffd19a8fe50577fd151246b",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 1,
+          "n_asks": 1
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"1.41823000\"],[\"74574.50000000\",\"0.05000000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"]],\"last_update_id\":92090441861}",
+          "state_hash": "bfc539928dc8f0811adbe4ddfb3c8d8e8083d44c97d164dbaa3b6e9d44147a31",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 2,
+          "n_asks": 1
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74580.00000000\",\"0.70000000\"]],\"asks\":[[\"74581.00000000\",\"0.90000000\"]],\"last_update_id\":92090450000}",
+          "state_hash": "2bea39f3b4965d555aa8bcbba48e1f87842134194894641e141a7fca5bdbba7e",
+          "best_bid": "74580.00000000",
+          "best_ask": "74581.00000000",
+          "n_bids": 1,
+          "n_asks": 1
+        }
+      ],
+      "rolling_digest": "6e44e2418d5f771017a8b22201494c4c684ee96ca4a5d7ca3a2b5a99c469f120"
+    },
+    {
+      "name": "crossed_book_is_stored_as_is",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74575.50000000",
+              "1.00000000"
+            ]
+          ],
+          "asks": [
+            [
+              "74575.00000000",
+              "1.00000000"
+            ]
+          ],
+          "last_update_id": 92090441900
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74575.50000000\",\"1.00000000\"]],\"asks\":[[\"74575.00000000\",\"1.00000000\"]],\"last_update_id\":92090441900}",
+          "state_hash": "f63e109a76e406f45577b6154e662a6e993525988a96c526f39c1c6039b7aba4",
+          "best_bid": "74575.50000000",
+          "best_ask": "74575.00000000",
+          "n_bids": 1,
+          "n_asks": 1
+        }
+      ],
+      "rolling_digest": "c2e4af814f3e166582ecfb287488f8bc5ba8f031326654091218d0ffa02b2586"
+    },
+    {
+      "name": "min_qty_and_1e6_boundary",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74574.79000000",
+              "0.00001000"
+            ]
+          ],
+          "asks": [
+            [
+              "74574.90000000",
+              "0.00000100"
+            ]
+          ],
+          "last_update_id": 92090441860
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"0.00001000\"]],\"asks\":[[\"74574.90000000\",\"0.00000100\"]],\"last_update_id\":92090441860}",
+          "state_hash": "0c8754888b36beb372dc739c840ea68edac1b87ccd1aa4793250be6092a077a5",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 1,
+          "n_asks": 1
+        }
+      ],
+      "rolling_digest": "248c04de60e1debf9d11aa831f07934e3c7a63a890c4098da0c875f07157419d"
+    },
+    {
+      "name": "remove_all_back_to_empty",
+      "ops": [
+        {
+          "op": "snapshot",
+          "bids": [
+            [
+              "74574.79000000",
+              "1.41823000"
+            ]
+          ],
+          "asks": [
+            [
+              "74574.90000000",
+              "0.30000000"
+            ]
+          ],
+          "last_update_id": 92090441860
+        },
+        {
+          "op": "diff",
+          "bids": [
+            [
+              "74574.79000000",
+              "0.00000000"
+            ]
+          ],
+          "asks": [
+            [
+              "74574.90000000",
+              "0.00000000"
+            ]
+          ],
+          "last_update_id": 92090441861
+        }
+      ],
+      "states": [
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":null}",
+          "state_hash": "c759554deb7efbdf2d329d84a672a9b7da6af4f56ab9f513b99e1d901d1d1717",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        },
+        {
+          "canonical_bytes": "{\"bids\":[[\"74574.79000000\",\"1.41823000\"]],\"asks\":[[\"74574.90000000\",\"0.30000000\"]],\"last_update_id\":92090441860}",
+          "state_hash": "f17b7d50c6bd9fc3e5aa21ae5a6509ea1af5bb252ffd19a8fe50577fd151246b",
+          "best_bid": "74574.79000000",
+          "best_ask": "74574.90000000",
+          "n_bids": 1,
+          "n_asks": 1
+        },
+        {
+          "canonical_bytes": "{\"bids\":[],\"asks\":[],\"last_update_id\":92090441861}",
+          "state_hash": "6b923dd79ac671f060ac329fe98f4b034c23843bc0510edffea4fc980c4da028",
+          "best_bid": null,
+          "best_ask": null,
+          "n_bids": 0,
+          "n_asks": 0
+        }
+      ],
+      "rolling_digest": "8809626d2a3cf6417ada9953a923ce352d14a90535cfa7371db7ada82a8659ed"
+    }
+  ]
+}

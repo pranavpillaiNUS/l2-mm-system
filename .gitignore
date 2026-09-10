@@ -28,3 +28,4 @@ results/panels/*/status*/
 results/panels/*/hourly_depth_descriptors.json
 results/panels/**/*_cache.json
 report/build/
+cpp/build*/

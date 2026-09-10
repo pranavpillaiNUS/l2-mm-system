@@ -27,3 +27,18 @@ jobs:
         run: env PYTHONPATH=. python scripts/demo_event_driven_execution.py
       - name: Verify frozen artifacts
         run: env PYTHONPATH=. python scripts/verify_v2_artifacts.py
+
+  cpp-parity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11.14"
+      - name: Install native and parity dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake libssl-dev
+          python -m pip install pytest==9.0.3 sortedcontainers==2.4.0
+      - name: Build and verify native order book
+        run: make cpp-test PYTHON=python

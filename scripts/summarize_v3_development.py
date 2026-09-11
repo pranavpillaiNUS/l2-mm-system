@@ -355,8 +355,9 @@ def build_summary(
     *,
     legacy_root: Path = DEFAULT_LEGACY_ROOT,
     protocol_path: Path = DEFAULT_PROTOCOL,
+    source_revision: str | None = None,
 ) -> dict:
-    manifest = verify(output_root, status_dir)
+    manifest = verify(output_root, status_dir, source_revision=source_revision)
     starts = manifest["development_panel"]["starts"]
     if len(starts) != 24:
         raise ValueError("V3 decision requires the complete 24-window panel")
@@ -404,6 +405,7 @@ def build_summary(
             "path": str(output_root / "ARTIFACT_MANIFEST.json"),
             "sha256": _artifact_sha256(output_root / "ARTIFACT_MANIFEST.json"),
             "source_fingerprint": manifest["source_fingerprint"],
+            "source_verification": manifest["source_verification"],
         },
         "development_panel": manifest["development_panel"],
         "combined_screen": status,
@@ -436,6 +438,10 @@ def main() -> None:
     parser.add_argument("--status-dir", type=Path)
     parser.add_argument("--legacy-root", type=Path, default=DEFAULT_LEGACY_ROOT)
     parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
+    parser.add_argument(
+        "--source-revision", metavar="recorded|COMMIT",
+        help="Verify the run's recorded Git source; default checks the current tree",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     guard_event_driven_output_path(args.output)
@@ -446,6 +452,7 @@ def main() -> None:
         args.status_dir or args.output_root / "status",
         legacy_root=args.legacy_root,
         protocol_path=args.protocol,
+        source_revision=args.source_revision,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")

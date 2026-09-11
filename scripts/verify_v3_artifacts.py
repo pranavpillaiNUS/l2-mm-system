@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
+import subprocess
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -21,6 +23,69 @@ from scripts.run_l2_panel import (
 from src.execution.provenance import guard_event_driven_output_path
 from src.execution.simulator import EQUAL_TIMESTAMP_POLICY, EXECUTION_MODEL_VERSION
 from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
+
+
+def _git_output(arguments: list[str]) -> bytes:
+    try:
+        return subprocess.run(
+            ["git", *arguments], check=True, capture_output=True,
+        ).stdout
+    except (subprocess.CalledProcessError, OSError) as exc:
+        raise ValueError("cannot read the requested V3 source revision from Git") from exc
+
+
+def _revision_source_fingerprint(revision: str) -> tuple[str, str]:
+    """Reproduce run_l2_panel's fingerprint from committed Python file bytes."""
+    if not isinstance(revision, str) or not revision.strip() or "\0" in revision:
+        raise ValueError("V3 source revision must be a nonempty Git commit reference")
+    commit = _git_output([
+        "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}",
+    ]).decode("ascii").strip()
+    tree = _git_output(["ls-tree", "-r", "-z", "--full-tree", commit, "--", "src", "scripts"])
+    files = []
+    for record in tree.split(b"\0"):
+        if not record:
+            continue
+        metadata, filename = record.split(b"\t", 1)
+        path = Path(filename.decode("utf-8"))
+        if not path.name.endswith(".py"):
+            continue
+        mode, kind, object_id = metadata.decode("ascii").split()
+        if kind != "blob" or mode not in {"100644", "100755"}:
+            raise ValueError(f"V3 source revision contains a redirected Python file: {path}")
+        files.append((path, object_id))
+    if not files:
+        raise ValueError("V3 source revision contains no Python source files")
+    digest = hashlib.sha256()
+    # Sort Path objects, exactly as _source_fingerprint does. A string sort
+    # differs for names such as src/a/file.py and src/a-file.py.
+    for path, object_id in sorted(files, key=lambda item: item[0]):
+        contents = _git_output(["cat-file", "blob", object_id])
+        digest.update(str(path).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(contents).hexdigest().encode("ascii"))
+        digest.update(b"\0")
+    return commit, digest.hexdigest()
+
+
+def _verify_source(payload: dict, source_revision: str | None = None) -> dict:
+    if source_revision is None:
+        fingerprint = _source_fingerprint()
+        if payload.get("source_fingerprint") != fingerprint:
+            raise ValueError("current Python source differs from the V3 artifact manifest")
+        return {"mode": "current_tree", "revision": None,
+                "source_fingerprint": fingerprint}
+    recorded_revision = payload.get("git_head")
+    if not isinstance(recorded_revision, str) or not recorded_revision:
+        raise ValueError("V3 artifact manifest has no recorded Git source revision")
+    requested = recorded_revision if source_revision == "recorded" else source_revision
+    commit, fingerprint = _revision_source_fingerprint(requested)
+    if commit != recorded_revision:
+        raise ValueError("requested source revision differs from the V3 recorded Git commit")
+    if fingerprint != payload.get("source_fingerprint"):
+        raise ValueError("recorded Git Python source differs from the V3 artifact manifest")
+    return {"mode": "git_revision", "revision": commit,
+            "source_fingerprint": fingerprint}
 
 
 def _verify_completed_steps(payload: dict, output_root: Path, starts: list[datetime]) -> None:
@@ -108,7 +173,7 @@ def _artifact_fingerprints(
     return fingerprints
 
 
-def verify(output_root: Path, status_dir: Path) -> dict:
+def verify(output_root: Path, status_dir: Path, *, source_revision: str | None = None) -> dict:
     guard_event_driven_output_path(output_root)
     manifest_path = output_root / "ARTIFACT_MANIFEST.json"
     if not manifest_path.is_file() or manifest_path.is_symlink():
@@ -125,8 +190,7 @@ def verify(output_root: Path, status_dir: Path) -> dict:
         raise ValueError("V3 artifact manifest has the wrong snapshot-time policy")
     if payload.get("trade_gap_policy") != "pause_until_snapshot":
         raise ValueError("V3 artifact manifest has the wrong trade-gap policy")
-    if payload.get("source_fingerprint") != _source_fingerprint():
-        raise ValueError("current Python source differs from the V3 artifact manifest")
+    source_verification = _verify_source(payload, source_revision)
 
     panel = payload.get("development_panel")
     if not isinstance(panel, dict) or panel.get("sha256") != DEVELOPMENT_PANEL_SHA256:
@@ -216,7 +280,7 @@ def verify(output_root: Path, status_dir: Path) -> dict:
     )
     if actual_artifacts != expected_artifacts:
         raise ValueError("V3 artifact tree differs from its committed manifest")
-    return payload
+    return {**payload, "source_verification": source_verification}
 
 
 def parse_args():
@@ -231,16 +295,22 @@ def parse_args():
         type=Path,
         default=Path("results/panels/btcusdt_l2_panel_v3_event_driven/status"),
     )
+    parser.add_argument(
+        "--source-revision", metavar="recorded|COMMIT",
+        help="Verify committed source at the manifest's exact Git revision; default checks the current tree",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    payload = verify(args.output_root, args.status_dir)
+    payload = verify(args.output_root, args.status_dir, source_revision=args.source_revision)
     print(
         "OK: V3 artifacts verified at source fingerprint "
         f"{payload['source_fingerprint']}"
     )
+    if payload["source_verification"]["revision"] is not None:
+        print(f"Source: recorded Git revision {payload['source_verification']['revision']}")
 
 
 if __name__ == "__main__":

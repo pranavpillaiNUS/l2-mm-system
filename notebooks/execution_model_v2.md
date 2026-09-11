@@ -1,7 +1,8 @@
 # Event-Driven Execution Model V2
 
 Status: Python reference implementation and deterministic acceptance complete
-locally; the development-panel V3 rerun is pending. This model supersedes the
+locally; the full development-panel V3 rerun completed on 2026-09-11. Its locked
+primary OFI screen is blocked at both queue endpoints. This model supersedes the
 execution timing and own-order queue semantics used by the frozen Phase 2 V2
 research artifacts. Those artifacts remain historical evidence and must not be
 silently overwritten.
@@ -24,8 +25,9 @@ arrived. Delayed cancels expose overlapping own quotes, for which the historical
 simulator could reuse one recorded trade's full quantity for every own order at
 the price.
 
-The new model corrects these semantics before the Python implementation is
-frozen as the future C++ parity reference.
+The corrected Python research reference is frozen at commit `04df629`. The
+implemented C++17 port reproduces the order-book contract; replay, execution,
+and accounting continue to use Python.
 
 A later publication audit found a separate recorder issue: historical REST
 snapshots were tagged at request start, before the blocking response completed.
@@ -130,7 +132,10 @@ chooses timestamp-group censoring over prefix preservation.
 Scheduled private events after the last recorded market-data timestamp are not
 processed. Executing them would require assuming an unobserved future book.
 Every still-open order is explicitly terminalized as `EXPIRED`, and pending
-private/cancel action counts are reported separately.
+private/cancel action counts are reported separately. The
+`pending_actions_at_end` and `pending_cancels_at_end` statistics count scheduled
+actions immediately before terminalization; they can be nonzero even though
+the corresponding orders are then expired.
 
 ## Known Limits
 
@@ -157,12 +162,13 @@ private/cancel action counts are reported separately.
 The committed `results/panels/btcusdt_l2_panel_v2` execution-derived outputs
 were generated under `legacy_book_update_v1`. The verifier continues to verify
 those immutable historical artifacts. Raw-file integrity and selected
-development/holdout identities are unaffected. The private-timing correction
-requires new fills, PnL, conditional studies, queue diagnostics, and latency
-analysis; the snapshot-time correction additionally requires replay-derived
-book samples, state hashes, and unconditional signal studies to be regenerated
-or compared. All new outputs belong under `event_driven_v2` in a new result
-root.
+development/holdout identities are unaffected. The private-timing and
+snapshot-time corrections required regenerated book-state signals, fills, PnL,
+conditional studies, and queue diagnostics. The completed V3 study supplies
+these at both queue endpoints with the locked 10 ms latency. The old broader
+queue/latency stress grid remains historical and requires a separate rerun
+before any current-model grid claim. All new execution-derived outputs belong
+under `event_driven_v2` in a new result root.
 
 Standalone current-engine scripts default beneath `results/event_driven_v2`.
 The development-panel runner uses
@@ -202,8 +208,25 @@ panel identity, every selected raw-file hash, completed-step derivations, and
 every durable non-status artifact hash. Ephemeral caches are excluded and V3
 CSV artifacts are explicitly trackable despite the repository-wide raw-CSV
 ignore rule. Unlike resumability markers, this manifest is not ignored by Git.
-`scripts/verify_v3_artifacts.py` checks it against the current source, raw
-inputs, frozen panel, and complete durable output tree.
+`scripts/verify_v3_artifacts.py` checks source identity, raw inputs, the frozen
+panel, all required derivation steps, and the complete durable output tree.
+
+The completed run records 61 steps and 330 durable artifacts against research
+commit `04df6294872a256374f910d12d5e5e3e08e8757a`, with source fingerprint
+`45141ba610bb070217e6d08bbb5fef9ca1a725f5c7d5e40b6e14881450a4cb4d`.
+Later benchmark and verification-tool changes are outside that frozen research
+reference. Verify it explicitly from its recorded Git objects using:
+
+```bash
+env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorded
+env PYTHONPATH=. python scripts/summarize_v3_development.py --source-revision recorded
+```
+
+Recorded mode requires the exact manifest commit and reproduces its original
+Python source fingerprint. Raw files and durable artifacts remain subject to
+the same checks. Default verification without `--source-revision` still requires
+the current working source to match. The decision summary records the verified
+revision and is written outside the run tree, preserving the run manifest.
 
 ## Minimum Acceptance Cases
 
@@ -238,6 +261,9 @@ Local acceptance checkpoint (2026-07-14):
   delayed cancellations, eight maker fills, zero taker fills, two explicit
   replay-end expirations, and no pending orders at termination
 
-These checks accept the Python implementation boundary. They are not V3
-research results; execution-derived claims remain pending the isolated
-development-panel rerun.
+These historical checks accepted the Python implementation boundary before the
+V3 study. The completed [V3 writeup](research_writeup_v3.md) and
+[decision summary](../results/panels/btcusdt_l2_panel_v3_development_summary/summary.json)
+now report the corrected development evidence. Both endpoint conditional OFI
+screens failed the pre-specified `1.0 bps` threshold; the strategy-sealed holdout
+remains unused for candidate evaluation.

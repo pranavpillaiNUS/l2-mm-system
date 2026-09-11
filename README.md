@@ -2,10 +2,11 @@
 
 [![Tests](https://github.com/pranavpillaiNUS/l2-mm-system/actions/workflows/tests.yml/badge.svg)](https://github.com/pranavpillaiNUS/l2-mm-system/actions/workflows/tests.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB.svg)](https://www.python.org/downloads/release/python-3110/)
-[![Technical report](https://img.shields.io/badge/report-PDF-B30B00.svg)](report/l2_mm_research_report.pdf)
+[![Historical V2 report](https://img.shields.io/badge/V2_report-PDF-B30B00.svg)](report/l2_mm_research_report.pdf)
 
-A deterministic Python research system for reconstructing Binance BTCUSDT spot
-L2 order books, replaying market data, and simulating passive execution.
+A deterministic research system for reconstructing Binance BTCUSDT spot L2
+order books, replaying market data, and simulating passive execution, with a
+Python reference and a verified C++17 order-book port.
 
 > **Research question:** Does a signal that predicts the next mid-price move
 > remain useful after passive execution selects which states become fills?
@@ -24,11 +25,15 @@ University of Singapore
 - **Research result:** strong population-level one-second OFI association with
   forward mid-price drift, but a failed pre-specified passive-fill screen for
   the tested market-making baseline.
-- **Verification:** `376 passed, 3 skipped` from a public clone; `379 passed`
-  with the selected raw captures restored; report generation is checked in CI.
-- **Current status:** Python mechanics are implemented and tested. The corrected
-  24-window V3 development rerun is the next empirical milestone; the C++
-  performance port remains deferred until the Python reference is frozen.
+- **Verification:** all 436 tests pass locally with raw data and the native
+  build, alongside native CTest, sanitizer checks, and byte-exact parity across
+  36,000 recorded book states.
+  Report generation and native parity are configured in CI.
+- **Current status:** the corrected 24-window V3 study and planned C++17
+  order-book port are complete. Read the [V3 results](notebooks/research_writeup_v3.md)
+  and [native design and measurements](cpp/README.md).
+- **Native measurement:** 13.7× median speedup on preloaded book updates from
+  one development hour; this does not measure end-to-end replay performance.
 
 ## Execution in one trace
 
@@ -49,11 +54,11 @@ suite.
 | Layer | Status | What is established |
 |---|---|---|
 | Bar backtester | Educational precursor | Reusable interfaces, testing patterns, and research lessons |
-| Frozen L2 study | Complete | Auditable 24-window development evidence under the historical execution model |
+| Frozen V2 study | Complete, historical | Auditable 24-window development evidence under the legacy execution model |
 | Event-driven Python model | Implemented and tested | Deterministic private-event scheduling on the model clock, post-response-gated snapshot recovery, delayed cancels, own FIFO, volume conservation, gap handling, and risk invariants |
-| V3 development economics | Pending | The 24-window rerun will produce the first current-model fill, P&L, markout, queue, and conditional-signal estimates |
+| V3 development study | Complete | Current-model baseline and conditional OFI evidence at both queue endpoints; the committed gate blocks candidate advancement |
 | Holdout strategy evaluation | Strategy-sealed | Reserved for one candidate that clears development and enters with a locked protocol |
-| C++ performance port | Deferred | Begins after Python V3 is frozen and modern C++ fundamentals are in place |
+| C++17 order-book port | Implemented and tested | Checked integer storage, byte/operation/transcript parity, native checks, and benchmark tooling; execution and accounting remain Python |
 
 The frozen study and current simulator use distinct execution models. The
 historical `legacy_book_update_v1` engine activated arrivals on the next depth
@@ -63,13 +68,11 @@ models cancel/fill races, conserves aggressor volume across own FIFO, and gates
 snapshot recovery on a post-response depth-receipt boundary. Each model writes
 to its own artifact namespace.
 
-The pre-rerun hypotheses are that the pooled population OFI association remains
-positive and that the fill-conditioned separation remains below the existing
-`1.0 bps` bar at both queue endpoints. The scheduler correction does not enter
-the population OFI calculation, although the snapshot policy does; the
-fill-conditioned result is directly sensitive to both changes because they can
-alter the fill set nonlinearly. These prospective hypotheses will be tested
-under a decision rule committed before the rerun.
+The [decision protocol](notebooks/v3_development_protocol.md) was committed
+before the V3 rerun. Both prospective hypotheses held: pooled population OFI
+remained positive and fill-conditioned separation remained below the existing
+`1.0 bps` bar at both queue endpoints. This completes the defined development
+experiment without qualifying a candidate for holdout evaluation.
 
 **Audit history:** The [error analysis](notebooks/error_analysis.md) records
 successive corrections to post-only enforcement, UTC and stale-diff replay,
@@ -77,7 +80,36 @@ private-event scheduling, and snapshot-response timing. Each correction either
 regenerated affected evidence or established an explicit model/version
 boundary.
 
-## Research findings
+## Current research findings
+
+V3 reran the same 24 development windows using the corrected execution and
+snapshot policies. Each five-hour window sums five independently initialized
+hourly episodes, with end-of-hour inventory marked to mid and reset.
+
+| Measurement | No queue credit | Proportional queue credit |
+|---|---:|---:|
+| Mean net P&L, USDT/window | `-0.774` | `-0.978` |
+| 95% window-bootstrap interval | `[-1.954, +0.182]` | `[-2.204, -0.081]` |
+| Maker fills | `1,609` | `2,030` |
+| 30s conditional OFI separation, bps | `-0.456` | `-0.064` |
+| Diagnostic clustered 95% separation interval, bps | `[-1.497, +0.518]` | `[-0.904, +0.692]` |
+| Predeclared conditional screen | Blocked | Blocked |
+
+Normalized OFI has a positive one-second population coefficient in all 24
+windows: pooled effect `+0.123285 bps/s.d.`, HAC `t = 64.6214`, and
+`R² = 0.0365623`. That association does not clear the defined passive-fill
+screen. The diagnostic intervals cross zero and condition on the selected
+buckets; this is not a universal rejection of OFI or a backtest of the blocked
+candidate. The 12-window holdout remains strategy-sealed.
+
+The [V3 writeup](notebooks/research_writeup_v3.md) explains the protocol, source
+freeze, uncertainty, and comparison with V2. The
+[machine-readable summary](results/panels/btcusdt_l2_panel_v3_development_summary/summary.json)
+links the verified evidence. V3 covers the two queue endpoints at 10 ms entry
+and cancellation latency; the older intermediate-credit and latency grid below
+remains historical.
+
+## Historical V2 findings
 
 The frozen V2 development panel contains 24 non-overlapping five-hour windows
 from April–May 2026. It combines six exploratory anchors with 18 later windows
@@ -126,9 +158,9 @@ from orders placed before the selected policy boundary.
 
 The committed
 [`snapshot timing audit`](results/replay_correctness/snapshot_timing_panel24.json)
-measures this observable exposure. V3 will use
-`post_response_proxy_depth_boundary_v1` and will remeasure the full development
-panel, including the later queue-age and execution effects.
+measures this observable exposure. V3 used
+`post_response_proxy_depth_boundary_v1` and remeasured the development panel,
+including queue-age and execution effects at the two locked endpoints.
 
 ## System design
 
@@ -194,28 +226,42 @@ env PYTHONPATH=. python scripts/demo_event_driven_execution.py
 env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 ```
 
-A fresh public clone reports `376 passed, 3 skipped`; restoring the selected raw
-captures activates the three smoke checks and yields `379 passed`. The demo
-verifies execution lifecycle mechanics. The artifact verifier checks committed
+A fresh checkout runs the committed and synthetic tests. Restoring the selected
+raw captures activates three smoke checks; building C++ activates 12 native
+checks. Run `make cpp-test` to build and verify the native implementation.
+The demo verifies execution lifecycle mechanics. The V2 verifier checks committed
 identities, artifact shapes, verdict fields, model separation, and the
 strategy-sealed holdout boundary.
 
+With the selected raw data restored, verify V3 against its recorded research
+commit and rebuild the decision summary:
+
+```bash
+env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorded
+env PYTHONPATH=. python scripts/summarize_v3_development.py --source-revision recorded
+```
+
+This explicitly checks source bytes at the manifest's exact Git commit
+`04df629`; later benchmark and verification tooling is separate. Omitting the
+flag requires the current working source to match the recorded run.
+
 ## Documentation and reproducibility
 
-The [technical report](report/l2_mm_research_report.pdf) contains the complete
-methodology, protocols, results, and failure analysis. Supporting references:
+The [V3 addendum](notebooks/research_writeup_v3.md) contains the current study;
+the [technical report](report/l2_mm_research_report.pdf) preserves the historical
+V2 methodology, results, and failure analysis. Supporting references:
 [data specification](DATA.md) · [result map](results/README.md) ·
 [execution-model contract](notebooks/execution_model_v2.md).
 
 There are three levels of reproduction:
 
 1. **Clone-level:** run deterministic tests and the synthetic execution demo.
-2. **Artifact-level:** validate the selected committed V2 summaries and rebuild
-   the report figures and PDF.
+2. **Artifact-level:** inspect the committed V3 summary and manifest; validate
+   the historical V2 summaries and rebuild their report figures and PDF.
 3. **Full replay:** restore the selected raw files whose individual hashes are
    recorded in the integrity manifest. The 24-window development subset is 240
-   spot files (approximately 0.82 GB locally); the complete local capture is
-   approximately 37 GB and also includes unused perpetual-futures recordings.
+   spot files (824,383,459 bytes). Other locally captured files include unused
+   perpetual-futures recordings and do not enter the selected experiment.
 
 Raw market data is intentionally excluded from Git. See [DATA.md](DATA.md) for
 schemas, directory layout, integrity rules, missingness, and exact boundaries.
@@ -240,6 +286,7 @@ Poppler (`pdfinfo`, `pdffonts`, and `pdftotext`) and uses `qpdf` when available.
 | [`src/analysis/`](src/analysis/) | P&L, markouts, signals, uncertainty, gates and diagnostics |
 | [`scripts/`](scripts/) | Recording, replay, panel orchestration, analysis and verification |
 | [`tests/`](tests/) | Deterministic unit, invariant, integration and artifact-contract tests |
+| [`cpp/`](cpp/) | C++17 order-book library, CLI, parity contract, golden vectors, and native checks |
 | [`results/panels/`](results/panels/) | Canonical selected derived artifacts by model namespace |
 | [`notebooks/`](notebooks/) | Frozen protocols, historical writeups, research log and model note |
 | [`report/`](report/) | LaTeX source, generated figures and compiled technical report |
@@ -264,28 +311,28 @@ the [result map](results/README.md) before citing a file.
 - **Snapshot clock:** V2 used a pre-fetch local tag. Current recovery combines a
   request-time barrier, post-response receipt order, depth event time `E`, and
   trade time `T`. This is an exchange-clock proxy; client-observation latency
-  remains uncalibrated, and V3 will remeasure queue age and execution eligibility.
+  remains uncalibrated. V3 remeasures queue age and execution eligibility under
+  the selected proxy policy.
 - **Execution calibration:** the model omits separate market-data latency, live
   acknowledgement and fill calibration, endogenous impact, account-specific
   fee tiers, and hidden liquidity.
 - **Selection:** 775 of 1,193 inventoried hours met every eligibility rule, and
   recording availability may be non-random.
-- **Inference:** a clustered confidence interval for the fill-conditioned OFI
-  contrast remains pending.
+- **Inference:** the diagnostic clustered interval conditions on the originally
+  selected OFI buckets and assumes independent window clusters. It is not
+  selection-adjusted; the count threshold is not a formal power calculation.
 
-## Next milestone
+## Completed scope and extensions
 
-1. Commit the V3 development protocol and decision rule before inspecting rerun
-   results.
-2. Run the corrected baseline over the same 24 development windows at both
-   queue endpoints.
-3. Regenerate fill, P&L, markout, queue, latency, and conditional-OFI evidence,
-   then apply the committed gate.
-4. Evaluate the strategy-sealed holdout once only if a locked candidate
-   qualifies in development.
-5. Freeze the Python reference, artifact schema, golden traces, and parity
-   tolerances.
+The corrected development study, committed decision rule, verified artifact
+manifest, and native order-book milestone are complete. A new signal hypothesis
+would need a separate development protocol before candidate or holdout testing.
+Extending the current-model sensitivity grid or porting the full replay and
+execution engine would likewise be a separate versioned experiment or port.
 
-The project then pauses at the tested Python reference while modern C++
-fundamentals are developed. A performance port begins only after that learning
-phase.
+The C++17 order-book implementation reproduces the unchanged Python book
+reference on its fixed-eight-decimal input domain. Build and verify it with
+`make cpp-test`; use `make cpp-benchmark` for a parity-gated benchmark of book
+updates. This benchmark excludes file/protocol parsing, strategy callbacks, and execution,
+so it does not establish an end-to-end replay speedup. See the
+[native design note](cpp/README.md) for the arithmetic boundary and build steps.

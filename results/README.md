@@ -8,7 +8,9 @@ result only after checking its execution-model namespace and status.
 | Namespace | Execution model | Status | Permitted use |
 |---|---|---|---|
 | `results/panels/btcusdt_l2_panel_v2/` | `legacy_book_update_v1` | Frozen | Historical Phase A/B/C development evidence |
-| `results/panels/btcusdt_l2_panel_v3_event_driven/` | `event_driven_v2` | Pending; directory not published yet | Future current-model development evidence only |
+| `results/panels/btcusdt_l2_panel_v3_event_driven/` | `event_driven_v2` | Completed, frozen at `04df629` | Corrected 24-window baseline development evidence |
+| `results/panels/btcusdt_l2_panel_v3_development_summary/` | `event_driven_v2` | Completed; both endpoints blocked | Locked primary screen and diagnostic conditional uncertainty |
+| `results/cpp_orderbook/` | Native order book | Separate engineering evidence | Book-state parity and explicitly scoped update benchmarks |
 | Other root result folders | Mixed exploratory code paths | Historical/superseded unless documented otherwise | Debugging and project history, not headline claims |
 
 The legacy model made entries eligible on the next depth update after modeled
@@ -16,6 +18,36 @@ arrival and applied cancellation requests immediately. The current model uses
 scheduled entry/cancel arrivals, delayed-cancel races, own-order FIFO, and
 recorded-volume conservation. Execution-derived values from the two models must
 not be combined.
+
+## Completed V3 development study
+
+The corrected rerun completed all 61 workflow steps and 330 durable artifacts
+over the same 24 development windows at queue-credit endpoints `0` and `1`.
+The [decision summary](panels/btcusdt_l2_panel_v3_development_summary/summary.json)
+applies the protocol committed before the rerun. Both endpoint screens are
+**blocked**; no candidate was evaluated and the holdout remains strategy-sealed.
+
+| Measurement | No queue credit | Proportional queue credit |
+|---|---:|---:|
+| Mean net P&L, USDT per five-hour window | `-0.773882` | `-0.978202` |
+| 95% window-bootstrap interval | `[-1.954489, +0.181666]` | `[-2.204134, -0.081496]` |
+| 30s conditional OFI separation, bps | `-0.455884` | `-0.064348` |
+| Diagnostic clustered 95% separation interval, bps | `[-1.496504, +0.517766]` | `[-0.903883, +0.691652]` |
+| Maker / taker fills | `1,609 / 0` | `2,030 / 0` |
+
+Population normalized OFI remains positive in all 24 windows, with a pooled
+one-second effect of `+0.123285 bps/s.d.`, HAC `t=64.6214`, and `R²=0.0365623`.
+Both selected-bucket contrasts fail the fixed `1.0 bps` screen. Their clustered
+intervals condition on the original bucket selection, cross zero, and do not
+alter the gate. This is a failed defined passive-fill screen, not a finding
+that OFI is universally ineffective or that an unrun strategy would lose.
+
+See the [V3 writeup](../notebooks/research_writeup_v3.md) for methods and limits,
+and the [run manifest](panels/btcusdt_l2_panel_v3_event_driven/ARTIFACT_MANIFEST.json)
+for the exact inputs, derivations, and outputs. The historical intermediate
+queue-credit and latency grid below was not repeated; V3 covers both endpoints
+at the locked 10 ms latency. Native results cover the order book only; replay,
+execution, and accounting remain Python.
 
 ## Frozen V2 configuration
 
@@ -33,7 +65,7 @@ not be combined.
 | Queue-credit endpoints | `0.0`, `1.0` |
 | Research snapshot | `1066950` |
 
-## Canonical claims and files
+## Frozen V2 claims and files
 
 | Claim | Unit / sampling unit | Canonical artifact |
 |---|---|---|
@@ -75,7 +107,7 @@ blocking response completed. Only two no-credit and four proportional-credit
 fills came from orders placed before the selected policy boundary, but these
 proxy counts are not upper bounds and later queue age can still differ. Current
 replay uses `post_response_proxy_depth_boundary_v1`; the full V3 development
-panel must be rerun.
+panel has now been rerun under that policy in its separate namespace.
 
 ## Verification
 
@@ -91,10 +123,20 @@ that no tracked result path or content contains a selected holdout-window
 identifier outside the allowlisted inventory and selection records. It does not
 rerun the historical replay.
 
-## V3 status
+The V3 run froze Python source at commit `04df629`, with fingerprint
+`45141ba610bb070217e6d08bbb5fef9ca1a725f5c7d5e40b6e14881450a4cb4d`.
+Later verification and benchmark tooling is separate from that research source.
+With the selected raw captures restored and the recorded commit available in
+Git history, verify the unchanged run and rebuild its decision summary using:
 
-There are currently **no published V3 execution-derived economics**. The next
-valid current-model output must live under
-`results/panels/btcusdt_l2_panel_v3_event_driven/`, contain
-`execution_model_version = event_driven_v2`, cover the frozen 24-window
-development panel, and carry a complete artifact manifest before comparison.
+```bash
+env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorded
+env PYTHONPATH=. python scripts/summarize_v3_development.py --source-revision recorded
+```
+
+Recorded mode reproduces the source fingerprint from the exact manifest commit's
+Git objects and still verifies the frozen panel, raw inputs, all required
+workflow steps, and the durable output tree. Without `--source-revision`, the
+verifier requires the current working source to match the run. The decision
+summary records the verified source revision and lives outside the run tree so
+regenerating it does not change the run manifest.

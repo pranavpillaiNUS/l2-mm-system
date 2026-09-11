@@ -1,2 +1,6 @@
 *.pdf binary
 *.png binary
+
+# Frozen V3 artifact hashes cover exact output bytes, including CSV CRLF.
+results/panels/btcusdt_l2_panel_v3_event_driven/** -text
+results/panels/btcusdt_l2_panel_v3_event_driven/**/*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

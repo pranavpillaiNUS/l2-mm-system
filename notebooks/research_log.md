@@ -1591,3 +1591,103 @@ nonmonotone modeled input streams. Release remains on exchange `E`, so this is
 not a calibrated client-observation clock. The V3 development rerun must cover
 all replay-derived book-state and execution evidence under this policy before
 the Python reference is frozen.
+
+---
+## 2026-09-10: Completion audit and native order-book implementation
+
+The project was resumed to complete the corrected development study and the
+planned native order-book port. Its purpose remains an auditable execution
+research system and engineering portfolio, with an informative negative result
+as a valid outcome. No new strategy search or holdout evaluation was requested.
+
+The initial Python 3.11.14 acceptance run passed all 379 existing tests. The
+selected development capture contains 240 files totaling 824,383,459 bytes;
+every hash matches the frozen inventory. The V3 runner's development CSV pin
+was stale after publication normalized CRLF to LF. Updating the runner and
+comparator to the committed LF hash preserves all window identities and raw
+files. A regression test now exercises the actual committed panel.
+
+The V3 decision protocol was committed at `63f4f0b` before the corrected full
+rerun. It preserves the primary thresholds, requires both queue endpoints,
+keeps weak conditional support inconclusive, and adds a diagnostic window
+bootstrap without changing the gate. Verification now requires every workflow
+step and matches raw-input hashes to the frozen inventory, in addition to
+checking manifest/tree consistency. The source checkpoint for this run is
+`04df629`.
+
+The old `cpp-orderbook-parity` branch has no merge base with published `main`.
+Its five parity assets were recovered directly from `578b524`, without rebasing
+unrelated history. The Python order book is unchanged and reproduces all seven
+frozen cases. A C++17 library and CLI now implement checked fixed-eight decimal
+storage, ordered price maps, byte-exact canonical serialization, OpenSSL hashes,
+operation traces, transcript verification, and a benchmark over preloaded
+operations. Native derived-price arithmetic and execution remain outside this
+contract; see `cpp/README.md` for the implementation boundary.
+
+Validation at the source checkpoint:
+
+- 424 tests passed with selected raw data and the Release native binary.
+- 409 tests passed and 15 skipped in a clean checkout without those local inputs.
+- 23 native parity/vector Python checks passed in a minimal dependency environment.
+- Native CTest passed in Release and with address/undefined-behavior sanitizers.
+- All 36,000 states in the selected 2026-04-12 09:00 depth hour matched Python;
+  transcript digest `eec2fd20873bc2105d342ca3b5fe5736941007fcd087eb3eeb6c4140e5fd8731`.
+- Frozen V2 verification still passes, including the strategy-sealed holdout.
+
+The corrected rerun uses the existing 61 runner commands. Independent
+reconciliation windows and independent endpoint stages are scheduled in
+parallel through the existing `_run_step` function; shared-cache audit and OFI
+stages remain sequential. The official full-panel entry point rechecks all
+resume markers and creates the final artifact manifest. Scheduling changes
+neither a replay command nor its source, input, output, or experiment identity.
+The computation is in progress at this entry; results and benchmark measurements
+will be recorded separately after verification.
+
+---
+## 2026-09-11: V3 study and native milestone completed
+
+The corrected development run completed all 61 workflow steps. Its unchanged
+manifest identifies 330 durable artifacts (36,375,865 bytes), all 240 selected
+raw inputs, and research source commit `04df629`. The pre-rerun protocol is
+unchanged from `63f4f0b`. The [V3 writeup](research_writeup_v3.md) and separate
+machine-readable decision summary now report the completed experiment.
+
+Population normalized OFI remains positive in all 24 windows, with a pooled
+one-second effect of +0.123285 bps per standard deviation and HAC t=64.6214.
+The primary 30-second conditional contrasts are -0.455884 bps without queue
+credit and -0.064348 bps with proportional credit. Both fail the predeclared
+1.0 bps screen; neither uses the exploratory fallback. The diagnostic window
+bootstrap intervals cross zero at both endpoints. No candidate advances and
+the holdout remains strategy-sealed.
+
+Baseline mean net P&L is -0.773882 and -0.978202 USDT per five-hour window at
+the two endpoints. The respective 95% window-bootstrap intervals are
+[-1.954489, +0.181666] and [-2.204134, -0.081496]. These measurements aggregate
+reset hourly episodes under the locked queue, latency, and fee assumptions.
+The historical intermediate-credit/latency grid was not repeated; it remains
+V2 evidence.
+
+Final benchmark review found that assigning the next Python book could destroy
+the previous book inside the timer. Commit `fc07501` moves that destruction
+outside timing, matching the native boundary, and adds a lifecycle regression
+check. Both measurements were then regenerated. On an i5-12400F with GCC 13.3
+Release, five measured repetitions after one warmup give median ratios of
+12.39685x for 20,000 synthetic operations and 13.74497x for 35,999 operations
+from the selected development hour. Every-state transcript parity passed first.
+These are preloaded book-update measurements including numeric conversion;
+they exclude parsing, hashing, destruction, and the full execution/replay flow.
+
+Later tooling changes make the current Python source fingerprint differ from
+the completed research run. Verification now supports an explicit
+`--source-revision recorded` mode that hashes the exact recorded commit's Git
+objects. It still checks all raw files, panel identities, derivation steps,
+and durable outputs. The default remains a strict current-source check. The
+run manifest was not rewritten to imply a rerun on later source.
+
+Final validation: all 436 tests pass with the selected raw data and Release
+native binary; recorded-revision V3 verification and frozen V2 verification
+both pass, including the holdout boundary. The native Release and sanitizer
+CTest checks passed at the unchanged native source checkpoint. Documentation
+now leads with V3 and the implemented native milestone; the PDF and historical
+V2 artifacts retain their original evidence. Replay, execution, strategies,
+and accounting remain Python under the existing order-book-only port contract.

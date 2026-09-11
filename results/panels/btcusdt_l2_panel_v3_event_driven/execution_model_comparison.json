@@ -1,0 +1,120 @@
+{
+  "report_version": "execution_model_baseline_comparison_v1",
+  "headline": "Event-driven development rerun compared with frozen legacy baseline",
+  "comparison_scope": "same frozen development-window set",
+  "development_panel": {
+    "path": "results/panels/btcusdt_l2_panel_v2/development_windows.csv",
+    "sha256": "c779138fdffb739715c53cfa27c75b3c8ca140bc4f5a6128f60f2251948bd362",
+    "row_count": 24,
+    "starts": [
+      "2026-04-12T09:00:00",
+      "2026-04-12T15:00:00",
+      "2026-04-13T02:00:00",
+      "2026-04-13T07:00:00",
+      "2026-04-13T12:00:00",
+      "2026-04-14T02:00:00",
+      "2026-04-14T12:00:00",
+      "2026-04-15T00:00:00",
+      "2026-04-15T05:00:00",
+      "2026-04-15T12:00:00",
+      "2026-04-16T12:00:00",
+      "2026-04-16T17:00:00",
+      "2026-04-17T05:00:00",
+      "2026-04-17T12:00:00",
+      "2026-04-18T13:00:00",
+      "2026-04-18T19:00:00",
+      "2026-04-19T13:00:00",
+      "2026-04-20T03:00:00",
+      "2026-04-20T13:00:00",
+      "2026-05-06T18:00:00",
+      "2026-05-07T16:00:00",
+      "2026-05-08T07:00:00",
+      "2026-05-09T07:00:00",
+      "2026-05-09T13:00:00"
+    ]
+  },
+  "current_execution_model_version": "event_driven_v2",
+  "reference_execution_model_version": "legacy_book_update_v1",
+  "automatic_strategy_verdict": null,
+  "interpretation": "Descriptive execution-model sensitivity only. Mean deltas are not paired confidence intervals and this report does not advance, reject, strengthen, or overturn a strategy claim.",
+  "endpoints": {
+    "0": {
+      "current": {
+        "path": "results/panels/btcusdt_l2_panel_v3_event_driven/baseline_ci/btcusdt_microprice_hs2.00_rq5000_baseline_ci_qc0.json",
+        "sha256": "c4f5550da56353addcc6f567eba50af3feda2656d737cb2f494c35897b58e431",
+        "execution_provenance": {
+          "execution_model_version": "event_driven_v2",
+          "equal_timestamp_policy": "market_data_before_private_actions_v1",
+          "snapshot_time_policy": "post_response_proxy_depth_boundary_v1",
+          "trade_gap_policy": "pause_until_snapshot",
+          "entry_latency_ms": 10,
+          "entry_jitter_ms": 0,
+          "cancel_latency_ms": 10,
+          "cancel_jitter_ms": 0,
+          "latency_seed": 42,
+          "post_only": true,
+          "queue_cancellation_credit": "0"
+        },
+        "window_net_pnl_ci": {
+          "n": 24,
+          "mean": "-0.7738820767416666666666666667",
+          "ci_low": "-1.954489309562750000000000000",
+          "ci_high": "0.1816661541595000000000000000",
+          "relation_to_zero": "crosses_zero"
+        }
+      },
+      "legacy_reference": {
+        "path": "results/panels/btcusdt_l2_panel_v2/baseline_ci/btcusdt_microprice_hs2.00_rq5000_baseline_ci_qc0.json",
+        "sha256": "c2962790b8d8fdfe3bea24b61e179e9f2b30f27d366d5bf1c40d8a7a3de169f2",
+        "execution_model_version": "legacy_book_update_v1",
+        "window_net_pnl_ci": {
+          "n": 24,
+          "mean": "-0.6857533116716666666666666667",
+          "ci_low": "-1.883280381338104166666666667",
+          "ci_high": "0.2896161717125208333333333333",
+          "relation_to_zero": "crosses_zero"
+        }
+      },
+      "descriptive_mean_delta_current_minus_legacy": "-0.0881287650700000000000000000"
+    },
+    "1": {
+      "current": {
+        "path": "results/panels/btcusdt_l2_panel_v3_event_driven/baseline_ci/btcusdt_microprice_hs2.00_rq5000_baseline_ci.json",
+        "sha256": "1ba70d47389911578a203ce02848dc1e026a4a8ef049a5d400d7e25a69b295f0",
+        "execution_provenance": {
+          "execution_model_version": "event_driven_v2",
+          "equal_timestamp_policy": "market_data_before_private_actions_v1",
+          "snapshot_time_policy": "post_response_proxy_depth_boundary_v1",
+          "trade_gap_policy": "pause_until_snapshot",
+          "entry_latency_ms": 10,
+          "entry_jitter_ms": 0,
+          "cancel_latency_ms": 10,
+          "cancel_jitter_ms": 0,
+          "latency_seed": 42,
+          "post_only": true,
+          "queue_cancellation_credit": "1"
+        },
+        "window_net_pnl_ci": {
+          "n": 24,
+          "mean": "-0.9782021539529317619619156325",
+          "ci_low": "-2.204134152159228686562621560",
+          "ci_high": "-0.08149612071379565283275698494",
+          "relation_to_zero": "entirely_negative"
+        }
+      },
+      "legacy_reference": {
+        "path": "results/panels/btcusdt_l2_panel_v2/baseline_ci/btcusdt_microprice_hs2.00_rq5000_baseline_ci.json",
+        "sha256": "19107d5e4f6384cba5bc249f7b6981ef88392748deff540c11c7cd93a67776fa",
+        "execution_model_version": "legacy_book_update_v1",
+        "window_net_pnl_ci": {
+          "n": 24,
+          "mean": "-1.043068588000559480465108625",
+          "ci_low": "-2.331630129898383466492775573",
+          "ci_high": "-0.03227232963581809532950586259",
+          "relation_to_zero": "entirely_negative"
+        }
+      },
+      "descriptive_mean_delta_current_minus_legacy": "0.0648664340476277185031929925"
+    }
+  }
+}

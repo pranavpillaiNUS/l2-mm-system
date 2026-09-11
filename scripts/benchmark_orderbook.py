@@ -207,6 +207,9 @@ def time_python(operations: list[dict], repeat: int, warmup: int,
             raise ValueError("Python timed run differs from the parity transcript")
         if iteration >= warmup:
             timings.append(elapsed)
+        # Dispose before the next timer starts. Assignment on the next loop
+        # would otherwise destroy the previous populated book while timing.
+        del book
     return timings
 
 

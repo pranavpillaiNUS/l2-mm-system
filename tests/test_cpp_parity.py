@@ -145,6 +145,29 @@ def test_synthetic_benchmark_input_is_reproducible():
             assert len(price.split(".")[1]) == len(quantity.split(".")[1]) == 8
 
 
+def test_python_benchmark_destroys_books_outside_timed_intervals(monkeypatch):
+    timer = {"inside": False, "ticks": 0}
+    destructions = []
+
+    def clock():
+        timer["inside"] = not timer["inside"]
+        timer["ticks"] += 1
+        return timer["ticks"]
+
+    class Book:
+        def state_hash(self):
+            return "same"
+
+        def __del__(self):
+            destructions.append(timer["inside"])
+
+    monkeypatch.setattr(driver, "Orderbook", Book)
+    monkeypatch.setattr(driver, "perf_counter_ns", clock)
+    monkeypatch.setattr(driver, "apply_operation", lambda *args: None)
+    assert driver.time_python([{}], 2, 1, "same") == [1, 1]
+    assert destructions == [False, False, False]
+
+
 def test_depth_operations_follow_resync_and_atomic_gap_suppression():
     def event(kind, index, *, gap=False, timestamp=None):
         return DepthEvent(

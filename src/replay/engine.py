@@ -11,12 +11,12 @@ The engine processes events in timestamp order:
   4. Fills from the simulator are dispatched to the strategy
 
 Gap handling: the engine starts in gap state (book uninitialized). A snapshot
-request emits a resynchronization barrier; the completed snapshot recovery
+request emits a resynchronization barrier. The completed snapshot recovery
 exits gap state. A sequence gap in depth diffs, or an aggTrade gap under the
 strict policy, also enters gap state. During a gap, events are counted but not
 dispatched -- the book is unreliable and strategy callbacks would see stale
 data. All local open orders are explicitly invalidated on gap entry because
-queue positions and pending intent are no longer trustworthy; this is not
+queue positions and pending intent are no longer trustworthy. This is not
 counted as an exchange cancellation.
 
 Order management: strategies return Actions (OrderRequests or CancelRequests)
@@ -202,7 +202,7 @@ class ReplayEngine:
             group_reports_gap = self._group_reports_gap(timestamp_events)
             # Recorded market data wins unresolved millisecond ties.  Private
             # actions strictly before this timestamp use the last observable
-            # book; private actions exactly at it wait until every recorded
+            # book, private actions exactly at it wait until every recorded
             # depth/trade event in the timestamp group has been processed.
             if group_reports_gap:
                 # Sequence loss makes within-millisecond execution attribution
@@ -245,7 +245,7 @@ class ReplayEngine:
                         self.book.state_hash(),
                     ))
 
-            # Defer cancellation attribution until same-ms trades are known;
+            # Defer cancellation attribution until same-ms trades are known,
             # otherwise depth-before-trade ties misclassify traded volume as
             # cancellation-driven queue improvement.
             if observed_depth:

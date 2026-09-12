@@ -42,7 +42,7 @@ def make_trade(exchange_time_ms: int, agg_trade_id: int = 1) -> TradeEvent:
 # --- tests ---
 
 def test_disjoint_streams_sorted_by_timestamp():
-    # depth at 100, 300; trades at 200, 400 - interleaved by time
+    # depth at 100, 300, trades at 200, 400 - interleaved by time
     depth = [make_depth(100), make_depth(300)]
     trades = [make_trade(200), make_trade(400)]
 

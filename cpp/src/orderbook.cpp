@@ -73,7 +73,7 @@ Orderbook::ParsedLevels Orderbook::validate_levels(const InputLevels& levels) co
         const Scaled qty = parse_decimal(qty_text);
         // Below 1e-6 Python Decimal switches to scientific notation. Positive
         // BTCUSDT prices and stored quantities must stay inside the fixed-eight
-        // byte-parity domain; a zero quantity is only a removal/skip marker.
+        // byte-parity domain. A zero quantity is only a removal/skip marker.
         if (price < 100) throw std::invalid_argument("price must be at least 0.00000100");
         if (qty != 0 && qty < 100) {
             throw std::invalid_argument("nonzero quantity must be at least 0.00000100");

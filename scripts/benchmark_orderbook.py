@@ -2,7 +2,7 @@
 
 The measurement includes numeric conversion and snapshot/diff application to
 preloaded operations. It excludes recording/JSON/protocol parsing, hashing,
-execution simulation, and process startup; it is not replay throughput.
+execution simulation, and process startup. It is not replay throughput.
 """
 
 from __future__ import annotations

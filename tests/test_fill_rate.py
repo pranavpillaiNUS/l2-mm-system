@@ -170,7 +170,7 @@ def test_partial_then_cancelled_classified():
 
 
 def test_distance_binning_and_markout_conditional():
-    # Three orders at distances 1, 6, 6 bps; the 1-bps fills with bad markout,
+    # Three orders at distances 1, 6, 6 bps. The 1-bps fills with bad markout,
     # the 6-bps fills with good markout, and one 6-bps doesn't fill.
     samples = [make_sample(t, "100.00") for t in range(0, 10_000, 200)]
     events = [

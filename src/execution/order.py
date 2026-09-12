@@ -71,7 +71,7 @@ class Order:
     queue_ahead: Optional[Decimal] = None   # volume ahead in FIFO queue at arrival
 
     # Queue decomposition.  ``queue_ahead`` remains the public total used by
-    # diagnostics; these components let the simulator distinguish observed
+    # diagnostics. These components let the simulator distinguish observed
     # public volume from earlier simulated orders at the same price.  Public
     # cancellations may improve only the external component, while cancelling
     # one of our own older orders releases only the own-order component.

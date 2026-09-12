@@ -14,7 +14,7 @@ using Scaled = std::int64_t;
 using InputLevels = std::vector<std::pair<std::string, std::string>>;
 constexpr Scaled decimal_scale = 100000000;
 
-// Strict, nonnegative fixed-eight decimal input; never passes through double.
+// Strict, nonnegative fixed-eight decimal input, never passes through double.
 Scaled parse_decimal(std::string_view text);
 std::string format_decimal(Scaled value);
 std::string sha256(std::string_view bytes);

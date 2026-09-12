@@ -4,7 +4,7 @@ Symmetric market-making: quote a fixed spread around the arithmetic mid.
 This is the baseline strategy. It makes no attempt to predict short-term
 price direction - it just posts a bid at mid - half_spread and an ask at
 mid + half_spread. The spread must be wide enough to cover adverse
-selection and fees; if it isn't, the strategy bleeds money.
+selection and fees. If it isn't, the strategy bleeds money.
 
 Exists primarily as a control. The microprice and inventory-skew strategies
 should beat it on adverse selection and inventory risk respectively.

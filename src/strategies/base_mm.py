@@ -126,7 +126,7 @@ class BaseMMStrategy(ABC):
         current_bid = self._live_price(self._bid_order)
         current_ask = self._live_price(self._ask_order)
 
-        # Hard position envelope. Pending entries can become fillable; active
+        # Hard position envelope. Pending entries can become fillable. Active
         # orders stay fillable while cancels are in flight. A cancel/replace may
         # add a quote only when all working same-side quantity filling would
         # still stay inside max_position.

@@ -32,7 +32,7 @@ def credit_from_legacy_mode(mode: str) -> Decimal:
 
 
 def legacy_mode_from_credit(credit) -> str | None:
-    """Return the old label for endpoint credits; otherwise no legacy label."""
+    """Return the old label for endpoint credits. Otherwise no legacy label."""
     parsed = parse_queue_credit(credit)
     if parsed == Decimal("1"):
         return "proportional"

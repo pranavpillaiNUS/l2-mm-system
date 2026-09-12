@@ -6,7 +6,7 @@ horizon and compute a side-normalized price move:
   BUY:  future_mid - fill_price
   SELL: fill_price - future_mid
 
-Positive values are favorable; negative values indicate adverse selection.
+Positive values are favorable. Negative values indicate adverse selection.
 """
 import statistics
 from bisect import bisect_left

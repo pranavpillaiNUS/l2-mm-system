@@ -5,8 +5,8 @@ import yaml
 
 @dataclass
 class FeeConfig:
-    maker_bps: float = 10.0 # Binance spot fees (adding liquidity; usually unfufilled limit orders)
-    taker_bps: float = 10.0 # Binance spot fees (remove liquidity; typically market/quick limit orders)
+    maker_bps: float = 10.0 # Binance spot fees (adding liquidity, usually unfufilled limit orders)
+    taker_bps: float = 10.0 # Binance spot fees (remove liquidity, typically market/quick limit orders)
 
     @property
     def maker_rate(self) -> float: # convert bps to decimal, 1bps = 0.01% = 0.0001

@@ -83,7 +83,7 @@ def random_operations(seed):
                 for _ in range(rng.randrange(9))
             ]
         if index % 19 == 0:
-            # Snapshot zero duplicates leave earlier positives intact; diff
+            # Snapshot zero duplicates leave earlier positives intact, diff
             # zero duplicates remove them. The maps must honor input order.
             operation["bids"] += [[prices[0], "0.10000000"],
                                   [prices[0], "0.00000000"]]

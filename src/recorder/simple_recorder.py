@@ -23,7 +23,7 @@ import signal
 class SimpleRecorder:
     """Records Binance depth stream to gzipped files."""
 
-    # Spot and USD-M perpetual futures endpoints. Spot is the default; perp
+    # Spot and USD-M perpetual futures endpoints. Spot is the default, perp
     # writes to a separate dataset so the two raw trees can never collide.
     SPOT_WS_URL = "wss://stream.binance.com:9443/ws"
     SPOT_REST_URL = "https://api.binance.com/api/v3/depth"

@@ -4,7 +4,7 @@ Microprice market-making: quote a fixed spread around book microprice.
 This strategy is the first adverse-selection-aware variant of SymmetricMM.
 When one side of the top of book is thin relative to the other, microprice
 shifts toward the side more likely to trade next. The quote mechanics remain
-identical to the baseline; only the reference price changes.
+identical to the baseline. Only the reference price changes.
 """
 from decimal import Decimal
 from typing import Optional, Tuple

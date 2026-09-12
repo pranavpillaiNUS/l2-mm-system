@@ -9,7 +9,7 @@ Key design decisions:
   - queue_ahead set at order arrival = book qty at that price level
   - Trades drain queue_ahead from the front
   - Book qty decreases without a trade -> proportional queue improvement
-  - Market orders walk levels greedily; unfilled remainder is cancelled
+  - Market orders walk levels greedily, unfilled remainder is cancelled
   - Aggressive limit orders: post_only=True cancels them (default),
     post_only=False executes them as takers
 """

@@ -111,7 +111,7 @@ def guard_event_driven_output_path(path: Path, *, allow_completed_run: bool = Fa
 
 
 def artifact_execution_model(payload: Mapping[str, object]) -> str:
-    """Read model metadata; absent metadata is explicitly historical V2."""
+    """Read model metadata, absent metadata is explicitly historical V2."""
     provenance = payload.get("execution_provenance")
     if isinstance(provenance, Mapping):
         model = provenance.get("execution_model_version")

@@ -221,7 +221,7 @@ class CancelAtSecondBookStrategy:
 # --- tests ---
 
 def test_starts_in_gap_skips_diffs_until_snapshot():
-    """Diffs before the first snapshot are skipped; snapshot exits gap."""
+    """Diffs before the first snapshot are skipped, snapshot exits gap."""
     with tempfile.TemporaryDirectory() as tmpdir:
         depth_file = Path(tmpdir) / "depth.jsonl.gz"
         _write_gz(depth_file, [
@@ -278,7 +278,7 @@ def test_basic_replay_with_fill():
         strategy = QuoteOnceStrategy()
         result = ReplayEngine(config).run(strategy)
 
-        # Reconstruction is internal; strategy sees only the final bridge state.
+        # Reconstruction is internal, strategy sees only the final bridge state.
         assert strategy.book_update_count == 1
 
         # One fill: our buy at 100 filled by the market sell

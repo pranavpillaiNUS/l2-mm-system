@@ -415,7 +415,7 @@ def _bin_by(
             continue
         idx = bisect_right(edges, value) - 1
         if idx < 0:
-            continue   # below smallest edge; ignore
+            continue   # below smallest edge, ignore
         buckets[idx].append(ctx)
 
     rows: List[FillRateBin] = []

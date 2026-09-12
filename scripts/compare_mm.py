@@ -241,7 +241,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
         "ending_position": decomp.final_position,
         "final_mid": final_mid,
         "net_pnl": decomp.net_pnl,
-        "_contexts": contexts,   # private; stripped before CSV write
+        "_contexts": contexts,   # private, stripped before CSV write
     }
 
 

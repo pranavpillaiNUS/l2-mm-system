@@ -570,7 +570,7 @@ def test_rejoining_price_does_not_receive_pre_arrival_cancellation_credit():
 
 def test_same_price_own_orders_conserve_trade_volume_and_fifo():
     sim = make_sim(base_latency_ms=0)
-    # No displayed quantity at our price; the second order queues behind the
+    # No displayed quantity at our price. The second order queues behind the
     # first simulated order even though our orders are absent from L2 data.
     book = make_book(bids=[("99.00", "1.0")])
     first = sim.submit(buy_limit("100", qty="0.5"), current_time_ms=1000)
@@ -605,7 +605,7 @@ def test_trade_consumes_filled_predecessor_from_later_own_queue_component():
     sim.on_book_update(book, timestamp_ms=1000)
 
     # Public quantity can join after the first order but before the second.
-    # The model conservatively places it ahead of the second order; a trade
+    # The model conservatively places it ahead of the second order. A trade
     # that fills the first must nevertheless retire the first order from the
     # second order's own-order component, without double-advancing the total.
     book.apply_diff(bids=[("100.00", "5.0")], asks=[], last_update_id=1001)

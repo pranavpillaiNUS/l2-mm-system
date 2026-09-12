@@ -138,7 +138,7 @@ def compute_pnl_decomposition(
 
     # Inventory PnL is the residual after spread capture, not a second full
     # mark-to-market from fill price. For an open buy below mid, the edge from
-    # fill price to fill-time mid belongs to spread_capture; only the movement
+    # fill price to fill-time mid belongs to spread_capture. Only the movement
     # from fill-time mid to final mid belongs to inventory_pnl.
     final_position = running_qty
     fm = final_mid or zero

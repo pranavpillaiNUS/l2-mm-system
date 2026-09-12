@@ -47,7 +47,7 @@ def test_trade_paths_isolated(tmp_path: Path) -> None:
     assert spot.output_dir == tmp_path / "raw" / "btcusdt_trades"
     assert perp.output_dir == tmp_path / "raw" / "btcusdt_perp_trades"
     assert spot.output_dir != perp.output_dir
-    # Spot serves aggregated trades; this environment's futures feed only
+    # Spot serves aggregated trades. This environment's futures feed only
     # streams raw per-fill trades, so perp subscribes to @trade not @aggTrade.
     assert spot._get_ws_url() == "wss://stream.binance.com:9443/ws/btcusdt@aggTrade"
     assert perp._get_ws_url() == "wss://fstream.binance.com/ws/btcusdt@trade"

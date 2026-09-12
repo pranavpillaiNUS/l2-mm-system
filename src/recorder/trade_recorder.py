@@ -22,7 +22,7 @@ class TradeRecorder:
     """Records Binance aggTrade stream to gzipped files."""
 
     # Spot and USD-M perpetual futures share the aggTrade stream shape but live
-    # on different hosts. Spot is the default; perp writes to its own dataset.
+    # on different hosts. Spot is the default, perp writes to its own dataset.
     SPOT_WS_URL = "wss://stream.binance.com:9443/ws"
     PERP_WS_URL = "wss://fstream.binance.com/ws"
 
@@ -52,7 +52,7 @@ class TradeRecorder:
         # @depth, and @bookTicker all stream normally), so perp captures the
         # raw per-fill @trade stream instead. Raw trades are strictly more
         # granular than aggTrades (one record per fill, no same-price
-        # aggregation); the perp trade parser will account for this difference.
+        # aggregation). The perp trade parser will account for this difference.
         stream = "aggTrade" if self.market == "spot" else "trade"
         return f"{self._ws_url}/{self.symbol}@{stream}"
 

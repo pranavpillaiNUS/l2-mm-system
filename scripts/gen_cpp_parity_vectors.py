@@ -42,7 +42,7 @@ SCALE = {
     "int_scale": 100_000_000,
 }
 
-BIG_N = 2**31  # larger than any synthetic book; bid_levels/ask_levels cap at len
+BIG_N = 2**31  # larger than any synthetic book, bid_levels/ask_levels cap at len
 
 
 def _all_levels(ob):
@@ -86,7 +86,7 @@ def apply_op(ob, op):
 
 
 def run_case(case):
-    """Fresh book; record state[0]=empty, then state[i+1]=after op i. Plus rolling digest."""
+    """Fresh book, record state[0]=empty, then state[i+1]=after op i. Plus rolling digest."""
     ob = Orderbook()
     states = [capture(ob)]  # index 0: fresh empty book
     for op in case["ops"]:
@@ -109,7 +109,7 @@ CASES = [
     },
     {
         "name": "snapshot_out_of_order_sort",
-        # Deliberately unsorted input; serialization must be bids desc, asks asc.
+        # Deliberately unsorted input, serialization must be bids desc, asks asc.
         "ops": [{
             "op": "snapshot",
             "bids": [["74574.60000000", "0.50000000"],
@@ -157,7 +157,7 @@ CASES = [
     },
     {
         "name": "crossed_book_is_stored_as_is",
-        # Python replicates whatever it is given; it does not reject a crossed book.
+        # Python replicates whatever it is given. It does not reject a crossed book.
         "ops": [{
             "op": "snapshot",
             "bids": [["74575.50000000", "1.00000000"]],
@@ -167,7 +167,7 @@ CASES = [
     },
     {
         "name": "min_qty_and_1e6_boundary",
-        # Smallest nonzero qty seen in data is 1e-5; 1e-6 is the plain/scientific
+        # Smallest nonzero qty seen in data is 1e-5, 1e-6 is the plain/scientific
         # boundary and still renders plain. Anything < 1e-6 is out of contract.
         "ops": [{
             "op": "snapshot",

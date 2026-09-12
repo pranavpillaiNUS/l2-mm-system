@@ -2,7 +2,7 @@
 Tail diagnostics for passive market-making failures.
 
 This module is deliberately descriptive. It answers whether losses are broad
-based or concentrated in adverse tails; it does not propose a trading filter.
+based or concentrated in adverse tails. It does not propose a trading filter.
 """
 import csv
 import json

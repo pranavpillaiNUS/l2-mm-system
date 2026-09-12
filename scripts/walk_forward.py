@@ -1,7 +1,7 @@
 """Run the educational Phase 1 anchored walk-forward experiment.
 
 This runner reconstructs the four-strategy optimizer from the parameter grids
-recorded in the research log. Historical CSVs are retained as project history;
+recorded in the research log. Historical CSVs are retained as project history,
 reruns should be written to a new directory because the bar engine still uses
 same-close signal/execution timing and is not part of the L2 evidence base.
 """

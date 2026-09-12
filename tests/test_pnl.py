@@ -106,7 +106,7 @@ def test_zero_inventory_pnl_when_flat():
 
 def test_avg_entry_after_partial_close_tracks_residual_inventory():
     # Buy 1 @ 100, buy 1 @ 102 -> average entry 101.
-    # Sell 1 @ 103 closes one unit; the remaining long should still have
+    # Sell 1 @ 103 closes one unit. The remaining long should still have
     # average entry 101, not a cash-residual artifact.
     fills = [
         make_fill("f1", OrderSide.BUY, "100.00", qty="1.0", timestamp_ms=500),

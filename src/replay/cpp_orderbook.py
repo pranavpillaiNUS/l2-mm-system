@@ -1,7 +1,7 @@
 """Optional native storage with the reference book's exact Decimal arithmetic.
 
 Build with ``make cpp-build`` for this Python interpreter. Selecting this backend
-requires the compiled module; it never silently falls back to Python storage.
+requires the compiled module. It never silently falls back to Python storage.
 The input-level domain remains the frozen, unsigned fixed-eight BTCUSDT domain.
 """
 
@@ -97,7 +97,7 @@ def _lookup_price(price: Decimal) -> str | None:
 
 
 class CppOrderbook(Orderbook):
-    """Native book storage; inherited mid/spread/microprice stay in Decimal.
+    """Native book storage, inherited mid/spread/microprice stay in Decimal.
 
     The capsule owns one C++ book and releases it when this adapter is collected.
     No mirror SortedDict is maintained. BBO Decimals and public counters are

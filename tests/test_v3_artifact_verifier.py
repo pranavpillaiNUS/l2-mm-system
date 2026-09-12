@@ -196,7 +196,7 @@ def test_public_verifier_keeps_current_source_as_its_default(source_repository, 
     with pytest.raises(ValueError, match="current Python source differs"):
         verify(output_root, output_root / "status")
     # Explicit historical verification proceeds past source validation to the
-    # still-required panel check; it does not waive the rest of verification.
+    # still-required panel check. It does not waive the rest of verification.
     with pytest.raises(ValueError, match="frozen development panel"):
         verify(output_root, output_root / "status", source_revision="recorded")
 

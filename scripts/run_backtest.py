@@ -1,5 +1,5 @@
 """
-A backtest; end-to-end
+A backtest, end-to-end
 Data -> Strategy -> Portfolio -> Metrics -> Plots
 """
 import pandas as pd

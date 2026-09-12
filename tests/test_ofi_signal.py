@@ -128,7 +128,7 @@ def test_ofi_fill_toxicity_side_aligns_signal():
     ]
     # Dense strictly-pre-fill samples with a rising bid (positive OFI). The
     # sample exactly at the fill timestamp (1_000) must be excluded by the
-    # strict-pre-fill window; a 2_000 sample serves the 1s forward horizon.
+    # strict-pre-fill window. A 2_000 sample serves the 1s forward horizon.
     samples = [
         sample(0, "100.00", "5", "101.00", "5"),
         sample(250, "100.25", "6", "101.00", "5"),
@@ -188,7 +188,7 @@ def test_ofi_fill_toxicity_excludes_same_ms_book_move():
     # Anchored on the strictly-pre-fill (calm) book, not the 1_000ms jump.
     assert row.book_timestamp_ms == 500
     assert row.mid_at_fill == Decimal("100.50")
-    # The flat pre-fill book yields zero OFI; the jump is not leaked in.
+    # The flat pre-fill book yields zero OFI. The jump is not leaked in.
     assert row.raw_ofi == Decimal("0")
     assert row.side_aligned_ofi == Decimal("0")
 
@@ -210,7 +210,7 @@ def test_ofi_unconditional_no_leakage_tripwire():
     samples = []
     bid = 100.00
     for i in range(1500):
-        # Independent +/- 1 tick mid steps; top-of-book sizes vary independently.
+        # Independent +/- 1 tick mid steps, top-of-book sizes vary independently.
         bid += rng.choice((-0.5, 0.5))
         ask = bid + 1.0
         bid_qty = rng.randint(1, 9)
@@ -239,7 +239,7 @@ def test_ofi_unconditional_no_leakage_tripwire():
                 raw_ofi=rows[perm[i]].raw_ofi)
         for i in range(len(rows))
     ]
-    # sanity: drift order is unchanged; only OFI labels were permuted
+    # sanity: drift order is unchanged. Only OFI labels were permuted
     assert [r.forward_drift_bps for r in shuffled] == drifts
     reg_shuf = regress_ofi_signal(shuffled)[0]
     assert reg_shuf.t_stat is not None

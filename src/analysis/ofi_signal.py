@@ -309,10 +309,10 @@ def compute_ofi_fill_toxicity(
 
         # Strictly-pre-fill anchor: the most recent book sample STRICTLY before
         # the fill. A sample stamped exactly at fill_ts can encode the same-ms
-        # market move associated with the simulated fill; including it would
+        # market move associated with the simulated fill. Including it would
         # leak that move into both the OFI window and the reference mid, biasing
         # the conditional toxicity test toward a spurious pass. bisect_left
-        # excludes the same-ms sample; bisect_right (the old behaviour) would
+        # excludes the same-ms sample, bisect_right (the old behaviour) would
         # have included it.
         current_idx = bisect_left(times, fill.timestamp_ms) - 1
         if current_idx <= 0:

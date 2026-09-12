@@ -50,7 +50,7 @@ execution assumptions are 10 ms entry latency without jitter, a 2 bps maker
 fee, a 5 bps taker fee, and queue-cancellation credit evaluated at $c=0$ and
 $c=1$. Each nominal five-hour window is the sum of five independently initialized
 one-hour replay episodes. Strategy, execution, and inventory state restart each
-hour; residual inventory is marked to the session-end mid and then discarded
+hour, residual inventory is marked to the session-end mid and then discarded
 without a modeled liquidation. The five-hour value is therefore an inference
 cluster, not continuous five-hour portfolio P\&L. Latency and fees are modeled
 inputs, not measurements from the author's exchange account.
@@ -74,17 +74,17 @@ interpreting the later confidence intervals.
 
 The Phase A/B/C sequence and thresholds were written into the repository
 before their associated evaluation. This is a pre-specified protocol in the
-repository history; it is not an externally registered study.
+repository history. It is not an externally registered study.
 
 \begin{enumerate}
-  \item \textbf{Phase A---baseline remeasurement.} Estimate mean net P\&L and a
+  \item \textbf{Phase A: baseline remeasurement.} Estimate mean net P\&L and a
         95\% nonparametric interval by resampling the 24 five-hour windows
         10,000 times with seed 7, separately at $c=0$ and $c=1$.
-  \item \textbf{Phase B---premise first.} Before running a strategy that acts
+  \item \textbf{Phase B: premise first.} Before running a strategy that acts
         on OFI, require a stable population association and a material
         fill-conditioned separation. If the premise fails, do not search the
         candidate's thresholds.
-  \item \textbf{Phase C---model stress.} Sweep queue-cancellation credit at
+  \item \textbf{Phase C: model stress.} Sweep queue-cancellation credit at
         $\{0,.25,.5,.75,1\}$ under 10 ms latency, plus $\{0,50\}$ ms at the two
         credit endpoints. Compare throughput, matched-lot economics, and
         full-strategy P\&L.
@@ -93,8 +93,8 @@ repository history; it is not an externally registered study.
 The primary one-second normalized-OFI population gate required all of:
 
 \begin{itemize}
-  \item one coefficient sign in at least 75\% of development windows;
-  \item pooled HAC $|t|\ge2$; and
+  \item one coefficient sign in at least 75\% of development windows,
+  \item pooled HAC $|t|\ge2$, and
   \item at least 0.05 bps predicted drift for one signal standard deviation.
 \end{itemize}
 
@@ -102,7 +102,7 @@ The conditional gate compared, at 30 seconds, the most-populated negative
 side-aligned bucket with the most-populated nonnegative bucket. It required
 the latter's mean $z_{i,30s}$ to exceed the former by at least 1.0 bps, with at
 least 30 observations in each selected bucket. The 1.0 bps threshold is a
-research materiality heuristic and 30 is a minimum-count rule; neither is a
+research materiality heuristic and 30 is a minimum-count rule. Neither is a
 formal power calculation. The chosen comparison also does not test the two
 extreme buckets. For those reasons the complete bucket response, its
 monotonicity, and its counts must accompany the mechanical gate result.
@@ -120,7 +120,7 @@ not yet carry window-clustered uncertainty across market regimes.
 
 Phase A uncertainty instead resamples whole five-hour windows, preserving
 within-window dependence \citep{efron1979}. With only 24 clustered windows,
-the interval describes variation within this mechanically selected panel; it
+the interval describes variation within this mechanically selected panel. It
 does not estimate sampling variation from a random population of market
 regimes. A
 future inference pass should add window-clustered uncertainty to both the pooled
@@ -132,9 +132,9 @@ interpreting their raw event counts as independent precision.
 Twelve late-May windows were selected and their identities hashed alongside
 the development panel. This holdout is strategy-sealed rather than unseen. A
 pre-strategy regime screen labeled it
-\code{regime-shifted}; it had lower realized volatility and fewer jumps than
+\code{regime-shifted}. It had lower realized volatility and fewer jumps than
 development. The holdout protocol requires a candidate, parameters, gate
 result, and commit to be locked before one evaluation. Because the OFI premise
 gate blocked the only candidate, the template remains unlocked and no holdout
-strategy output exists. No candidate evaluation was run---there is no favorable
+strategy output exists. No candidate evaluation was run, so there is no favorable
 or unfavorable strategy result kept off the page.

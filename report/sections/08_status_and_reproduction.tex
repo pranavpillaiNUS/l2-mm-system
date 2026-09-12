@@ -9,7 +9,7 @@
 \toprule
 Workstream & Status & Meaning \\
 \midrule
-Bar backtester & Educational precursor & Reusable framework and tests remain; historical performance claims are not treated as rigorous evidence. \\
+Bar backtester & Educational precursor & Reusable framework and tests remain, historical performance claims are not treated as rigorous evidence. \\
 Frozen L2 study & Complete under legacy model & Phase A/B/C artifacts, gates, panel identity, and audits are committed and verifiable. \\
 Event-driven Python model & Mechanics accepted & Private scheduling, post-response-gated snapshot recovery, delayed cancels, own FIFO, conservation, gaps, and risk invariants pass deterministic tests. \\
 V3 development economics & Pending & No execution-derived result from \CurrentModel\ is published yet. \\
@@ -44,13 +44,13 @@ env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 The synthetic simulator demo is deliberately tiny: a resting buy arrives, a
 cancellation is requested, a recorded sell reaches the queue first, and the
 delayed cancel is reported too late. It exercises execution lifecycle mechanics
-without raw data; it does not exercise full replay timestamp batching, gap
+without raw data. It does not exercise full replay timestamp batching, gap
 recovery, empirical economics, or throughput.
 
 The V2 verifier checks the manifest and panel identities, execution-model
 marker, Phase A verdict, Phase B gate status, Phase C grid, same-millisecond
 audit, panel-file hashes, and selected holdout identifiers across tracked
-result paths and contents. It validates committed evidence; it does not
+result paths and contents. It validates committed evidence. It does not
 recompute replay results from raw messages.
 
 \subsection{Building this report}
@@ -96,7 +96,7 @@ A reviewer can understand the project at three depths:
   \item[Thirty minutes] Read Sections 3--7 and run the synthetic demo plus V2
         artifact verifier.
   \item[Code review] Start at \artifact{src/replay/engine.py} and
-        \artifact{src/execution/simulator.py}; use
+        \artifact{src/execution/simulator.py}. Use
         \artifact{tests/test_execution_simulator.py} and
         \artifact{tests/test_engine.py} as executable specifications, then
         inspect \artifact{src/analysis/ofi_signal.py} for the research estimand.
@@ -111,7 +111,7 @@ A reviewer can understand the project at three depths:
   \item Regenerate OFI conditional-on-fill evidence and queue/latency stress,
         then compare fill identity and economics with the legacy study.
   \item If a candidate clears a newly committed development rule, lock it and
-        perform the one-shot holdout strategy evaluation; otherwise close the
+        perform the one-shot holdout strategy evaluation. Otherwise close the
         research arc without evaluating a candidate there.
   \item Freeze a deterministic Python reference, golden event traces, artifact
         schemas, and parity tolerances.

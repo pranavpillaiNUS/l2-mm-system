@@ -25,7 +25,7 @@ SNAPSHOT_TIME_POLICY = "post_response_proxy_depth_boundary_v1"
 @dataclass
 class DepthEvent:
     recv_time: datetime
-    exchange_time_ms: int       # local request for resync; E for depth state
+    exchange_time_ms: int       # local request for resync, E for depth state
     event_type: str             # "resync", "snapshot", or "diff"
     first_update_id: Optional[int]  # U field (diffs only, None for snapshots)
     last_update_id: int         # u field (diffs) or lastUpdateId (snapshots)

@@ -48,22 +48,22 @@ Failure & Consequence & Disposition \\
 \endhead
 \bottomrule
 \endfoot
-Bar timing and annualization & Same-close fills and incorrect frequency scaling made historical ratios too strong. & Phase 1 retained as educational evidence; metrics helper corrected without rewriting old results. \\
+Bar timing and annualization & Same-close fills and incorrect frequency scaling made historical ratios too strong. & Phase 1 retained as educational evidence, metrics helper corrected without rewriting old results. \\
 Accidental taker execution & Intended maker limits crossed after latency, contaminating attractive P\&L. & Post-only arrival checks terminate crossing orders and preserve explicit reasons. \\
 Stale snapshot diffs & Replayed stale updates could roll the book backward. & Stale rejection, valid bridge requirement, cross-file continuity, and regression tests. \\
 Pre-fetch snapshot tag & Returned state could be exposed before response completion. & Request barriers, post-response receipt gate, 120-hour proxy audit, and a full corrected V3 rerun. \\
 Missing aggregate trades & Incomplete aggressor volume corrupted execution eligibility and queue estimates. & Fail-closed timestamp invalidation and snapshot recovery. \\
 Same-ms signal leakage & Fill-time book state could contain the price move associated with the fill. & Strictly-pre-fill OFI and mid anchoring, with an explicit leakage test. \\
-Private-event quantization & Arrivals waited for depth updates and immediate cancels omitted races. & Explicit entry/cancel scheduling; legacy/current model and result namespaces separated. \\
+Private-event quantization & Arrivals waited for depth updates and immediate cancels omitted races. & Explicit entry/cancel scheduling, legacy/current model and result namespaces separated. \\
 Overlapping own orders & Reused trade volume or incomplete working exposure could manufacture fills or risk capacity. & Non-overlapping own FIFO, conserved fill budget, and active/pending/cancelling exposure checks. \\
-Line-ending identity drift & A committed development CSV's LF bytes no longer matched its older CRLF pin. & Pin the actual frozen committed bytes and test the runner's default input; no window reselection. \\
+Line-ending identity drift & A committed development CSV's LF bytes no longer matched its older CRLF pin. & Pin the actual frozen committed bytes and test the runner's default input, no window reselection. \\
 Incomplete manifest acceptance & A self-consistent partial result tree could appear complete. & Derive all expected workflow commands and paths and require the exact durable set. \\
 Asymmetric benchmark timer & Python book destruction could enter the next measured iteration. & Move destruction outside timing, test the boundary, and replace the affected measurements. \\
 Standalone/native scope gap & Isolated book parity did not establish usability inside replay. & Add a compiled Python binding, explicit backend propagation, whole-stream differential validation, and separate integrated timing. \\
 \end{longtable}
 
 The common lesson is to correct the measurement boundary before strengthening
-the claim. Some failures require revised implementation tests; others change
+the claim. Some failures require revised implementation tests, others change
 the economic estimand and require a new run. A provenance boundary prevents
 the first kind of fix from quietly relabeling the second kind of evidence.
 
@@ -83,7 +83,7 @@ untouched confirmatory sample.
 without liquidation cost at each hour boundary. Results are not continuous
 portfolio returns or a capacity study.
 \item \textbf{Dependence.} Window bootstrap and local HAC errors answer
-different uncertainty questions. Nearby windows can share regimes; neither
+different uncertainty questions. Nearby windows can share regimes. Neither
 method creates independent market histories.
 \item \textbf{Conditional selection.} The clustered contrast interval fixes
 bucket labels selected from the pooled sample and is not selection-adjusted.
@@ -99,8 +99,8 @@ candidate result supporting the report's conclusion.
 Aggregate L2 reveals displayed quantity, not individual order rank, hidden
 liquidity, iceberg refresh, or the location of cancelled orders in the queue.
 Cancellation credit is uncalibrated. The modeled timestamp axis mixes local
-request barriers, depth \code{E}, trade \code{T}, and receipt-order constraints;
-the snapshot correction removes an identified early-release exposure without
+request barriers, depth \code{E}, trade \code{T}, and receipt-order constraints.
+The snapshot correction removes an identified early-release exposure without
 calibrating client observation or network latency.
 
 The simulator assumes its small orders do not alter the recorded market.
@@ -114,8 +114,8 @@ claimed.
 The native input domain is deliberately narrower than arbitrary Python
 Decimal. Its binding retains the GIL and performs Decimal conversion at the
 boundary, so it does not promise parallel throughput or end-to-end
-acceleration. Native parity covers implemented semantics on the tested domain;
-it does not validate queue assumptions or the economic hypothesis.
+acceleration. Native parity covers implemented semantics on the tested domain.
+It does not validate queue assumptions or the economic hypothesis.
 
 \subsection{Completed outcome and useful extensions}
 
@@ -126,8 +126,8 @@ separately scoped measurements. The negative conditional result is a research
 outcome, rather than unfinished strategy tuning.
 
 Further work has distinct questions: a new signal transform needs a new
-development protocol; a current-model credit/latency grid needs a versioned
-sensitivity study; live calibration needs observed acknowledgements and
-fills; and a full native execution engine needs a broader arithmetic/event
+development protocol. A current-model credit/latency grid needs a versioned
+sensitivity study, live calibration needs observed acknowledgements and
+fills, and a full native execution engine needs a broader arithmetic/event
 parity contract. Those are extensions of the completed scope, not evidence
 already supplied by the present results.

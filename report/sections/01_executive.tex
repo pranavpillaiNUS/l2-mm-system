@@ -23,12 +23,12 @@ position, event ordering, fees, or missing data.
 The current repository contains four connected capabilities:
 
 \begin{itemize}
-  \item a bar-level backtesting scaffold retained as project history;
+  \item a bar-level backtesting scaffold retained as project history,
   \item spot and perpetual-futures data recorders, with spot L2 and trade data
-        forming the completed research dataset;
+        forming the completed research dataset,
   \item a deterministic event replay and execution simulator with post-only
         behavior, configurable latency, partial fills, L2-derived FIFO queue
-        position, and maker/taker fee assignment; and
+        position, and maker/taker fee assignment, and
   \item a research pipeline for integrity screening, panel selection,
         bootstrap intervals, OFI diagnostics, model stress, decision gates,
         artifact hashing, and a strategy-sealed holdout.
@@ -49,7 +49,7 @@ The frozen development experiment covers \DevelopmentWindows\ non-overlapping
 five-hour windows. The passive microprice baseline was negative in 18 of 24
 windows at each tested queue endpoint. The proportional-credit mean was
 \PhaseAQcOneMean\ USDT per window with a 95\% window-bootstrap interval
-$[\PhaseAQcOneLow,\PhaseAQcOneHigh]$; the no-credit mean was
+$[\PhaseAQcOneLow,\PhaseAQcOneHigh]$. The no-credit mean was
 \PhaseAQcZeroMean\ with interval
 $[\PhaseAQcZeroLow,\PhaseAQcZeroHigh]$.
 
@@ -77,7 +77,7 @@ The project rejected several opportunities to report an attractive but weakly
 supported result:
 
 \begin{itemize}
-  \item Early apparent profitability contained taker fills created by latency;
+  \item Early apparent profitability contained taker fills created by latency,
         post-only enforcement removed that interpretation.
   \item Snapshot synchronization and stale-diff issues were corrected and the
         affected study was regenerated.
@@ -108,11 +108,11 @@ The project has similarly named study and model versions. Table
 Label & Meaning & Status and permitted claim \\
 \midrule
 Study V1 & Six-window exploratory study & Frozen and superseded by the larger historical study. \\
-Artifact V2 & 24-window Phase A/B/C development study & Frozen historical evidence; generated at research commit \code{1066950}. \\
-Legacy model & Historical private-timing and queue semantics & Superseded; the source of V2 execution-derived numbers. \\
-Current model & Current Python behavioral reference & Mechanics accepted locally; no development-panel economics yet. \\
-Artifact V3 & Results produced by \CurrentModel & Pending; the development rerun has not been executed. \\
-Holdout & 12 selected five-hour windows & Strategy-sealed; no candidate strategy output exists. \\
+Artifact V2 & 24-window Phase A/B/C development study & Frozen historical evidence, generated at research commit \code{1066950}. \\
+Legacy model & Historical private-timing and queue semantics & Superseded, the source of V2 execution-derived numbers. \\
+Current model & Current Python behavioral reference & Mechanics accepted locally, no development-panel economics yet. \\
+Artifact V3 & Results produced by \CurrentModel & Pending, the development rerun has not been executed. \\
+Holdout & 12 selected five-hour windows & Strategy-sealed, no candidate strategy output exists. \\
 \bottomrule
 \end{tabularx}
 \end{table}

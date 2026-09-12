@@ -10,9 +10,9 @@ particular trades a passive maker receives. The project asks whether that
 distinction is visible in a controlled BTCUSDT experiment.
 
 The deliverable is an offline chain from recorded data to a documented research
-decision: capture and integrity inventory; sequence-valid book reconstruction;
-deterministic replay; explicit execution and inventory constraints; economic
-and signal diagnostics; a predeclared development gate; and verified artifacts.
+decision: capture and integrity inventory, sequence-valid book reconstruction,
+deterministic replay, explicit execution and inventory constraints, economic
+and signal diagnostics. A predeclared development gate, and verified artifacts.
 Native implementation follows a behavioral contract so that speed can be
 assessed after correctness. A profitable strategy is an empirical possibility,
 not a requirement imposed on the answer.
@@ -37,7 +37,7 @@ found same-close signal observation and execution, hourly equity annualized as
 365 periods per year, an ``out-of-sample Sharpe'' formed from monthly Sharpe
 estimates, and an optimizer source overwritten during plotting. The metrics
 helper now infers observation frequency, and the logged search grids have a
-reconstructed runner; the old CSVs retain their historical identity. These
+reconstructed runner. The old CSVs retain their historical identity. These
 limitations motivated the move to observable book events rather than a more
 elaborate interpretation of coarse bar returns.
 
@@ -63,11 +63,11 @@ rule when the premise failed.
 \toprule
 Stage & Deliverable & Evidential role \\
 \midrule
-Jan--Apr 2026 & Bar framework and walk-forward exercise & Educational precursor; historical performance limitations are retained. \\
+Jan--Apr 2026 & Bar framework and walk-forward exercise & Educational precursor, historical performance limitations are retained. \\
 Apr--May 2026 & L2 capture, replay, baseline exploration & Established passive execution mechanics and the development hypothesis. \\
 Jun 2026 & Frozen V2 24-window study & Historical baseline, OFI gate, queue-credit and latency stress under \LegacyModel. \\
 Jul--Aug 2026 & Execution and publication audits & Exact private scheduling, own FIFO, working exposure, snapshot timing, and explicit model boundaries. \\
-Sep 2026 & Corrected V3 development rerun & Same development data and locked baseline; current-model economics and diagnostic conditional uncertainty. \\
+Sep 2026 & Corrected V3 development rerun & Same development data and locked baseline, current-model economics and diagnostic conditional uncertainty. \\
 Sep 2026 & Native implementation and report closure & Checked C++ book, Python parity, scoped measurement, and this complete project account. \\
 \bottomrule
 \end{tabularx}
@@ -83,7 +83,7 @@ the old evidence as \LegacyModel, implemented \CurrentModel, and reran the
 development experiment in a distinct V3 namespace.
 
 The V3 protocol was committed at \ProtocolCommit{} before its corrected
-economics were inspected; \ResearchCommit{} identifies the research source.
+economics were inspected, \ResearchCommit{} identifies the research source.
 Completion means executing that protocol, reporting its actual outcome,
 preserving the holdout boundary, and validating the native work within its
 stated arithmetic and integration contract. It does not require advancing a

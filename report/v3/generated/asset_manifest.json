@@ -3,7 +3,7 @@
   "description": "Verified V3 development, native book, and integrated pipeline report assets",
   "generator": {
     "path": "scripts/build_complete_report_assets.py",
-    "sha256": "ad77aee8dbd0bebd2c5bf1b80d7a588bd9032003940da96411b06eabf216bdba",
+    "sha256": "4b2fd4d20e4074d270bedd3944fdfffd6d245b3a4da82d52d9c313784e18b2c5",
     "python_version": "3.11.14",
     "matplotlib_version": "3.10.8",
     "numpy_version": "2.4.1",
@@ -21,10 +21,15 @@
       "selected_files": 240,
       "files_hashed": 0
     },
-    "decision_summary": "recomputed_and_equal_except_raw_verification_annotation"
+    "decision_summary": "recomputed_and_equal_except_raw_verification_annotation",
+    "protocol": {
+      "path": "notebooks/v3_development_protocol.md",
+      "sha256": "e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395",
+      "revision": "04df6294872a256374f910d12d5e5e3e08e8757a"
+    }
   },
   "inputs": {
-    "notebooks/v3_development_protocol.md": "e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395",
+    "notebooks/v3_development_protocol.md": "913d98b221d21a7c5ee376ea8b43e0e7738fbe07e06616f40e8eeec1dbf88e9b",
     "results/cpp_orderbook/development_hour.json": "279aa677a0a6e378de7dd0c20e6615bd9ec31d11f2da154ac16d239a48e31ecd",
     "results/cpp_orderbook/synthetic_20000.json": "37503344c3596b4fc07aeff51829798824e3048b48645a363e0269c5f122ca51",
     "results/native_pipeline/development_hour_benchmark.json": "9769feaa82e15f835506e6b99868d6590df53f5e9bf54864baee21d497e7fdee",
@@ -366,7 +371,7 @@
     "results/panels/btcusdt_l2_panel_v3_event_driven/tail_diagnostics/btcusdt_microprice_hs2.00_rq5000_panel24_qc0/summary.json": "be54c7cf3f475bb11620a5445cdc84581c83ba6209a2535ace27e8ad89e36cb6",
     "results/panels/btcusdt_l2_panel_v3_event_driven/tail_diagnostics/btcusdt_microprice_hs2.00_rq5000_panel24_qc0/window_summary.csv": "1f90acccd59dbe87b1951147aff6cef4852383dff3ade1c1b741cf25f2203f1a",
     "scripts/compare_execution_model_baseline.py": "0ca9ff21b6e1779a21ea25f47913052c2c922e67dd598b5fb95c889c2d2a1765",
-    "scripts/summarize_v3_development.py": "df42f25efff7f6aef3135f980678f20f885c64ec2c7c2e1411cacc02bedc4055",
+    "scripts/summarize_v3_development.py": "4b7b1c7736716674cd904da44f415dc1c525be89d85316993b91758d5c46b8ae",
     "scripts/verify_v3_artifacts.py": "d40ac3b33f6aed88988260575b15c56ed23de4c5c6eb4c660c290f43353a2547"
   },
   "outputs": {
@@ -374,9 +379,9 @@
     "report/v3/figures/native_book_benchmark.png": "9977277f580b5576e4557441613368163786d89cdb37f363fd93f7f0839784fe",
     "report/v3/figures/v3_baseline_intervals.pdf": "707867e198213729f12c76287e4334d502379f077406b8eff788b76218e97bb3",
     "report/v3/figures/v3_baseline_intervals.png": "bbd823c9614ebde767f1a4774fac76682c6fd5c401af5ac71b2deb06c4ff6657",
-    "report/v3/figures/v3_ofi_buckets.pdf": "f0d49ff4fa3b5e79cdaddb69703483e9f0cc6708d8424e679b5452c60db08b0c",
-    "report/v3/figures/v3_ofi_buckets.png": "ee3fd1bbb13f5f494721e918df3a77eb6e42e49706caf777f94526188bfd2149",
-    "report/v3/generated/native_pipeline_results.tex": "1575fb19e9224a100a9d81b25b3de1ffd9c4e732534c420a3c006791474b51d4",
-    "report/v3/generated/results.tex": "ea7573c60eef6b274a6a5ef5c0418c8d5a6e4afc2a96e3da52afa7dbf917f7b9"
+    "report/v3/figures/v3_ofi_buckets.pdf": "311603d69d430abb5c7ea9c962cb1e8283e981381e19707a7e365d56fc65b82a",
+    "report/v3/figures/v3_ofi_buckets.png": "3af59a642bb0678ecad8859fbc7568f3511967b21eff0f3411e8b0d661ca9838",
+    "report/v3/generated/native_pipeline_results.tex": "6384ed829682f707a70835e4fcb1da692976601bae65923af97e19b0658759c6",
+    "report/v3/generated/results.tex": "9cfa03b313475fa5662656ccb0d5173ef46a729fb5ad7ce91785263401aea75f"
   }
 }

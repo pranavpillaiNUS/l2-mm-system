@@ -9,8 +9,8 @@ configuration, data loading, portfolio accounting, transaction costs, metrics,
 plotting, parameter sweeps, and walk-forward orchestration.
 
 That phase produced valuable engineering lessons: fees could erase a gross
-edge; stateful strategy instances had to be recreated between runs; expanding
-window selection changed parameter rankings; and orchestration code required as
+edge, stateful strategy instances had to be recreated between runs, expanding
+window selection changed parameter rankings, and orchestration code required as
 much testing as individual components. Those lessons directly informed the L2
 design.
 
@@ -19,10 +19,10 @@ strategy evidence in this report. A later publication audit identified four
 limitations:
 
 \begin{enumerate}
-  \item strategies observe the current bar close and execute at that same close;
-  \item hourly equity observations were annualized with 365 periods per year;
+  \item strategies observe the current bar close and execute at that same close,
+  \item hourly equity observations were annualized with 365 periods per year,
   \item the displayed ``OOS Sharpe'' is a mean of monthly Sharpe estimates rather
-        than the Sharpe of one stitched OOS return series; and
+        than the Sharpe of one stitched OOS return series, and
   \item the historical optimizer source was overwritten by the plotting pass.
         A runner has since been reconstructed from the logged grids, but the
         original performance artifacts are not promoted to current evidence.
@@ -43,11 +43,11 @@ explicit rather than allowing precise-looking ratios to imply a stronger study.
 Market making depends on phenomena that bars remove:
 
 \begin{itemize}
-  \item whether a limit order was passive when it reached the exchange;
-  \item volume ahead at a price and how trades advance queue position;
-  \item partial fills and residual inventory;
-  \item entry and cancellation latency;
-  \item event ordering when book changes and trades share a timestamp; and
+  \item whether a limit order was passive when it reached the exchange,
+  \item volume ahead at a price and how trades advance queue position,
+  \item partial fills and residual inventory,
+  \item entry and cancellation latency,
+  \item event ordering when book changes and trades share a timestamp, and
   \item whether a fill is followed by a favorable or adverse price move.
 \end{itemize}
 
@@ -68,9 +68,9 @@ not a wholly untouched confirmation sample. The report preserves that fact.
 The expanded study was organized as:
 
 \begin{description}[leftmargin=5.4em,style=nextline]
-  \item[Phase A] remeasure the fixed passive baseline at queue-credit endpoints;
+  \item[Phase A] remeasure the fixed passive baseline at queue-credit endpoints,
   \item[Phase B] test whether OFI satisfies a population and fill-conditioned
-        premise gate before running a strategy that uses it; and
+        premise gate before running a strategy that uses it, and
   \item[Phase C] stress queue-cancellation credit and entry latency, then close
         the development arc if no candidate qualifies.
 \end{description}
@@ -89,15 +89,15 @@ simulated volume than it contained.
 The response was a provenance boundary:
 
 \begin{itemize}
-  \item historical artifacts were labeled \LegacyModel;
-  \item the frozen result directory became write-protected to current scripts;
-  \item the new implementation was named \CurrentModel;
-  \item current results were assigned a distinct V3 namespace; and
+  \item historical artifacts were labeled \LegacyModel,
+  \item the frozen result directory became write-protected to current scripts,
+  \item the new implementation was named \CurrentModel,
+  \item current results were assigned a distinct V3 namespace, and
   \item cross-model comparisons were restricted to descriptive sensitivity,
         not treated as estimates from the same execution process.
 \end{itemize}
 
-This is the current stage. The Python mechanics are tested; V3 development
+This is the current stage. The Python mechanics are tested, V3 development
 economics remain pending.
 
 \subsection{Timeline and decision discipline}
@@ -110,9 +110,9 @@ economics remain pending.
 Period & Milestone & Research consequence \\
 \midrule
 Jan--Apr 2026 & Bar framework and walk-forward exercise & Established reusable interfaces and exposed the importance of costs and state isolation. \\
-Apr--May 2026 & L2 recorder, replay, execution, and exploratory baseline & Profit contaminated by accidental taker fills was rejected after post-only enforcement; a later positive one-window passive result failed broader-window evaluation. \\
+Apr--May 2026 & L2 recorder, replay, execution, and exploratory baseline & Profit contaminated by accidental taker fills was rejected after post-only enforcement, a later positive one-window passive result failed broader-window evaluation. \\
 May 2026 & Reconciliation, markouts, queue and same-ms audits & Shifted emphasis from headline P\&L to fill quality and model risk. \\
-Jun 2026 & Frozen 24-window Phase A/B/C study & Baseline remained unattractive; OFI premise gate blocked the candidate; the holdout stayed strategy-sealed. \\
+Jun 2026 & Frozen 24-window Phase A/B/C study & Baseline remained unattractive, OFI premise gate blocked the candidate, the holdout stayed strategy-sealed. \\
 Jul 2026 & Private-event timing and own-FIFO correction & Froze legacy evidence and accepted \CurrentModel\ as the Python reference. \\
 Aug 2026 & Public-release audit and technical report & Narrowed overstrong claims, demoted Phase 1 performance, and separated clone-level verification from full-data replay. \\
 Next & V3 development-panel rerun & Determine whether current-model fills and economics preserve or change the historical conclusions. \\

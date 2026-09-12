@@ -24,7 +24,7 @@ with \citet{cont2014}:
 One-second raw OFI sums these increments over the preceding second. Normalized
 OFI divides the sum by mean displayed bid-plus-ask top depth over contributing
 updates. The exact implementation is \code{src/analysis/ofi_signal.py}.
-The prior literature motivates this observable; the BTCUSDT results here are
+The prior literature motivates this observable. The BTCUSDT results here are
 the project's own measurements.
 
 On the one-second sampling grid, the population response at horizon $h$ is
@@ -43,7 +43,7 @@ For maker fill $i$ with direction $s_i\in\{-1,+1\}$, the conditional response is
 Here $m_{i^-}$ and the OFI anchor are strictly before the fill. A book sample at
 the fill millisecond is excluded because it may already include the move
 associated with that fill. This response measures side-aligned future mid
-movement; a separate transaction-price markout measures spread capture and is
+movement. A separate transaction-price markout measures spread capture and is
 not substituted into the gate. Maximum anchor staleness and permitted future
 sample lag are each 1,000 ms.
 
@@ -56,15 +56,15 @@ sample lag are each 1,000 ms.
 \toprule
 Setting & Value \\
 \midrule
-Instrument and strategy & Binance spot BTCUSDT; existing \code{MicropriceMM} \\
-Order size and position cap & 0.001 BTC per quote; 0.01 BTC maximum position \\
-Half-spread and tick & 2.00 USDT from microprice; 0.01 USDT tick \\
+Instrument and strategy & Binance spot BTCUSDT, existing \code{MicropriceMM} \\
+Order size and position cap & 0.001 BTC per quote, 0.01 BTC maximum position \\
+Half-spread and tick & 2.00 USDT from microprice, 0.01 USDT tick \\
 Requote interval & 5,000 ms \\
-Entry and cancel latency & 10 ms each; zero jitter; seed 42 \\
-Maker and taker fee & 2 bps and 5 bps; post-only enabled \\
+Entry and cancel latency & 10 ms each, zero jitter, seed 42 \\
+Maker and taker fee & 2 bps and 5 bps, post-only enabled \\
 Queue-cancellation credit & $c=0$ and $c=1$ \\
-Panel and episode unit & 24 five-hour windows; five independent hourly episodes each \\
-Terminal inventory & Mark to hour-end mid, then reset; no liquidation cost \\
+Panel and episode unit & 24 five-hour windows, five independent hourly episodes each \\
+Terminal inventory & Mark to hour-end mid, then reset, no liquidation cost \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -85,7 +85,7 @@ endpoints. This is a repository specification, not an external registration.
 At each endpoint, population support requires a common coefficient sign in at
 least 75\% of usable windows, pooled HAC $|t|\ge2$, and an absolute effect of
 at least 0.05 bps per signal standard deviation. The historical sign-stability
-rule admits either dominant sign; the positive pooled-coefficient hypothesis
+rule admits either dominant sign. The positive pooled-coefficient hypothesis
 is reported separately.
 
 The conditional analysis fixes bucket edges $[-1,-0.25,0,0.25,1]$ for the
@@ -103,10 +103,10 @@ minimum-count rule, not a power calculation. The selected pair need not be the
 two extreme buckets, so the entire response curve must accompany the contrast.
 
 Both endpoints must be supported for the combined screen to be supported.
-Any blocked endpoint blocks the combined screen; otherwise any inconclusive
+Any blocked endpoint blocks the combined screen. Otherwise any inconclusive
 endpoint makes it inconclusive. A five-second fallback is exploratory and
 cannot replace this primary decision. Even a supported premise would require a
-separately locked development candidate; it would not automatically authorize
+separately locked development candidate. It would not automatically authorize
 holdout evaluation.
 
 \subsection{Uncertainty and the unit of inference}
@@ -116,14 +116,14 @@ with seed 7 and use two-sided percentile 95\% limits. Window resampling
 preserves dependence within each observed cluster. Session- and matched-lot
 intervals remain diagnostics because their independence assumptions are
 stronger. Resampling practice follows the bootstrap framework
-\citep{efron1979}; it does not make these mechanically selected market windows
+\citep{efron1979}. It does not make these mechanically selected market windows
 a random sample of all regimes.
 
 The population regression uses Newey--West standard errors
 \citep{neweywest1987}, with the larger of the overlapping-return horizon lag
 and sample-size lag rule, capped at $n-1$. This addresses the specified local
 serial dependence. It does not produce uncertainty across independently
-sampled market regimes; a window-clustered population-effect interval is not
+sampled market regimes. A window-clustered population-effect interval is not
 part of the completed protocol.
 
 V3 adds a diagnostic clustered interval for the conditional contrast. The
@@ -143,7 +143,7 @@ negative result.
 \subsection{Holdout boundary}
 
 The 12 late-May holdout windows are strategy-sealed. Their membership and
-pre-strategy regime descriptors are public; no candidate has been evaluated
+pre-strategy regime descriptors are public. No candidate has been evaluated
 on them. The completed V3 gate blocks the proposed \code{OFIGatedMM} before
 candidate or holdout strategy evaluation. A new hypothesis would require a new
 development protocol and a locked candidate before one holdout evaluation.

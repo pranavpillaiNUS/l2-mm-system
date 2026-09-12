@@ -11,7 +11,7 @@ diagnostics, and the recomputed gate are retained in
 \begin{table}[H]
 \centering
 \caption{V3 baseline and primary conditional results. P\&L is an aggregate of
-reset hourly episodes; the conditional interval is diagnostic.}
+reset hourly episodes. The conditional interval is diagnostic.}
 \label{tab:v3}
 \begin{tabularx}{\textwidth}{@{}L{0.48\textwidth}YY@{}}
 \toprule
@@ -29,8 +29,8 @@ Primary endpoint screen & Blocked & Blocked \\
 \end{tabularx}
 \end{table}
 
-Both baseline sample means are negative. The no-credit interval crosses zero;
-the proportional-credit interval lies below zero. More modeled queue
+Both baseline sample means are negative. The no-credit interval crosses zero.
+The proportional-credit interval lies below zero. More modeled queue
 advancement produces more maker fills but does not produce a positive sample
 mean. These endpoint results do not demonstrate stable profitable execution
 for the locked baseline.
@@ -39,8 +39,8 @@ for the locked baseline.
 \centering
 \includegraphics[width=0.93\textwidth]{figures/v3_baseline_intervals.pdf}
 \caption{Current V3 mean net P\&L and 95\% window-bootstrap intervals.
-Error bars resample windows;
-they are not intervals for the current-minus-legacy difference.}
+Error bars resample windows.
+They are not intervals for the current-minus-legacy difference.}
 \label{fig:v3baseline}
 \end{figure}
 
@@ -53,7 +53,7 @@ termination boundary.
 Completed-lot diagnostics also show fees matter. Mean gross and net P\&L per
 matched lot are approximately $+0.002938/-0.004877$ USDT at $c=0$ and
 $+0.002379/-0.005026$ USDT at $c=1$. These lot means describe completed
-fragments with different sizes; they do not replace full-strategy marked
+fragments with different sizes. They do not replace full-strategy marked
 P\&L or a volume-weighted return. At a representative BTC price of 71,500
 USDT, a 2 USDT half-spread is roughly 0.28 bps per side, materially smaller than
 the modeled 2 bps maker fee. That arithmetic illustrates why fill quality and
@@ -70,7 +70,7 @@ The sign, HAC, and size thresholds all pass.
 The population sample is the same at both queue endpoints because queue credit
 changes hypothetical execution rather than the recorded market path. The
 positive pooled-coefficient prospective hypothesis therefore holds. The large
-HAC statistic describes a persistent association in this sample; the low
+HAC statistic describes a persistent association in this sample. The low
 $R^2$ and short clustered observation period prevent treating it as a broad
 claim about predictable returns or deployable profits.
 
@@ -105,7 +105,7 @@ endpoint invokes the optional five-second fallback.
 \includegraphics[width=0.98\textwidth]{figures/v3_ofi_buckets.pdf}
 \caption{V3 30-second fill-conditioned response across all side-aligned
 normalized-OFI buckets. Counts accompany the means. The gate selects the most
-populated negative and nonnegative buckets, not the two extreme buckets; the
+populated negative and nonnegative buckets, not the two extreme buckets. The
 selected buckets are shaded blue. The full response does not support a simple
 monotone interpretation.}
 \label{fig:ofibuckets}

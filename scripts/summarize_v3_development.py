@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
+import subprocess
 from dataclasses import asdict, fields
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -47,6 +49,17 @@ DEFAULT_PROTOCOL = Path("notebooks/v3_development_protocol.md")
 DEFAULT_LEGACY_ROOT = Path("results/panels/btcusdt_l2_panel_v2")
 BOOTSTRAP_ITERATIONS = 10_000
 BOOTSTRAP_SEED = 7
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def protocol_bytes(path: Path, revision: str | None = None) -> bytes:
+    """Read the protocol from the same source revision as recorded research."""
+    if revision is None:
+        return path.read_bytes()
+    relative = path.resolve().relative_to(REPO_ROOT)
+    return subprocess.check_output(
+        ["git", "show", f"{revision}:{relative.as_posix()}"], cwd=REPO_ROOT,
+    )
 
 
 def _jsonable(value):
@@ -223,7 +236,7 @@ def conditional_cluster_bootstrap(
 
 
 def endpoint_screen(payload: dict, regressions: list[dict], starts: list[str]) -> dict:
-    """Recompute the fixed primary gate; upstream all_pass is not advancement."""
+    """Recompute the fixed primary gate, upstream all_pass is not advancement."""
     expected_labels = {
         datetime.fromisoformat(start).strftime("%Y-%m-%d %H:00") for start in starts
     }
@@ -365,7 +378,8 @@ def build_summary(
     starts = manifest["development_panel"]["starts"]
     if len(starts) != 24:
         raise ValueError("V3 decision requires the complete 24-window panel")
-    if PROTOCOL_ID not in protocol_path.read_text(encoding="utf-8"):
+    protocol = protocol_bytes(protocol_path, manifest["source_verification"]["revision"])
+    if PROTOCOL_ID not in protocol.decode("utf-8"):
         raise ValueError("V3 protocol identity is missing")
     cis = _endpoint_artifacts(output_root, "baseline_ci", manifest)
     ofis = _endpoint_artifacts(output_root, "ofi_signal", manifest)
@@ -404,7 +418,7 @@ def build_summary(
     return {
         "report_version": "v3_development_summary_v1",
         "protocol": {"id": PROTOCOL_ID, "path": str(protocol_path),
-                     "sha256": _artifact_sha256(protocol_path)},
+                     "sha256": hashlib.sha256(protocol).hexdigest()},
         "verified_artifact_manifest": {
             "path": str(output_root / "ARTIFACT_MANIFEST.json"),
             "sha256": _artifact_sha256(output_root / "ARTIFACT_MANIFEST.json"),

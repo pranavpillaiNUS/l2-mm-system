@@ -18,7 +18,7 @@ and the conditioning set for the signal study. V3 uses \CurrentModel,
 Mechanism & Frozen V2 & Corrected V3 \\
 \midrule
 Order arrival & Activated at a subsequent depth update & Scheduled at its modeled millisecond \\
-Cancel effect & Immediate at request & Separately delayed; order can fill in flight \\
+Cancel effect & Immediate at request & Separately delayed, order can fill in flight \\
 Same-ms private events & Implicit through book activation & Entire recorded market group processed first \\
 Own queue & Weaker separation of public and own quantity & Non-overlapping FIFO ranks and conserved trade budget \\
 Snapshot release & Returned state applied at pre-fetch tag & Request barrier and post-response receipt gate \\
@@ -31,7 +31,7 @@ Working risk & Needed stronger cancel/replace envelope & Active, pending, and ca
 
 Private actions strictly before the next market timestamp execute first. At
 the same millisecond, all recorded depth/trade events execute before private
-arrivals; unresolved market-data ties use depth before trade and preserve
+arrivals, unresolved market-data ties use depth before trade and preserve
 within-stream order. Consequently a new order arriving at a trade's
 millisecond cannot capture that trade, and a cancel arriving at the same
 millisecond can lose the race. This is a deterministic policy for unresolved
@@ -54,7 +54,7 @@ cancellation reaches the modeled exchange.
 \textbf{A tested race.} A synthetic order is placed at 0 ms, arrives and joins
 the queue at 5 ms, receives a cancel request at 6 ms, fills at 10 ms, and emits
 \code{cancel_too_late} when the cancel arrives at 11 ms. The demo tests the
-order lifecycle; it does not calibrate the latency assumption to a live venue.
+order lifecycle. It does not calibrate the latency assumption to a live venue.
 \end{finding}
 
 \subsection{External queue credit and own-order FIFO}
@@ -72,7 +72,7 @@ can reduce only the external component:
  =Q_{i,t}^{\mathrm{external}}(1-c\rho_t),\qquad c\in[0,1],
 \end{equation}
 where $\rho_t$ is the inferred fraction removed and $c$ the queue-cancellation
-credit. At $c=0$, unexplained cancellations confer no advancement; at $c=1$,
+credit. At $c=0$, unexplained cancellations confer no advancement. At $c=1$,
 the model gives proportional advancement. Neither endpoint is observed ground
 truth, and they are not guaranteed mathematical bounds on actual execution.
 
@@ -87,7 +87,7 @@ planned and validated before mutation, with the invariant
 \end{equation}
 Cancelling an earlier own order releases its remaining own quantity from later
 orders' ranks. A scale-aware Decimal tolerance of $10^{-24}$ handles division
-residue; it cannot create fill volume. Partial fills preserve remaining order
+residue. It cannot create fill volume. Partial fills preserve remaining order
 quantity and FIFO relationships.
 
 \subsection{Worst-case working exposure}
@@ -122,7 +122,7 @@ full-strategy marked P\&L.
 
 A known data gap invalidates the complete timestamp group before it can drive
 fills or strategy callbacks. Local order and queue state is invalidated until
-snapshot recovery. This is fail-closed research bookkeeping; it does not assert
+snapshot recovery. This is fail-closed research bookkeeping. It does not assert
 that exchange orders disappear on a feed failure. At the last market event,
 private actions scheduled later are not executed against an invented future
 book. Remaining live orders expire. Pending-action diagnostics are captured

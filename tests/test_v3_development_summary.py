@@ -2,16 +2,47 @@
 
 from dataclasses import asdict
 from decimal import Decimal as D
+import subprocess
 
 import pytest
 
 from scripts.summarize_v3_development import (
-    _jsonable, combined_screen, conditional_cluster_bootstrap, endpoint_screen,
+    _jsonable, combined_screen, conditional_cluster_bootstrap, endpoint_screen, protocol_bytes,
 )
+from scripts import summarize_v3_development
 from src.analysis.ofi_signal import OFIRegression, OFIFillToxicityBucket, evaluate_ofi_gates
 
 
 STARTS = ["2026-04-12T09:00:00", "2026-04-13T09:00:00"]
+
+
+@pytest.fixture
+def recorded_protocol(tmp_path, monkeypatch):
+    monkeypatch.setattr(summarize_v3_development, "REPO_ROOT", tmp_path)
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    path = tmp_path / "protocol.md"
+    original = b"Prospective experiment with locked thresholds.\n"
+    path.write_bytes(original)
+    subprocess.run(["git", "add", path.name], cwd=tmp_path, check=True)
+    subprocess.run([
+        "git", "-c", "user.name=Research Test", "-c", "user.email=test@example.com",
+        "commit", "-qm", "Lock protocol",
+    ], cwd=tmp_path, check=True)
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    path.write_text("Later editorial copy.\n")
+    return path, revision, original
+
+
+def test_recorded_protocol_preserves_original_after_editorial_changes(recorded_protocol):
+    path, revision, original = recorded_protocol
+    assert protocol_bytes(path, revision) == original
+    assert protocol_bytes(path) == b"Later editorial copy.\n"
+
+
+def test_recorded_protocol_does_not_fall_back_to_working_copy(recorded_protocol):
+    path, _, _ = recorded_protocol
+    with pytest.raises(subprocess.CalledProcessError):
+        protocol_bytes(path, "0" * 40)
 
 
 def evidence(*, count=40, separation="2", t_stat=4.0):

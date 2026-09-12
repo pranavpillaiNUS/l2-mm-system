@@ -9,6 +9,8 @@ import re
 import shutil
 import subprocess
 
+from scripts.summarize_v3_development import protocol_bytes
+
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / "report/l2_mm_system_complete_report.pdf"
@@ -41,6 +43,13 @@ def validate_manifest():
         raise ValueError("report evidence must disclose artifact-only verification")
     if verification["source_verification"]["revision"] != "04df6294872a256374f910d12d5e5e3e08e8757a":
         raise ValueError("report does not identify the frozen research source")
+    protocol = verification["protocol"]
+    if (protocol["revision"] != verification["source_verification"]["revision"]
+            or protocol["path"] != "notebooks/v3_development_protocol.md"
+            or protocol["sha256"] != "e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395"
+            or hashlib.sha256(protocol_bytes(ROOT / protocol["path"], protocol["revision"])).hexdigest()
+            != protocol["sha256"]):
+        raise ValueError("report protocol differs from the recorded research source")
 
 
 def validate_log():

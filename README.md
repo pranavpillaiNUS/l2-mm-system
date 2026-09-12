@@ -29,7 +29,7 @@ University of Singapore
 - **Research result:** strong population-level one-second OFI association with
   forward mid-price drift, but a failed pre-specified passive-fill screen for
   the tested market-making baseline.
-- **Verification:** all 514 tests pass locally with raw data and the native
+- **Verification:** all 516 tests pass locally with raw data and the native
   build, alongside native CTest and sanitizer checks. Full output streams match
   across all 120 development hours at both queue endpoints (240 comparisons).
   Report generation and native parity are configured in CI.
@@ -37,7 +37,7 @@ University of Singapore
   path, and complete report are finished. Read the [V3 results](notebooks/research_writeup_v3.md)
   and [native design and measurements](cpp/README.md).
 - **Native measurement:** 1.17–1.19× median speedup for the integrated replay
-  and diagnostics on one development hour; 13.7× for the narrower standalone
+  and diagnostics on one development hour, 13.7× for the narrower standalone
   book-update benchmark. Both measurements retain their timing boundaries.
 
 ## Execution in one trace
@@ -61,9 +61,9 @@ suite.
 | Bar backtester | Educational precursor | Reusable interfaces, testing patterns, and research lessons |
 | Frozen V2 study | Complete, historical | Auditable 24-window development evidence under the legacy execution model |
 | Event-driven Python model | Implemented and tested | Deterministic private-event scheduling on the model clock, post-response-gated snapshot recovery, delayed cancels, own FIFO, volume conservation, gap handling, and risk invariants |
-| V3 development study | Complete | Current-model baseline and conditional OFI evidence at both queue endpoints; the committed gate blocks candidate advancement |
+| V3 development study | Complete | Current-model baseline and conditional OFI evidence at both queue endpoints. The committed gate blocks candidate advancement |
 | Holdout strategy evaluation | Strategy-sealed | Reserved for one candidate that clears development and enters with a locked protocol |
-| Integrated C++17 backend | Complete | Native storage throughout replay and research entry points, full-stream parity on all 240 endpoint runs, measured pipeline performance; execution and accounting remain Python |
+| Integrated C++17 backend | Complete | Native storage throughout replay and research entry points, full-stream parity on all 240 endpoint runs, measured pipeline performance. Execution and accounting remain Python |
 
 The frozen study and current simulator use distinct execution models. The
 historical `legacy_book_update_v1` engine activated arrivals on the next depth
@@ -104,21 +104,21 @@ Normalized OFI has a positive one-second population coefficient in all 24
 windows: pooled effect `+0.123285 bps/s.d.`, HAC `t = 64.6214`, and
 `R² = 0.0365623`. That association does not clear the defined passive-fill
 screen. The diagnostic intervals cross zero and condition on the selected
-buckets; this is not a universal rejection of OFI or a backtest of the blocked
+buckets. This is not a universal rejection of OFI or a backtest of the blocked
 candidate. The 12-window holdout remains strategy-sealed.
 
 The [V3 writeup](notebooks/research_writeup_v3.md) explains the protocol, source
 freeze, uncertainty, and comparison with V2. The
 [machine-readable summary](results/panels/btcusdt_l2_panel_v3_development_summary/summary.json)
 links the verified evidence. V3 covers the two queue endpoints at 10 ms entry
-and cancellation latency; the older intermediate-credit and latency grid below
+and cancellation latency. The older intermediate-credit and latency grid below
 remains historical.
 
 ## Historical V2 findings
 
 The frozen V2 development panel contains 24 non-overlapping five-hour windows
 from April–May 2026. It combines six exploratory anchors with 18 later windows
-selected from a frozen integrity inventory; all 24 windows are treated as
+selected from a frozen integrity inventory. All 24 windows are treated as
 development evidence.
 
 The population and fill-conditioned views diverged. Normalized one-second OFI
@@ -131,15 +131,15 @@ fill-conditioned response was non-monotone and failed the pre-specified
 | Baseline mean net P&L, no queue credit | `-0.686 USDT/window`, 95% CI `[-1.883, +0.290]` | Interval crosses zero |
 | Baseline mean net P&L, proportional credit | `-1.043 USDT/window`, 95% CI `[-2.332, -0.032]` | Negative under this endpoint |
 | Microprice, 1s effect | `+0.0190 bps/s.d.`, HAC `t = 1.74` | Missed significance and size screens |
-| Normalized OFI, 1s effect | `+0.1233 bps/s.d.`, HAC `t = 64.63` | Strong population association; low `R² = 0.0366` |
-| OFI fill-conditioned separation | `+0.127 bps` proportional / `-0.376 bps` no credit | Defined gate failed; response non-monotone |
+| Normalized OFI, 1s effect | `+0.1233 bps/s.d.`, HAC `t = 64.63` | Strong population association, low `R² = 0.0366` |
+| OFI fill-conditioned separation | `+0.127 bps` proportional / `-0.376 bps` no credit | Defined gate failed, response non-monotone |
 | Queue-credit stress, matched net/BTC | `-9.75` to `-23.65 USDT/BTC` | More modeled queue credit increased fills but worsened economics |
 
 ![Population and fill-conditioned OFI evidence](report/figures/ofi_population_vs_fills.png)
 
 The frozen protocol therefore blocked `OFIGatedMM` before strategy or holdout
 evaluation. This establishes a strong historical population association and a
-failed passive-fill screen for this baseline; other signal transforms and the
+failed passive-fill screen for this baseline. Other signal transforms and the
 performance of the unrun candidate remain separate hypotheses. The 12-window
 holdout is strategy-sealed: its identities and pre-strategy regime descriptors
 are public, while strategy outcomes remain reserved for one
@@ -157,7 +157,7 @@ These measurements were generated by `legacy_book_update_v1`. A publication
 audit subsequently found that the legacy recorder tagged each REST snapshot
 before its blocking request completed and replay applied the returned state at
 that early tag. Across the 120 selected development hours, the first later local
-depth receipt followed the tag by a median 250.5 ms (90th percentile 672.9 ms;
+depth receipt followed the tag by a median 250.5 ms (90th percentile 672.9 ms,
 maximum 2,335 ms). Two no-credit and four proportional-credit frozen fills came
 from orders placed before the selected policy boundary.
 
@@ -194,13 +194,13 @@ Engineering highlights:
 - Snapshot bridging, stale-diff rejection, cross-file depth continuity, and
   aggregate-trade gap detection. Snapshot reconstruction is released only at a
   sequence-valid depth record known to follow response completion, or a
-  defensible upper-bound proxy for legacy captures; only the final recovered
+  defensible upper-bound proxy for legacy captures. Only the final recovered
   state reaches strategy logic.
 - Explicit equal-time rule: all recorded market data at a millisecond is
   processed before equal-time private arrivals.
 - Post-only arrival checks, maker/taker fee assignment, partial fills, separate
   entry/cancel latency, and explicit late-cancel outcomes.
-- Public queue plus non-overlapping own-order FIFO; aggregate simulated maker
+- Public queue plus non-overlapping own-order FIFO, aggregate simulated maker
   fills cannot exceed recorded aggressor volume.
 - Fail-closed gap handling and snapshot resynchronization.
 - Hard worst-case working-exposure limit across active orders, pending entries,
@@ -212,7 +212,7 @@ Engineering highlights:
 
 The implementation is an offline research simulator over aggregate L2. It
 estimates passive execution under explicit queue, timing, fee, and data
-assumptions; exchange replication and live-trading controls are outside its
+assumptions, exchange replication and live-trading controls are outside its
 scope.
 
 ## Quick verification
@@ -245,10 +245,10 @@ env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorde
 ```
 
 This explicitly checks source bytes at the manifest's exact Git commit
-`04df629`; later benchmark and verification tooling is separate. Omitting the
+`04df629`. Later benchmark and verification tooling is separate. Omitting the
 flag requires the current working source to match the recorded run.
 Omit `--artifacts-only` to hash-check the restored raw captures as well. Completed
-manifest trees reject further writes; use a new output root for a new run.
+manifest trees reject further writes. Use a new output root for a new run.
 
 To use native storage in the working replay pipeline:
 
@@ -268,8 +268,8 @@ restored, `make native-pipeline-check PYTHON=python` repeats all 240 comparisons
 
 The [complete report](report/l2_mm_system_complete_report.pdf), built from
 [LaTeX source](report/v3/main.tex), covers the project end to end.
-The [V3 writeup](notebooks/research_writeup_v3.md) gives a shorter current study;
-the [August report](report/l2_mm_research_report.pdf) preserves the historical
+The [V3 writeup](notebooks/research_writeup_v3.md) gives a shorter current study.
+The [August report](report/l2_mm_research_report.pdf) preserves the historical
 V2 methodology, results, and failure analysis. Supporting references:
 [data specification](DATA.md) · [result map](results/README.md) ·
 [execution-model contract](notebooks/execution_model_v2.md).
@@ -277,7 +277,7 @@ V2 methodology, results, and failure analysis. Supporting references:
 There are three levels of reproduction:
 
 1. **Clone-level:** run deterministic tests and the synthetic execution demo.
-2. **Artifact-level:** inspect the committed V3 summary and manifest; validate
+2. **Artifact-level:** inspect the committed V3 summary and manifest, validate
    the historical V2 summaries and rebuild their report figures and PDF.
 3. **Full replay:** restore the selected raw files whose individual hashes are
    recorded in the integrity manifest. The 24-window development subset is 240
@@ -295,7 +295,7 @@ make complete-report-check PYTHON=python
 ```
 
 The report build is pinned in CI to Tectonic 0.17.0. Use an isolated virtual
-environment with `requirements.txt`; the Matplotlib wheel's bundled FreeType
+environment with `requirements.txt`. The Matplotlib wheel's bundled FreeType
 version matters for byte-identical PNG output. Report checks also use
 Poppler (`pdfinfo`, `pdffonts`, and `pdftotext`) and uses `qpdf` when available.
 The original `make report` and `make report-check` targets rebuild the historical
@@ -328,14 +328,14 @@ the [result map](results/README.md) before citing a file.
   reset with liquidation cost omitted, so the metric aggregates episodes rather
   than one continuous portfolio path.
 - **Queue inference:** aggregate L2 exposes displayed quantity rather than order
-  identities; true queue rank, hidden liquidity, and within-level order changes
+  identities. True queue rank, hidden liquidity, and within-level order changes
   remain latent.
 - **Event ordering:** queue-cancellation credit is uncalibrated. The model
   processes market data before private actions at equal timestamps, while true
   within-millisecond exchange ordering remains unobservable.
 - **Snapshot clock:** V2 used a pre-fetch local tag. Current recovery combines a
   request-time barrier, post-response receipt order, depth event time `E`, and
-  trade time `T`. This is an exchange-clock proxy; client-observation latency
+  trade time `T`. This is an exchange-clock proxy. Client-observation latency
   remains uncalibrated. V3 remeasures queue age and execution eligibility under
   the selected proxy policy.
 - **Execution calibration:** the model omits separate market-data latency, live
@@ -345,7 +345,7 @@ the [result map](results/README.md) before citing a file.
   recording availability may be non-random.
 - **Inference:** the diagnostic clustered interval conditions on the originally
   selected OFI buckets and assumes independent window clusters. It is not
-  selection-adjusted; the count threshold is not a formal power calculation.
+  selection-adjusted. The count threshold is not a formal power calculation.
 
 ## Completed scope and extensions
 

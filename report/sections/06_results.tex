@@ -4,7 +4,7 @@
 \textbf{Provenance.} Every number in this section belongs to the frozen V2
 artifact root and historical execution model. These are results of that
 experiment, not estimates from the current simulator. V2 also applied REST
-snapshot state at a pre-fetch local tag; the timing proxy audit does not prove
+snapshot state at a pre-fetch local tag. The timing proxy audit does not prove
 that its execution-derived values are invariant to the post-response-gated
 exchange-clock policy.
 \end{cautionbox}
@@ -15,8 +15,8 @@ The fixed microprice maker was unprofitable in 18 of 24 windows at both queue
 endpoints. Table \ref{tab:phase-a} reports window means and 95\% bootstrap
 intervals. Proportional cancellation credit produced a wholly negative
 interval. The no-credit interval crossed zero, but its point estimate was also
-negative. This supports a conservative conclusion---no stable passive edge was
-demonstrated---while preserving the queue-model dependence of the uncertainty.
+negative. No stable passive edge was demonstrated. This conclusion retains the
+queue-model dependence of the uncertainty.
 
 The fee hurdle is economically central. At a representative 71,500 USDT price,
 the 2 USDT half-spread is about 0.28 bps per side, while the simulation charges
@@ -80,7 +80,7 @@ Horizon & Observations & Slope & HAC $t$ & Effect / 1 s.d. (bps) \\
 \end{table}
 
 The one-second regression $R^2$ is only \OFIRSquared. The large $t$-statistic
-reflects a repeatable short-horizon association in a densely sampled series; it
+reflects a repeatable short-horizon association in a densely sampled series. It
 does not imply that the signal explains most price variation or can be captured
 after execution and costs.
 
@@ -121,7 +121,7 @@ the sign flip observed in the earlier six-anchor analysis.
 \begin{table}[H]
 \centering
 \caption{Frozen legacy pooled Phase C results at 10 ms. ``Orders/fill'' is a throughput
-diagnostic; matched net/BTC weights pooled matched quantity.}
+diagnostic, matched net/BTC weights pooled matched quantity.}
 \label{tab:queue-stress}
 \begin{tabular}{@{}rrrrr@{}}
 \toprule
@@ -154,7 +154,7 @@ event-driven clock.
 \subsection{Tails and bounded replay audits}
 
 Under proportional credit, the worst 5\% of 30-second fill observations
-accounted for 40.64\% of the summed adverse movement; the worst 5\% of matched
+accounted for 40.64\% of the summed adverse movement. The worst 5\% of matched
 lots accounted for 86.62\% of total matched-lot loss. Fill toxicity was thus
 broad with meaningful tails, whereas realized matched-lot loss was far more
 tail-concentrated. These ratios depend on the signed-total denominator and are

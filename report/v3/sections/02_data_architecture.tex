@@ -4,15 +4,15 @@
 
 The empirical study uses Binance spot BTCUSDT depth diffs, periodic REST book
 snapshots, and aggregate trades. Records are stored as hourly gzip-compressed
-JSON Lines files. The recorded REST snapshots contain 1,000 levels per side;
-the subsequent diff stream updates aggregate quantities at named prices.
+JSON Lines files. The recorded REST snapshots contain 1,000 levels per side.
+The subsequent diff stream updates aggregate quantities at named prices.
 Separate perpetual-futures recordings exist locally but do not enter this
 experiment.
 
 Depth updates expose a first and last update ID, bid and ask changes, and event
 time \code{E}. Aggregate trades expose an aggregate trade ID, price, quantity,
 matching time \code{T}, and buyer-maker flag. A zero depth quantity removes a
-level; a nonzero quantity replaces its displayed size. These field and update
+level. A nonzero quantity replaces its displayed size. These field and update
 semantics follow the exchange's spot stream documentation
 \citep{binancews2026}. REST snapshots supply \code{lastUpdateId} but do not
 supply the exchange timestamp of the represented book
@@ -28,7 +28,7 @@ client-observation clock.
 
 If a snapshot ends at update ID $S$, diffs with final ID $u\le S$ are stale.
 The first retained diff must satisfy the bridge condition
-$U\le S+1\le u$; subsequent diffs must maintain sequence continuity.
+$U\le S+1\le u$, subsequent diffs must maintain sequence continuity.
 Depth and aggregate-trade IDs are checked independently, including across
 hourly files. A known gap invalidates the relevant timestamp group and pauses
 execution until trustworthy snapshot reconstruction is available.
@@ -41,7 +41,7 @@ request time, establishes a valid sequence bridge, and requires a retained
 depth receipt after response completion. For old captures, the recorder's
 blocking behavior makes the first strictly later local depth receipt a
 defensible upper-bound proxy for response completion. Recovery is released on
-the selected depth record's event time \code{E}; only the final reconstructed
+the selected depth record's event time \code{E}. Only the final reconstructed
 book is visible to strategy logic or sampling.
 
 The audit of 120 selected development depth files found a valid bridge for
@@ -58,7 +58,7 @@ The frozen inventory covers 1,193 hourly slots before 1 June 2026. Required
 file availability, gzip and JSON decoding, snapshot bridging, depth sequence,
 cross-file continuity, and aggregate-trade continuity left 775 eligible hours
 and 418 invalid hours. A five-hour window containing an invalid hour was
-ineligible. Most exclusions reflected missing captures; selection need not be
+ineligible. Most exclusions reflected missing captures, selection need not be
 independent of market conditions.
 
 The development panel contains 24 non-overlapping five-hour windows: six
@@ -66,7 +66,7 @@ exploratory anchors and 18 later windows selected from the eligible inventory
 while balancing UTC buckets and one-second realized-volatility terciles.
 Development is clustered in April and early May. Twelve late-May windows form
 the strategy-sealed holdout. Their identities and pre-strategy regime
-descriptors were examined; their strategy outcomes were not. The descriptors
+descriptors were examined. Their strategy outcomes were not. The descriptors
 label the holdout regime-shifted, with lower volatility and fewer jumps.
 
 \begin{figure}[H]
@@ -81,7 +81,7 @@ change. Holdout markers identify reserved windows, not evaluated strategies.}
 The V3 input audit verified all 240 selected spot depth/trade files against
 their recorded SHA-256 values: 824,383,459 bytes in total. The inventory's
 logical identity, the development CSV's byte hash, and the run's source hash
-are distinct objects. They are listed in Appendix~\ref{sec:reproduction};
+are distinct objects. They are listed in Appendix~\ref{sec:reproduction},
 interchanging them would make a provenance check meaningless.
 
 \subsection{Software responsibilities and flow}
@@ -112,7 +112,7 @@ interchanging them would make a provenance check meaningless.
 \draw[arrow] (analysis)--(outputs);
 \end{tikzpicture}
 \caption{Research flow after native integration. The selected backend owns
-book state; Python retains parsing, execution, strategy, and research
+book state. Python retains parsing, execution, strategy, and research
 accounting. Native backend equivalence is assessed separately from the frozen
 Python V3 experiment.}
 \label{fig:architecture}
@@ -135,7 +135,7 @@ Component & Responsibility \\
 \end{tabularx}
 \end{table}
 
-Strategies request actions; they do not decide whether those actions have
+Strategies request actions. They do not decide whether those actions have
 arrived or filled. The execution simulator owns those transitions. Decimal
 accounting and seeded independent entry/cancel randomness preserve repeatable
 behavior. Canonical book hashes expose reconstruction divergence, while event

@@ -57,7 +57,7 @@ artifact is absent or invalid.
 
 \subsection{Verify V3 without raw captures}
 
-The recorded source commit must be available in Git history; shallow clones
+The recorded source commit must be available in Git history, shallow clones
 must first obtain that history. A later tooling commit is expected to differ
 from the research source, so the historical-source choice is explicit:
 
@@ -94,7 +94,7 @@ env PYTHONPATH=. python scripts/run_l2_panel.py --phase all
 \end{lstlisting}
 
 The completed research run scheduled independent commands concurrently through
-the same runner checks; OFI commands sharing a cache remained sequential.
+the same runner checks, OFI commands sharing a cache remained sequential.
 Scheduling did not change replay parameters or algorithms. The durable
 manifest contains all 61 completed steps and 330 output identities. Ephemeral
 caches and progress files are not substituted for durable evidence.
@@ -133,7 +133,7 @@ make cpp-benchmark PYTHON=python
 \end{lstlisting}
 
 These commands remeasure the local system and may produce different durations
-from the committed benchmark. Correctness identities are expected to match;
+from the committed benchmark. Correctness identities are expected to match,
 wall-clock timings are observations of a particular environment and load.
 
 \subsection{Build the complete report}
@@ -147,12 +147,12 @@ make complete-report
 make complete-report-check
 \end{lstlisting}
 
-The output is \code{report/l2_mm_system_complete_report.pdf}; its source is
+The output is \code{report/l2_mm_system_complete_report.pdf}. Its source is
 \code{report/v3/main.tex}. The existing \code{make report} builds the
 historical \code{report/l2_mm_research_report.pdf}. Report checks inspect the
 generated assets, PDF structure and text, embedded fonts, build diagnostics,
 and recorded output identity. Poppler supplies \code{pdfinfo},
-\code{pdffonts}, and \code{pdftotext}; \code{qpdf} can add a structural check.
+\code{pdffonts}, and \code{pdftotext}, \code{qpdf} can add a structural check.
 
 \subsection{Canonical identities}
 
@@ -171,11 +171,16 @@ Object & Identity \\
 Integrity inventory logical identity & \nolinkurl{a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61} \\
 Selected-panel identity & \nolinkurl{760c55b7c0929b4a99657f6ca02eb723d930b9f48ebd3786d57bcb1a0f481122} \\
 Development CSV SHA-256 & \nolinkurl{c779138fdffb739715c53cfa27c75b3c8ca140bc4f5a6128f60f2251948bd362} \\
-V3 protocol SHA-256 & \nolinkurl{e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395} \\
+Original V3 protocol SHA-256 & \nolinkurl{e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395} \\
 V3 research Git commit & \nolinkurl{04df6294872a256374f910d12d5e5e3e08e8757a} \\
 V3 Python source fingerprint & \nolinkurl{45141ba610bb070217e6d08bbb5fef9ca1a725f5c7d5e40b6e14881450a4cb4d} \\
 V3 durable manifest SHA-256 & \nolinkurl{d70195704c98a14f7ce0daf747b97906754d7d2ffebcc181d308dad8af57d27a} \\
 \end{longtable}
+
+The protocol hash identifies its bytes at the recorded V3 research commit.
+The current Markdown copy has punctuation edits after completion. Verification
+reads the committed original, and the report asset manifest records both
+identities.
 
 The inventory identity is a logical content identity, not the SHA-256 of its
 JSON file. The source fingerprint hashes the selected Python source tree

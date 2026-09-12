@@ -9,15 +9,15 @@ Field & Value \\
 \midrule
 Venue / instrument & Binance spot BTCUSDT \\
 Strategy / reference & \code{MicropriceMM} / top-of-book microprice \\
-Windowing & 24 development windows; each sums five independently initialized one-hour sessions \\
+Windowing & 24 development windows, each sums five independently initialized one-hour sessions \\
 Half-spread / order quantity & 2.00 USDT / 0.001 BTC \\
 Maximum position & 0.01 BTC \\
 Requote interval & 5,000 ms \\
 Entry latency / jitter & 10 ms / 0 ms \\
-Fees & maker 2 bps; taker 5 bps \\
-Queue cancellation credit & endpoints 0 and 1; Phase C grid 0, .25, .5, .75, 1 \\
+Fees & maker 2 bps, taker 5 bps \\
+Queue cancellation credit & endpoints 0 and 1, Phase C grid 0, .25, .5, .75, 1 \\
 Market-data tie rule & depth before trade for identical millisecond timestamps \\
-Legacy snapshot time & pre-fetch local tag; removed from strategy ordering only in the current model \\
+Legacy snapshot time & pre-fetch local tag, removed from strategy ordering only in the current model \\
 Execution model & \LegacyModel \\
 Frozen research commit & \code{1066950} \\
 Integrity manifest & \texttt{a3a99b0a616a} (full logical identity in artifact) \\
@@ -40,8 +40,8 @@ Property & Status & Executable evidence \\
 \endhead
 Exact new-order scheduling & Accepted & Private arrivals occur at modeled milliseconds, including times with no depth update. \\
 Delayed cancellation & Accepted & Request/effect are distinct and a fill can beat a cancel in flight. \\
-Equal-time policy & Accepted & Full market-data group precedes private arrivals; insertion order is stable. \\
-Snapshot recovery gate & Accepted & A local request-time barrier pauses replay; a sequence-valid post-response receipt gates release on selected depth \code{E}; strategy sees only the final recovered state. \\
+Equal-time policy & Accepted & Full market-data group precedes private arrivals, insertion order is stable. \\
+Snapshot recovery gate & Accepted & A local request-time barrier pauses replay, a sequence-valid post-response receipt gates release on selected depth \code{E}, strategy sees only the final recovered state. \\
 Own-order FIFO & Accepted & Earlier own quantity forms non-overlapping rank ahead of later own orders. \\
 Trade-volume conservation & Accepted & Aggregate maker fill cannot exceed recorded aggressor quantity. \\
 Queue-credit isolation & Accepted & Public inferred cancellation cannot erase own quantity ahead. \\
@@ -61,7 +61,7 @@ under \directory{tests} and grouped by behavior.
 
 Current implementations have evolved since the frozen study. For historical
 claims, the implementation links below therefore point to the full frozen
-research commit; current links are used only for later audits and verifiers.
+research commit. Current links are used only for later audits and verifiers.
 
 \begin{longtable}{@{}L{0.27\textwidth}L{0.33\textwidth}L{0.32\textwidth}@{}}
 \caption{Fast audit map for principal claims.}\label{tab:claim-map}\\
@@ -92,14 +92,14 @@ Report presentation & \artifact{report/generated/asset_manifest.json} & \artifac
 \section{Repository Map}
 
 \begin{description}[leftmargin=8.1em,style=nextline]
-  \item[\code{src/replay}] book reconstruction, parsers, event merger, replay clock;
-  \item[\code{src/execution}] order lifecycle, queue model, fills, fees, provenance;
-  \item[\code{src/strategies}] baseline and gated market-making strategies;
-  \item[\code{src/analysis}] estimands, accounting, diagnostics, uncertainty, gates;
-  \item[\code{scripts}] record, replay, run panels, analyze, verify, and build report assets;
-  \item[\code{tests}] deterministic unit, invariant, integration, and artifact-contract tests;
-  \item[\code{results/panels}] frozen selected derived artifacts, not raw market data;
-  \item[\code{notebooks}] protocols, research log, historical writeups, and model notes;
+  \item[\code{src/replay}] book reconstruction, parsers, event merger, replay clock,
+  \item[\code{src/execution}] order lifecycle, queue model, fills, fees, provenance,
+  \item[\code{src/strategies}] baseline and gated market-making strategies,
+  \item[\code{src/analysis}] estimands, accounting, diagnostics, uncertainty, gates,
+  \item[\code{scripts}] record, replay, run panels, analyze, verify, and build report assets,
+  \item[\code{tests}] deterministic unit, invariant, integration, and artifact-contract tests,
+  \item[\code{results/panels}] frozen selected derived artifacts, not raw market data,
+  \item[\code{notebooks}] protocols, research log, historical writeups, and model notes,
   \item[\code{report}] this source, generated figures/macros, and compiled PDF.
 \end{description}
 
@@ -111,10 +111,10 @@ Report presentation & \artifact{report/generated/asset_manifest.json} & \artifac
   \item[Development] The 24-window panel on which baselines, premises, and
         model sensitivities were evaluated.
   \item[Holdout] Twelve strategy-sealed windows reserved for one locked
-        candidate; identities and regime descriptors were inspected, but no
+        candidate, identities and regime descriptors were inspected, but no
         candidate has been evaluated.
   \item[Matched net/BTC] Sum of matched-lot net P\&L divided by sum of matched
-        quantity; pooled rows are quantity-weighted, not averages of windows.
+        quantity, pooled rows are quantity-weighted, not averages of windows.
   \item[Population signal] Association measured over regularly sampled book
         states, whether or not the strategy fills.
   \item[Fill-conditioned signal] Association measured only for book states

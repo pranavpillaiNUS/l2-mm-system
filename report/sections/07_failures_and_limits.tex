@@ -12,14 +12,14 @@ more constrained as the measurement system improved.
 \toprule
 Issue & Why it mattered & Resolution \\
 \midrule
-Accidental taker fills & Entry latency could make intended passive limits cross, creating attractive but irrelevant execution. & Post-only is the default; crossing arrivals terminate with an explicit reason. \\
+Accidental taker fills & Entry latency could make intended passive limits cross, creating attractive but irrelevant execution. & Post-only is the default, crossing arrivals terminate with an explicit reason. \\
 Naive snapshot synchronization & Stale post-snapshot diffs could roll the reconstructed book backward. & Stale diffs are dropped, the first retained diff must bridge, and parser tests cover both rules. \\
-Pre-fetch snapshot tags & The recorder stamped request start, then blocked on REST; legacy replay could apply returned state before response completion. & Frozen V2 is labeled; current recovery is gated by post-response receipt order, future captures store both timestamps, and a 120-hour proxy audit is committed. \\
-Trade-ID gaps & Missing aggressor trades can overstate queue position and suppress fills. & New research pauses fail-closed, invalidates local state, and resumes only at a valid snapshot; six anchors were audited before/after. \\
-Same-ms fill leakage & A fill-time book sample could include the causal trade and leak its move into prior OFI. & Conditional OFI and its reference mid are strictly before the fill; a test guards the boundary. \\
-Private-event quantization & Legacy entry arrival waited for a depth event and cancels had no delay, masking races and latency sensitivity. & Historical results were frozen and labeled; \CurrentModel\ added explicit millisecond scheduling and a new artifact namespace. \\
+Pre-fetch snapshot tags & The recorder stamped request start, then blocked on REST, legacy replay could apply returned state before response completion. & Frozen V2 is labeled, current recovery is gated by post-response receipt order, future captures store both timestamps, and a 120-hour proxy audit is committed. \\
+Trade-ID gaps & Missing aggressor trades can overstate queue position and suppress fills. & New research pauses fail-closed, invalidates local state, and resumes only at a valid snapshot, six anchors were audited before/after. \\
+Same-ms fill leakage & A fill-time book sample could include the causal trade and leak its move into prior OFI. & Conditional OFI and its reference mid are strictly before the fill, a test guards the boundary. \\
+Private-event quantization & Legacy entry arrival waited for a depth event and cancels had no delay, masking races and latency sensitivity. & Historical results were frozen and labeled, \CurrentModel\ added explicit millisecond scheduling and a new artifact namespace. \\
 Own-order overlap & Multiple simulated orders could compete for the same recorded trade or obscure working exposure. & Current replay separates public and own queue, conserves trade volume, models own FIFO, and checks all fillable same-side quantity. \\
-Publication overstatement & Phase 1 ratios and the OFI headline could imply stronger evidence than the implementation supports. & Phase 1 is now an educational precursor; the OFI conclusion is stated as a failed defined gate with non-monotone conditional evidence. \\
+Publication overstatement & Phase 1 ratios and the OFI headline could imply stronger evidence than the implementation supports. & Phase 1 is now an educational precursor, the OFI conclusion is stated as a failed defined gate with non-monotone conditional evidence. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -35,13 +35,13 @@ model version. That separation is essential for an auditable research record.
   \item \textbf{One venue and instrument.} Evidence comes from Binance spot
         BTCUSDT and cannot establish cross-venue or cross-asset robustness.
   \item \textbf{Short, clustered period.} Development windows lie mainly in
-        two April/May clusters; calendar, volatility, and market-structure
+        two April/May clusters, calendar, volatility, and market-structure
         coverage is limited.
   \item \textbf{Selective availability.} Only 775 of 1,193 inventoried hours
         passed the data requirements. Missingness may correlate with volatile
         or operationally difficult periods.
   \item \textbf{Exploration inside development.} Six baseline-selection
-        anchors remain in the 24-window panel; results are not a pristine
+        anchors remain in the 24-window panel, results are not a pristine
         confirmatory replication.
   \item \textbf{Hourly state resets.} Each five-hour value sums five independent
         one-hour episodes. Residual inventory is marked at each session end and
@@ -55,7 +55,7 @@ model version. That separation is essential for an auditable research record.
         future work.
   \item \textbf{Pooled-signal inference.} Newey--West errors address specified
         local serial dependence, not uncertainty across independently sampled
-        market regimes; a window-clustered population-effect interval remains
+        market regimes. A window-clustered population-effect interval remains
         future work.
 \end{itemize}
 
@@ -80,7 +80,7 @@ price level, making fee calibration load-bearing.
 The current Python implementation is a tested behavioral reference. It favors
 explicit state and \code{Decimal} arithmetic over throughput, has not been
 profiled as a low-latency system, and is not connected to an order gateway.
-Tests cover deterministic synthetic paths and artifact contracts; they do not
+Tests cover deterministic synthetic paths and artifact contracts. They do not
 replace exchange conformance tests, live shadowing, chaos testing, a production
 gateway, kill switch, monitoring, or other operational risk controls.
 
@@ -94,13 +94,13 @@ Five lessons carry forward:
 
 \begin{enumerate}
   \item execution determines the sample, so a predictor must be tested on the
-        fills it can actually influence;
+        fills it can actually influence,
   \item a simulator assumption should be versioned whenever it can change order
-        eligibility or queue state;
+        eligibility or queue state,
   \item negative results become useful when their stop rule and provenance are
-        inspectable;
-  \item sensitivity analysis should report selection effects---throughput and
-        fill composition---not just a final P\&L number; and
+        inspectable,
+  \item sensitivity analysis should report selection effects, including throughput and
+        fill composition, alongside the final P\&L number, and
   \item performance work should begin only after a deterministic behavioral
         contract exists to serve as an oracle.
 \end{enumerate}

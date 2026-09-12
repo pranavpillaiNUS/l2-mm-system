@@ -11,7 +11,7 @@ The integration then addressed the remaining gap between a fast isolated
 component and a usable backend for replay, execution, and analysis.
 
 The result is a hybrid implementation. C++ owns price-level storage and book
-mutation; Python owns parsing, scheduling, strategy, execution, and research
+mutation. Python owns parsing, scheduling, strategy, execution, and research
 accounting. This preserves the tested Decimal arithmetic for microprice,
 queue fractions, fees, and P\&L while permitting native storage to participate
 in the entire application path. It does not imply that the whole simulator has
@@ -20,7 +20,7 @@ been translated into C++.
 \subsection{Checked fixed-point representation}
 
 Each book side is a \code{std::map<int64_t,int64_t>}. Prices and quantities use
-the scale $10^8$; for example, \code{74574.79000000} is stored as
+the scale $10^8$. For example, \code{74574.79000000} is stored as
 \code{7457479000000}. Direct digit parsing avoids conversion through binary
 floating point. Ordered maps provide insertion, replacement, and deletion in
 $O(\log N)$ and deterministic best-price and level traversal. RAII containers
@@ -32,7 +32,7 @@ multiples. Stored prices and nonzero quantities must be at least
 \code{0.00000100}, where the reference Decimal canonical representation stays
 in ordinary fixed-point notation. Signed strings, other Decimal spellings, and
 values outside this domain are rejected. Tick and quantity-step metadata can
-be normalized exactly by the Python adapter; incoming levels must still obey
+be normalized exactly by the Python adapter, incoming levels must still obey
 the native contract.
 
 Snapshots replace both sides and skip zero quantities. Diffs replace nonzero
@@ -40,20 +40,20 @@ quantities and erase zero levels, including absent levels without error.
 Duplicate prices retain the reference input-order behavior. Crossed books
 remain representable. Both sides of an operation are validated before a
 rejected input can mutate state. Allocation failure during an otherwise valid
-diff is terminal; the contract does not promise that the same book can be
+diff is terminal. The contract does not promise that the same book can be
 reused after \code{std::bad_alloc}.
 
 Canonical JSON preserves Python's key order, price order, eight-decimal level
 strings, and update ID. OpenSSL EVP computes SHA-256. A transcript digest
 hashes the ASCII state hash after every operation, including the initial empty
 state. Comparing only the final book could miss divergence that later
-reconverges; the transcript cannot conceal an unequal intermediate state.
+reconverges. The transcript cannot conceal an unequal intermediate state.
 
 \subsection{The Python/native boundary}
 
 \code{cpp/src/python_module.cpp} supplies a CPython extension without a second
 binding framework. A capsule owns one C++ book and releases it with Python
-object lifetime. Exceptions map to Python errors. Calls retain the GIL; the
+object lifetime. Exceptions map to Python errors. Calls retain the GIL. The
 binding is not a mechanism for parallel execution within one Python process.
 
 \code{src/replay/cpp_orderbook.py} implements \code{CppOrderbook} against the
@@ -68,7 +68,7 @@ and diagnostics.
 The shared backend factory selects Python by default and C++ explicitly.
 \code{--book-backend cpp} is propagated through replay, comparison,
 reconciliation, microprice and OFI analysis, and panel orchestration. A missing
-or invalid native module fails clearly; it does not silently select Python.
+or invalid native module fails clearly. It does not silently select Python.
 The loader checks the extension API and hashes the loaded binary. Backend
 identity, instrument-grid metadata, native build identity, and reference
 source identity travel with provenance and cache keys. Native outputs use a
@@ -105,7 +105,7 @@ Pipeline validation goes beyond equal book hashes. The differential runner
 compares complete streams of checkpoints, order events, fills, book samples,
 markouts, queue diagnostics, population and fill-conditioned OFI samples, plus
 hold time, P\&L, statistics, final inventory, fees, and final book. Backend
-identity may differ; execution semantics may not. Inputs are accepted only
+identity may differ. Execution semantics may not. Inputs are accepted only
 from the hash-matching frozen development inventory. Holdout data is excluded
 from this engineering validation.
 
@@ -125,13 +125,13 @@ identical preloaded operations. It times book construction, dispatch, decimal
 conversion, and updates. Decompression, JSON/protocol parsing, state hashing,
 process startup, book destruction, callbacks, and execution are outside the
 timed region. Python book destruction was initially capable of falling inside
-the next iteration's timer; commit \code{fc07501} corrected that boundary
+the next iteration's timer, commit \code{fc07501} corrected that boundary
 before the following measurements were accepted.
 
 \begin{table}[H]
 \centering
 \caption{Standalone book-update timings on 11 September 2026. Intel Core
-i5-12400F; Python 3.11.14; GCC 13.3.0 Release, \code{-O3 -DNDEBUG}; one warmup
+i5-12400F. Python 3.11.14, GCC 13.3.0 Release, \code{-O3 -DNDEBUG}, one warmup
 and five measured repetitions. Ratios compare medians.}
 \begin{tabularx}{\textwidth}{@{}L{0.34\textwidth}YYY@{}}
 \toprule
@@ -147,14 +147,14 @@ Recorded hour, 35,999 updates & 623.006815 ms & 45.326177 ms & $13.74497\times$ 
 \centering
 \includegraphics[width=0.92\textwidth]{figures/native_book_benchmark.pdf}
 \caption{Parity-gated standalone book-update measurements. These ratios
-exclude the CPython adapter and the rest of replay; they must not be reported
+exclude the CPython adapter and the rest of replay. They must not be reported
 as full-application acceleration.}
 \label{fig:bookbench}
 \end{figure}
 
 The synthetic input has seed 42 and 200 initial levels per side. The recorded
 input is the depth hour beginning 12 April 2026 at 09:00 UTC. Python was timed
-first and C++ second; all repetitions, environment descriptors, source and
+first and C++ second. All repetitions, environment descriptors, source and
 binary hashes, and input identity are retained. These are local performance
 measurements, not a general hardware-independent factor.
 
@@ -175,4 +175,4 @@ native storage. Even a large isolated update ratio need not translate to an
 application speedup. Reporting a slower or similar integrated result is an
 engineering finding about the chosen boundary, rather than a reason to
 substitute the isolated microbenchmark for application evidence. The binding
-provides a usable native backend; its measured benefit depends on the workload.
+provides a usable native backend. Its measured benefit depends on the workload.

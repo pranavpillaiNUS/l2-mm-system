@@ -3,7 +3,7 @@
 Status: the spot BTCUSDT Phase 2 development research arc is complete as a
 frozen historical V2 study under `legacy_book_update_v1`. The Phase 2.5 Python
 execution-model implementation has passed local acceptance under
-`event_driven_v2`; its development-panel V3 rerun is pending. No candidate
+`event_driven_v2`. Its development-panel V3 rerun is pending. No candidate
 strategy advanced to holdout. Holdout identities and pre-strategy regime
 descriptors were examined, but no candidate strategy result exists.
 
@@ -20,8 +20,8 @@ descriptors were examined, but no candidate strategy result exists.
 
 - Research artifact commit: `106695026ca64ae232f07103ae380b49c2a4d49f`
 - Execution model: `legacy_book_update_v1`
-- Timing semantics: modeled arrivals activate on the next depth update;
-  cancellation requests take effect immediately; REST snapshot state is applied
+- Timing semantics: modeled arrivals activate on the next depth update,
+  cancellation requests take effect immediately, REST snapshot state is applied
   at a local tag captured before the blocking request completed
 - Frozen result root: `results/panels/btcusdt_l2_panel_v2`
 - Provenance marker:
@@ -43,13 +43,13 @@ Primary files:
 
 All Phase A/B/C execution-derived values indexed below are historical results
 from that model and commit. Missing per-artifact execution-model metadata under
-the frozen root means `legacy_book_update_v1`; it must not be interpreted as
+the frozen root means `legacy_book_update_v1`. It must not be interpreted as
 `event_driven_v2`.
 
 Frozen metadata erratum: the panel fee summary's
 `full_strategy_endpoint_note` says “window-close mid.” The actual run sums five
 separately marked and reset one-hour sessions. The JSON remains unchanged to
-preserve its hash; this is a wording correction, not a numeric revision.
+preserve its hash. This is a wording correction, not a numeric revision.
 
 ## Phase 2.5: Event-Driven Execution Closure
 
@@ -58,25 +58,25 @@ preserve its hash; this is a wording correction, not a numeric revision.
 - Required result namespace:
   `results/panels/btcusdt_l2_panel_v3_event_driven`
 - Model and acceptance contract: `notebooks/execution_model_v2.md`
-- Status: local implementation and deterministic acceptance checks complete;
-  the V3 development rerun is pending, so no V3 execution-derived result or
+- Status: local implementation and deterministic acceptance checks complete.
+  The V3 development rerun is pending, so no V3 execution-derived result or
   research verdict is yet validated
 - Affected outputs requiring a V3 development rerun: fills, PnL,
   conditional-on-fill tests, queue diagnostics, and latency conclusions
 - V3 comparison rule: compare the same development windows descriptively with
-  exact artifact hashes and model provenance; do not reuse the historical
+  exact artifact hashes and model provenance. Do not reuse the historical
   V2/V1 advancement-verdict ladder across changed execution semantics
 - Unaffected frozen inputs: raw-file integrity and panel selection. The snapshot
   timing correction means replay-derived book samples, state hashes, and
   unconditional signals also require regeneration or comparison.
-- Holdout status: strategy-sealed; only frozen development windows may be used
+- Holdout status: strategy-sealed. Only frozen development windows may be used
   during execution closure
 - C++ status: deferred until the Python reference is frozen and a separate
   modern C++ fundamentals phase is complete
 - Local acceptance checkpoint: `369 passed in 5.56s`, focused execution and
   strategy subset `126 passed in 2.26s`, frozen V2 verifier passed, and the
   real one-hour replay smoke passed
-- Full V3 runs must commit `ARTIFACT_MANIFEST.json`; verify with
+- Full V3 runs must commit `ARTIFACT_MANIFEST.json`, verify with
   `env PYTHONPATH=. python scripts/verify_v3_artifacts.py`
 
 ## Frozen V2 Phase A: Baseline Remeasurement
@@ -150,14 +150,14 @@ Primary artifact:
 
 Expected result:
 
-- 120 selected development depth files; 120 valid bridges; zero unbridged
+- 120 selected development depth files, 120 valid bridges, zero unbridged
   snapshots
 - Tag to first later local depth receipt: median `250.5 ms`, p90 `672.9 ms`,
   maximum `2,335 ms`
 - Frozen fills from orders placed before the selected policy boundary: `2 / 1,595` at no
   credit and `4 / 2,041` under proportional credit
 - These proxy counts do not bound every pre-observation or later queue-age
-  effect; V3 must rerun under `post_response_proxy_depth_boundary_v1`
+  effect, V3 must rerun under `post_response_proxy_depth_boundary_v1`
 
 ## Same-Millisecond Attribution Audit
 
@@ -198,7 +198,7 @@ Perp is recording-only and remains parked for analysis. A historical local
 capture-quality check on 2026-06-15 observed:
 
 - tmux sessions `rec_btcusdt_perp` and `rec_btcusdt_perp_trades` were live at
-  the time of that check; no current-liveness claim is made
+  the time of that check. No current-liveness claim is made
 - latest perp depth file starts with a REST snapshot payload under `data`
 - snapshot has `1000` bid levels, `1000` ask levels, and `lastUpdateId`
 - first bridge diff satisfies the futures snapshot bridge condition
@@ -227,12 +227,12 @@ Historical local V2 closure check on 2026-06-16:
 The live recorder check is intentionally separate from the test suite and can
 be run manually with `scripts/smoke_test_recorder.py`.
 
-The verifier checks the integrity and expected shape of the frozen artifacts;
-it does not rerun the legacy experiment, validate `event_driven_v2`, or prove
+The verifier checks the integrity and expected shape of the frozen artifacts.
+It does not rerun the legacy experiment, validate `event_driven_v2`, or prove
 that either execution model matches exchange ground truth. Within
 `legacy_book_update_v1`, matched economics remained negative across the tested
 queue-credit grid. Identical sub-50 ms point estimates diagnose the model's
-next-depth-update activation quantization; they do not validate latency
+next-depth-update activation quantization. They do not validate latency
 insensitivity. The artifacts do not establish the same result under
 `event_driven_v2`, the post-response-gated snapshot policy, or anything about other
 spreads, strategies, signals, or venues.

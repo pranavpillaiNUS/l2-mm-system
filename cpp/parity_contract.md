@@ -31,8 +31,8 @@ Byte-exact requirements for the C++ encoder:
 - Separators are `,` and `:` with no spaces anywhere.
 - Each level is a two-element array of double-quoted strings:
   `["<price>","<qty>"]`.
-- `bids` are emitted in descending price order (best/highest first); `asks` in
-  ascending price order (best/lowest first). Input order is irrelevant; the book
+- `bids` are emitted in descending price order (best/highest first), `asks` in
+  ascending price order (best/lowest first). Input order is irrelevant. The book
   is a sorted map.
 - `last_update_id` is a BARE JSON integer (no quotes), or the literal `null`
   when unset (a fresh book that has never had a snapshot or diff applied).
@@ -71,23 +71,23 @@ the scaled integer reproduces `str(Decimal)` byte-for-byte.
 Mandatory C++ guards (fail loudly, never silently diverge):
 
 - Parse decimal strings DIRECTLY into scaled int64 (multiply by 1e8 exactly via
-  integer string handling); do not route through binary floating point.
+  integer string handling). Do not route through binary floating point.
 - Reject any input level whose fractional width is not 8 digits.
 - Reject any stored nonzero quantity `< 1e-6` (would render scientific in
-  Python). None occur in the data; this guard catches a future format change.
+  Python). None occur in the data. This guard catches a future format change.
 
 ## 3. Integer-scale and overflow policy (two scopes)
 
 Order-book scope (this port, Step 2B):
 
 - `price_int = price_string * 1e8`, `qty_int = qty_string * 1e8`, both exact
-  int64. `tick_size` and `qty_step` metadata travel with the input; reject
+  int64. `tick_size` and `qty_step` metadata travel with the input, reject
   values that are not exact multiples (no silent rounding).
-- Range: prices ~7.4e4 give `price_int ~7.4e12`; aggregate quantities are well
+- Range: prices ~7.4e4 give `price_int ~7.4e12`, aggregate quantities are well
   under 1e15 scaled. int64 (max ~9.2e18) is sufficient for stored values after
   the documented range checks.
 
-Future simulator scope (only if execution logic crosses into C++ later; not in
+Future simulator scope (only if execution logic crosses into C++ later. Not in
 2B):
 
 - Derived quantities are NOT guaranteed to be multiples of the exchange step.
@@ -97,7 +97,7 @@ Future simulator scope (only if execution logic crosses into C++ later; not in
   step for these.
 - `price_int * qty_int` (notional) overflows int64 (`~7.4e12 * ~1e11 = ~7.4e23`).
   Use checked `__int128` intermediates for products such as price x quantity.
-- Apply rounding ONLY where the Python reference already rounds; otherwise keep
+- Apply rounding ONLY where the Python reference already rounds. Otherwise keep
   exact fixed-point arithmetic. State hashes alone are insufficient to prove
   execution parity: order events, activation times, cancels, partial fills,
   maker/taker flags, fees, inventory, and final PnL must each be compared.
@@ -106,15 +106,15 @@ Future simulator scope (only if execution logic crosses into C++ later; not in
 
 From `apply_snapshot` / `apply_diff`:
 
-- Snapshot clears both sides, then inserts only levels with `qty > 0`; sets
-  `last_update_id`; resets `sequence = 0`.
-- Diff: `qty == 0` removes that price level (pop, no error if absent); any other
-  qty is a full replacement of that level; sets `last_update_id`; increments
+- Snapshot clears both sides, then inserts only levels with `qty > 0`, sets
+  `last_update_id`, resets `sequence = 0`.
+- Diff: `qty == 0` removes that price level (pop, no error if absent). Any other
+  qty is a full replacement of that level, sets `last_update_id`, increments
   `sequence`. `sequence` is internal state and is NOT part of `state_hash`.
 - A crossed book (best bid >= best ask) is stored as-is. The reference does not
-  reject it; `is_crossed()` simply reports it. The port must store it as-is.
+  reject it, `is_crossed()` simply reports it. The port must store it as-is.
 - No negative or signed-zero quantities are ever stored (only `qty > 0`).
-- `best_bid` / `best_ask` are the last/first keys of the sorted maps; `None` on
+- `best_bid` / `best_ask` are the last/first keys of the sorted maps, `None` on
   an empty side.
 
 Derived prices (`mid`, `spread`, `microprice`) use Decimal arithmetic and are
@@ -136,13 +136,13 @@ match, and get their own golden vectors then.
   set.
 
 Rolling digest definition: `sha256` updated with the ASCII `state_hash` hex of
-each state in order; per case, then a global `sha256` over the per-case rolling
+each state in order, per case, then a global `sha256` over the per-case rolling
 digests in declared order.
 
 ## 6. Golden vector artifact
 
 - Generator: `scripts/gen_cpp_parity_vectors.py` (runs the CURRENT Python
-  order book; self-checks that recorded canonical bytes reproduce
+  order book, self-checks that recorded canonical bytes reproduce
   `state_hash`).
 - Frozen vectors: `cpp/parity/golden_vectors.json`.
 - File checksum: `cpp/parity/golden_vectors.sha256` (sha256 of the JSON file).
@@ -150,7 +150,7 @@ digests in declared order.
 Regeneration order, if the Python reference behavior is ever intentionally
 changed: change Python first, run the generator, commit the new vectors and
 checksum, and only then update the C++ port to match. Never refactor the
-serialization and regenerate from the refactor; the vectors must capture the
+serialization and regenerate from the refactor. The vectors must capture the
 behavior that produced the existing frozen research artifacts.
 
 Cases cover: empty book, out-of-order snapshot (sort correctness), update/add/

@@ -1,7 +1,7 @@
 # Event-Driven Execution Model V2
 
 Status: Python reference implementation and deterministic acceptance complete
-locally; the full development-panel V3 rerun completed on 2026-09-11. Its locked
+locally. The full development-panel V3 rerun completed on 2026-09-11. Its locked
 primary OFI screen is blocked at both queue endpoints. This model supersedes the
 execution timing and own-order queue semantics used by the frozen Phase 2 V2
 research artifacts. Those artifacts remain historical evidence and must not be
@@ -26,12 +26,12 @@ simulator could reuse one recorded trade's full quantity for every own order at
 the price.
 
 The corrected Python research reference is frozen at commit `04df629`. The
-implemented C++17 port reproduces the order-book contract; replay, execution,
+implemented C++17 port reproduces the order-book contract. Replay, execution,
 and accounting continue to use Python.
 
 The port is integrated as the selectable `cpp` book backend. Full-stream
 comparisons pass across all 120 selected development hours at both queue
-endpoints; [native design and measurements](../cpp/README.md) describe the
+endpoints, [native design and measurements](../cpp/README.md) describe the
 binding and [complete report](../report/l2_mm_system_complete_report.pdf) covers
 the finished project. This integration does not replace `04df629` as the source
 of the frozen V3 economics.
@@ -52,8 +52,8 @@ unbridged snapshot never resumes replay.
 The replay clock has two event classes:
 
 1. Recorded market data: a snapshot resync barrier uses recorded local request
-   time; recovery is gated by local receipt order and released on depth event
-   time `E`; ordinary depth diffs use `E` and trades use matching time `T`.
+   time, recovery is gated by local receipt order and released on depth event
+   time `E`, ordinary depth diffs use `E` and trades use matching time `T`.
    Depth precedes trade on equal milliseconds, preserving source order within
    each stream.
 2. Simulated private arrivals: new-order and cancellation messages, preserving
@@ -72,8 +72,8 @@ before private arrivals. Therefore:
 This is a conservative rule for unresolved millisecond ties. It is a modeling
 policy, not a claim about Binance matching-engine sequence.
 
-Each input stream is required to be monotone in its modeled ordering field;
-replay fails rather than asking a sorted merge to conceal an inversion. Depth
+Each input stream is required to be monotone in its modeled ordering field.
+Replay fails rather than asking a sorted merge to conceal an inversion. Depth
 cancellation attribution is deferred until all same-millisecond trades
 have been observed. A displayed decrease explained by tied trade volume cannot
 also receive cancellation-driven queue credit.
@@ -99,7 +99,7 @@ latency and jitter default to the entry values but are separately configurable.
 Jitter may not exceed its base latency, preventing negative message delay.
 
 The strategy exposure envelope counts the remaining quantity of every working
-same-side order. Pending entries may become fillable; active orders remain
+same-side order. Pending entries may become fillable. Active orders remain
 fillable while cancels are in flight. A replacement is submitted only if the
 worst case in which all working quantity fills remains within `max_position`.
 Any invariant breach aborts the replay rather than silently reporting an
@@ -121,7 +121,7 @@ the recorded trade quantity.
 The complete post-trade FIFO transition is planned and validated before order
 or fill state is mutated. Aggregate fills are structurally capped by the
 recorded quantity. FIFO comparisons allow only a scale-aware `1e-24` relative
-tolerance for `Decimal` division round-off; the tolerance does not create
+tolerance for `Decimal` division round-off. The tolerance does not create
 additional fill budget.
 
 ## Gaps And Replay End
@@ -141,7 +141,7 @@ processed. Executing them would require assuming an unobserved future book.
 Every still-open order is explicitly terminalized as `EXPIRED`, and pending
 private/cancel action counts are reported separately. The
 `pending_actions_at_end` and `pending_cancels_at_end` statistics count scheduled
-actions immediately before terminalization; they can be nonzero even though
+actions immediately before terminalization. They can be nonzero even though
 the corresponding orders are then expired.
 
 ## Known Limits
@@ -149,18 +149,18 @@ the corresponding orders are then expired.
 - Binance L2 data exposes aggregate price levels, not market-by-order queue
   events. External queue position and cancellation placement remain modeled.
 - Exchange and feed timestamps have insufficient information to resolve true
-  within-millisecond ordering; the policy above must be sensitivity-tested if
+  within-millisecond ordering. The policy above must be sensitivity-tested if
   tied events prove material.
 - The modeled market-data clock combines recorded local request time for resync
   barriers, depth event time `E` for release and ordinary diffs, and trade
   matching time `T`. Local response/receipt order gates recovery. These fields
   have different semantics and feed latency is uncalibrated. The gate removes
-  request-start strategy access, but release remains on exchange `E`; this is
+  request-start strategy access, but release remains on exchange `E`. This is
   not a calibrated client-observation or exchange-native snapshot timestamp.
 - Simulated taker orders use observed book liquidity counterfactually. A shared
   shadow ledger prevents multiple own takers from consuming the same displayed
   quantity between depth updates, but it is reset on the next observed depth
-  event; taker-heavy strategies still require stronger market-impact and book
+  event, taker-heavy strategies still require stronger market-impact and book
   reconciliation assumptions before they are credible.
 - Market-data latency is not modeled separately from order-entry latency.
 
@@ -180,7 +180,7 @@ under `event_driven_v2` in a new result root.
 Standalone current-engine scripts default beneath `results/event_driven_v2`.
 The development-panel runner uses
 `results/panels/btcusdt_l2_panel_v3_event_driven`. Current writers resolve
-symlinks and refuse any target beneath the frozen V2 panel; current cache and
+symlinks and refuse any target beneath the frozen V2 panel. Current cache and
 aggregation paths require explicit, compatible execution provenance.
 
 The strategy-sealed holdout remains unavailable for model development. Only
@@ -248,7 +248,7 @@ The deterministic suite must cover:
 - same-millisecond depth/trade attribution
 - data-gap invalidation of pending and active orders
 - repeated-process deterministic fills and lifecycle events
-- snapshot requests pause replay; recovery requires a post-response proxy
+- snapshot requests pause replay, recovery requires a post-response proxy
   boundary, hides intermediate reconstruction states, withholds unbridged
   snapshots, and rejects nonmonotone input streams
 - delayed cancel/replace overlap cannot breach the hard working-exposure limit
@@ -272,5 +272,5 @@ These historical checks accepted the Python implementation boundary before the
 V3 study. The completed [V3 writeup](research_writeup_v3.md) and
 [decision summary](../results/panels/btcusdt_l2_panel_v3_development_summary/summary.json)
 now report the corrected development evidence. Both endpoint conditional OFI
-screens failed the pre-specified `1.0 bps` threshold; the strategy-sealed holdout
+screens failed the pre-specified `1.0 bps` threshold. The strategy-sealed holdout
 remains unused for candidate evaluation.

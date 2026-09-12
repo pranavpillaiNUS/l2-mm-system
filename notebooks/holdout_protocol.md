@@ -5,7 +5,7 @@ future holdout run.**
 
 This template was written for the blocked OFI candidate and was never locked.
 It remains as protocol history. Any different future candidate requires a new,
-generic holdout protocol committed before evaluation; this file must not be
+generic holdout protocol committed before evaluation. This file must not be
 retrofitted after development results are known.
 
 Current Phase 2 status: no active candidate qualified for holdout. OFI was
@@ -29,8 +29,8 @@ candidate strategy has been evaluated on those windows.
 - OFI interval: `TBD`
 - OFI threshold: `TBD`
 - Quote behavior when gated: threshold-crossing positive normalized OFI
-  suppresses the ask; threshold-crossing negative normalized OFI suppresses
-  the bid; otherwise quote both eligible sides. This remains a historical
+  suppresses the ask, threshold-crossing negative normalized OFI suppresses
+  the bid. Otherwise quote both eligible sides. This remains a historical
   template only unless a future candidate clears development.
 - Queue-credit endpoints: `{0.0, 1.0}`
 - Retuning after lock: prohibited

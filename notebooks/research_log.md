@@ -235,7 +235,7 @@ Why was the maker fill rate only 34% with a $5 half-spread and 5-second requote 
 ### Investigation
 Wrote a diagnostic script that intercepted every order activation in the simulator and logged whether it was classified as aggressive (crossing the spread at arrival) or resting.
 
-Result: 831 orders activated as resting, 17 as aggressive. Only 2% of orders were aggressive. But those 17 aggressive orders produced 17 taker fills, while 831 resting orders produced only 7 maker fills. Taker fills are certain (immediate execution); maker fills are rare (need a trade to reach your deep-in-book level and drain the queue). So taker fills dominated by count even though aggressive orders were a tiny fraction.
+Result: 831 orders activated as resting, 17 as aggressive. Only 2% of orders were aggressive. But those 17 aggressive orders produced 17 taker fills, while 831 resting orders produced only 7 maker fills. Taker fills are certain (immediate execution), maker fills are rare (need a trade to reach your deep-in-book level and drain the queue). So taker fills dominated by count even though aggressive orders were a tiny fraction.
 
 Root cause: orders are computed against the current book but only activate at the next depth event (~100ms later). In that window, the mid can move $5+ during volatile moments. A bid at `mid - 5` submitted during a calm moment arrives after a crash and is now above the best ask. The simulator was executing these as taker fills.
 
@@ -285,14 +285,14 @@ At ~$100k BTC, $1 approx 1 bp. So half_spread in {1, 2, 3, 5, 8} dollars approx 
 
 ### Predictions
 
-**Fill rate.** Drops monotonically with half_spread. Steeply. At half_spread=1 bp expecting ~5-10% fill rate; at half_spread=8 bps expecting <0.3%. Roughly inverse-quadratic in distance because price has to walk to deeper levels and walks are ~Gaussian over short horizons.
+**Fill rate.** Drops monotonically with half_spread. Steeply. At half_spread=1 bp expecting ~5-10% fill rate. At half_spread=8 bps expecting <0.3%. Roughly inverse-quadratic in distance because price has to walk to deeper levels and walks are ~Gaussian over short horizons.
 
 **E[pnl|fill].** Increases monotonically with half_spread, possibly plateauing at the wide end. Reasoning: spread_capture grows linearly with distance (1, 2, 3, 5, 8 bps) but |markout| should grow sublinearly because the Glosten-Milgrom toxicity bias *decreases* with distance - fills at deep levels are more likely uninformed flow that walked there, not informed traders crossing.
 - At half_spread=1 bp: expecting markout ~-2.5 bps -> pnl approx 1 - 2 - 2.5 = -3.5 bps. Very negative.
 - At half_spread=5 bps: brief showed markout ~-1.5 bps -> pnl approx 5 - 2 - 1.5 = +1.5 bps per fill.
 - At half_spread=8 bps: expecting markout ~-1.0 bps -> pnl approx 8 - 2 - 1.0 = +5 bps per fill, but very few fills.
 
-**Total session P&L.** Likely negative across the entire grid, with the *least negative* (or maybe slightly positive) point at half_spread = 5 or 8 bps. Reasoning: the brief already showed half_spread=5 was net -0.65/session over a 5-hour block. The arithmetic above suggests per-fill economics could be marginally positive at half_spread=5+, but the brief's negative aggregate result must come from a small number of bad fills dominating; the median fill might already be positive at half_spread=5. The fill_rate lens should make this distinction visible for the first time.
+**Total session P&L.** Likely negative across the entire grid, with the *least negative* (or maybe slightly positive) point at half_spread = 5 or 8 bps. Reasoning: the brief already showed half_spread=5 was net -0.65/session over a 5-hour block. The arithmetic above suggests per-fill economics could be marginally positive at half_spread=5+, but the brief's negative aggregate result must come from a small number of bad fills dominating. The median fill might already be positive at half_spread=5. The fill_rate lens should make this distinction visible for the first time.
 
 **Microprice vs symmetric.** Approximately tied at wide spreads (rounding makes their quotes identical). Microprice may show a small advantage at narrow spreads where the few-cents shift actually changes the rounded tick. If neither is profitable, microprice's advantage is in *less negative*, not in *positive*.
 
@@ -305,7 +305,7 @@ At ~$100k BTC, $1 approx 1 bp. So half_spread in {1, 2, 3, 5, 8} dollars approx 
 
 ### Where I could be wrong (most informative scenarios)
 
-1. **Total P&L is positive at half_spread=8.** Would mean toxicity drop with distance is steeper than modelled. Implication: spread width alone solves the problem; inventory skew is a refinement, not a rescue.
+1. **Total P&L is positive at half_spread=8.** Would mean toxicity drop with distance is steeper than modelled. Implication: spread width alone solves the problem, inventory skew is a refinement, not a rescue.
 2. **Total P&L is *more* negative at the wide end.** Fill count drops faster than per-fill economics improve, OR wide-spread fills are *equally* toxic (i.e., toxicity isn't really distance-dependent at this timescale, contradicting Glosten-Milgrom intuition). That'd be a real finding.
 3. **Markout-given-fill is *not* monotonic in distance.** Would suggest the toxicity story is wrong - maybe fills at moderate distances are the worst because that's where retail-aggressive flow lives.
 4. **Volatility regime doesn't matter for markout-given-fill.** Would undercut VolAdaptiveMM before it gets built. Best possible outcome from the "save effort" perspective - better to know now.
@@ -313,7 +313,7 @@ At ~$100k BTC, $1 approx 1 bp. So half_spread in {1, 2, 3, 5, 8} dollars approx 
 ### Decision rule
 - If any combo has positive net P&L: that's the operating point. Build InventorySkewMM on top.
 - If no combo is positive but the *least negative* point has clearly positive E[pnl|fill] and the loss is just "too few fills": fill rate is the binding constraint, not edge per fill. Implication: distance is right, need queue-priority or a smarter quote-placement timing.
-- If *every* point has negative E[pnl|fill] after fees: passive at this asset/data is fundamentally unprofitable. Story becomes "why" - and that's what fill_rate.py's distance/vol breakdown answers. Steps 3-4 become "rescue" attempts; step 5 still has value (showing strategies fail consistently across windows is itself walk-forward evidence).
+- If *every* point has negative E[pnl|fill] after fees: passive at this asset/data is fundamentally unprofitable. Story becomes "why" - and that's what fill_rate.py's distance/vol breakdown answers. Steps 3-4 become "rescue" attempts, step 5 still has value (showing strategies fail consistently across windows is itself walk-forward evidence).
 
 > Correction, 2026-06-17: the conversion "$1 approx 1 bp at ~$100k BTC" in the
 > decomposition above is wrong. At $100k, $1 is 0.1 bp ($1 / $100,000 x 10,000 =
@@ -353,7 +353,7 @@ Inverted-U shape with the peak at half_spread=2. Wider spreads do worse, not bet
 | Total P&L negative across the entire grid | Half_spread=2 profitable | Wrong |
 | Least-negative at half_spread = 5 or 8 bps | 5 and 8 are *among the worst* | Wrong |
 | Fill rate drops monotonically with half_spread | Fill rate peaks at half_spread=2 | Wrong |
-| E[pnl|fill] increases monotonically with distance | Non-monotone; worst markout at half_spread=5 | Wrong |
+| E[pnl|fill] increases monotonically with distance | Non-monotone, worst markout at half_spread=5 | Wrong |
 | Microprice approximately equals symmetric | Tied within $0.10 across all combos | Correct |
 | 5s requote slightly better than 1s | 5s dominates everywhere, often by $2-4 | Correct direction, understated magnitude |
 
@@ -363,7 +363,7 @@ Score: 2/6. The "shape" model in my head was almost completely wrong.
 
 **1. Underestimated post-only filtering at narrow distances.** At half_spread=1.00, ~18,000 orders submitted but only 110 fills (0.6% rate). Many quotes get rejected at arrival because the book moved. The post-only filter is doing useful protective work at narrow spreads, but it also eats most attempts. Net: too few fills.
 
-**2. Overestimated toxicity-decay with distance.** I expected wider spreads to attract uninformed flow that "walked there." Empirically, fills at half_spread=5-8 are rare and happen during big directional moves that *continue*. Markouts get *worse* at the wide end (5.00/1000ms had adverse_selection of 3.6 bps; 8.00/1000ms had 4.1 bps).
+**2. Overestimated toxicity-decay with distance.** I expected wider spreads to attract uninformed flow that "walked there." Empirically, fills at half_spread=5-8 are rare and happen during big directional moves that *continue*. Markouts get *worse* at the wide end (5.00/1000ms had adverse_selection of 3.6 bps, 8.00/1000ms had 4.1 bps).
 
 **3. The 30s markout may be misleading, but I have not proved the mechanism yet.** At the operating point, markout-given-fill is -1.85 bps while net P&L is positive. My first explanation was that inventory turns over before 30s, but that is only a hypothesis until I measure inventory hold times and reconcile markouts against actual matched lots.
 
@@ -387,7 +387,7 @@ Score: 2/6. The "shape" model in my head was almost completely wrong.
 
 **Toxicity is U-shaped in vol, not monotone.** Worst toxicity at mid-vol (1-2 bps), better at extremes. This is the opposite of the textbook Avellaneda-Stoikov assumption "adverse cost scales linearly with vol."
 
-Possible mechanism: at low vol there's no informed flow to fear; at high vol other MMs widen and the few crossings that happen are noise/chaos that mean-reverts; mid-vol is where directional informed flow is most active.
+Possible mechanism: at low vol there's no informed flow to fear. At high vol other MMs widen and the few crossings that happen are noise/chaos that mean-reverts, mid-vol is where directional informed flow is most active.
 
 ### Implications for next steps
 
@@ -1083,13 +1083,13 @@ verdict: `Strengthens V1`.
 - 18 of 24 windows are net-negative at each endpoint. The worst windows remain
   Apr 13 and Apr 17, the two worst V1 anchors.
 - Matched net PnL crosses zero at both endpoints (`-0.3577` [-0.7990, +0.0602]
-  proportional; `-0.1074` [-0.4503, +0.2526] none).
+  proportional, `-0.1074` [-0.4503, +0.2526] none).
 - Microprice pooled 1s `beta * signal_std` `+0.0190 bps`, HAC `t +1.74`,
   positive 1s beta in 19 of 24 windows. Fails the `|t| >= 2` and `0.05 bps` bars.
 - Fill toxicity broad: worst-5% fill share `40.6%` of total adverse 30s move
   (proportional), comparable to V1's `39.6%`.
 - Fee break-even: full strategy needs a maker rebate at both endpoints
-  (`1.3515 bps` proportional, `0.7693 bps` none); tail-excluded matched lots flip
+  (`1.3515 bps` proportional, `0.7693 bps` none), tail-excluded matched lots flip
   positive at both.
 
 ### What changed from previous result
@@ -1102,24 +1102,24 @@ strengthened even though the mean rose.
 
 ### What could be artifact
 - Full-strategy net PnL is endpoint-sensitive. Matched-lot intervals cross zero,
-  while the full-strategy result also includes hourly residual-inventory marks;
-  the evidence does not identify one component as the causal driver.
-- The proportional endpoint is the more generous queue assumption; `0.0`
+  while the full-strategy result also includes hourly residual-inventory marks.
+  The evidence does not identify one component as the causal driver.
+- The proportional endpoint is the more generous queue assumption, `0.0`
   (no credit) `Weakens` rather than `Strengthens`. The headline is explicitly
   queue-model conditional.
-- Development panel only. The holdout stays sealed and is `regime-shifted`; that
+- Development panel only. The holdout stays sealed and is `regime-shifted`. That
   label applies to any future holdout verdict.
 
 ### What this proves
 The passive microprice-only baseline shows no stable positive edge on the
 broader, pre-selected panel. Under the proportional-credit endpoint, the
-window-level bootstrap CI excludes zero; the no-credit endpoint crosses zero.
+window-level bootstrap CI excludes zero. The no-credit endpoint crosses zero.
 This strengthens the development evidence without establishing a venue-calibrated
 queue model or proving that the six-window result was not sample-specific.
 
 ### What this does not prove
-Nothing about OFI, inventory-aware, or vol-adaptive quoting; nothing about perp
-or other venues; nothing about whether an observable filter could avoid the
+Nothing about OFI, inventory-aware, or vol-adaptive quoting, nothing about perp
+or other venues, nothing about whether an observable filter could avoid the
 adverse tail. Microprice retains directional 1s consistency (19/24) that is not
 economically usable on its own.
 
@@ -1151,7 +1151,7 @@ Same frozen 24-window development panel as Phase A (`2026-04-12T09` to
 `2026-05-09T13`, panel SHA `760c55b7...`). microprice, `half_spread=2.00`,
 `requote=5000ms`, `order_qty=0.001`, `max_position=0.01`, `latency=10ms`,
 `jitter=0`, `maker_bps=2`, `taker_bps=5`. Queue credits `{0.0, 1.0}`. OFI sampled
-every 1s over the prior 1s interval; forward drift at 1s/10s/1m/5m; conditional
+every 1s over the prior 1s interval, forward drift at 1s/10s/1m/5m, conditional
 toxicity at 30s. Deterministic suite `223 passed` immediately before the run.
 
 ### Leakage hardening (done before the locked re-run)
@@ -1172,7 +1172,7 @@ remain valid.
 env PYTHONPATH=. python scripts/run_l2_panel.py --phase b
 ```
 Re-run after the hardening with the `ofi_signal` step statuses invalidated to
-force recomputation. Unconditional samples were reused from the cache;
+force recomputation. Unconditional samples were reused from the cache,
 conditional fill toxicity was re-replayed over 120 sessions per credit.
 
 ### Artifact paths
@@ -1214,7 +1214,7 @@ bucket):
 
 Both are far below the `1.0 bps` separation bar and sign-inconsistent across
 queue models. The selected bucket counts exceed the predefined `n >= 30`
-screen; that is not a formal power analysis. Conditional status `fail_signal`,
+screen. That is not a formal power analysis. Conditional status `fail_signal`,
 overall verdict `blocked`.
 
 ### Interpretation (centerpiece)
@@ -1229,7 +1229,7 @@ does not imply harvestable edge under passive execution.
 
 ### What changed from the pre-hardening run
 The strictly-pre-fill hardening moved the conditional separation only marginally
-(`qc1 +0.1264 -> +0.1272 bps`; `qc0 -0.3788 -> -0.3756 bps`) and changed no
+(`qc1 +0.1264 -> +0.1272 bps`, `qc0 -0.3788 -> -0.3756 bps`) and changed no
 status. Same-ms leakage was therefore empirically negligible in this dense
 top-of-book data, so the conditional-fail result was never a same-ms artifact.
 The hardening makes the claim robust without altering it.
@@ -1251,13 +1251,13 @@ Nothing about whether OFI is usable by a faster or taker-capable participant,
 nothing about inventory-aware or vol-adaptive quoting, nothing about perp or
 other venues. The unconditional signal is genuinely informative, but the
 conditional result failed the frozen premise gate. That blocked `OFIGatedMM`
-from advancing; it did not establish how the unrun candidate's altered fill set
+from advancing. It did not establish how the unrun candidate's altered fill set
 would perform.
 
 ### Next action
 Phase C queue-credit and latency stress (credits `{0,0.25,0.5,0.75,1.0}` by
 latency `{0,10,50}ms`) for model-risk closure. `OFIGatedMM` does not advance (gate
-blocked); the holdout stays sealed; tail-aware is not an automatic fallback.
+blocked). The holdout stays sealed, tail-aware is not an automatic fallback.
 
 ### Session note (infrastructure)
 Long-lead perp recording started this session. `src/recorder/simple_recorder.py`
@@ -1265,8 +1265,8 @@ and `trade_recorder.py` gained `--market {spot,perp}`, writing to
 `data/raw/btcusdt_perp/` and `data/raw/btcusdt_perp_trades/` (spot paths and
 defaults unchanged). This environment's USD-M futures feed does not populate
 `@aggTrade`, so perp trades use the raw `@trade` stream (more granular than spot's
-aggTrade); depth uses `@depth@100ms` with `U/u/pu` futures bridging fields
-captured raw. Recording and reconnect only; no perp analysis until the spot arc
+aggTrade), depth uses `@depth@100ms` with `U/u/pu` futures bridging fields
+captured raw. Recording and reconnect only. No perp analysis until the spot arc
 completes.
 
 ---
@@ -1312,7 +1312,7 @@ raising on the other credit) and adds a post-load count check.
   `2.00` half-spread, a 0 to 50ms latency difference does not change the fill set.
 - Monotonic in queue credit. As cancellation credit rises `0.0 -> 1.0`, fills
   rise (1595 -> 2041), orders-per-fill falls (70.8 -> 55.4), and both matched and
-  full-strategy PnL worsen (matched per BTC `-9.75 -> -23.65`; full net `-16.46
+  full-strategy PnL worsen (matched per BTC `-9.75 -> -23.65`, full net `-16.46
   -> -25.03`). More credit yields more, more-toxic fills.
 - The matched-lot sign flip does not persist. On the 24-window panel matched net
   is negative across the entire grid, most favorable at credit `0.0` (pooled
@@ -1324,9 +1324,9 @@ raising on the other credit) and adds a post-load count check.
 ### Interpretation
 The negative passive-baseline conclusion is robust to the two main model-risk
 levers. Queue-cancellation credit changes the magnitude of the loss but never the
-sign; latency in `[0, 50]ms` is immaterial at this spread. The proportional
+sign, latency in `[0, 50]ms` is immaterial at this spread. The proportional
 (credit `1.0`) assumption that Phase A headlined is the least favorable endpoint,
-so the Phase A proportional negative is conservative; the no-credit endpoint is
+so the Phase A proportional negative is conservative. The no-credit endpoint is
 the most favorable but still negative and near-flat. This closes the model-risk
 question for the passive microprice baseline.
 
@@ -1337,9 +1337,9 @@ strategies, signals, or venues.
 
 ### Status of the research arc
 Phases A, B, and C are complete. The passive microprice baseline shows no stable
-edge (`Strengthens V1`, robust across queue credit and latency); OFI is a strong
+edge (`Strengthens V1`, robust across queue credit and latency), OFI is a strong
 population signal but `blocked` for a passive maker by adverse selection on fills.
-`OFIGatedMM` does not advance; the holdout stays sealed; tail-aware is not an
+`OFIGatedMM` does not advance. The holdout stays sealed, tail-aware is not an
 automatic fallback. The disciplined outcome is to publish the expanded negative.
 
 ---
@@ -1460,7 +1460,7 @@ queue diagnostics, and latency conclusions require a new development rerun.
   `results/panels/btcusdt_l2_panel_v3_event_driven`
 - Model and deterministic acceptance contract:
   `notebooks/execution_model_v2.md`
-- Research status: Python implementation acceptance is complete locally; no
+- Research status: Python implementation acceptance is complete locally. No
   V3 execution-derived result or verdict is validated yet
 - Holdout status: sealed and unavailable for model development
 
@@ -1476,7 +1476,7 @@ paired confidence interval and is not an automatic advancement verdict.
 ### C++ decision
 The C++ performance port is intentionally paused until the project owner has a
 fundamental understanding of modern C++. When work resumes, the completed
-Python event-driven model will be the parity reference; bindings and benchmark
+Python event-driven model will be the parity reference, bindings and benchmark
 claims still come only after parity. This pause is a sequencing decision, not a
 performance result.
 
@@ -1499,7 +1499,7 @@ performance result.
   Resume markers bind commands, source, input contents, the current expected
   output set, and output contents.
 - Cross-model reporting is descriptive only and requires the canonical
-  five-hour experiment; the historical verdict classifier is not reused.
+  five-hour experiment. The historical verdict classifier is not reused.
 
 ### Acceptance evidence
 
@@ -1518,7 +1518,7 @@ The final acceptance pass also made `max_position` a hard working-exposure
 envelope: pending entries and cancels in flight count against the limit, and a
 delayed cancel/replace cannot add a quote whose worst-case fill would breach
 it. The official full-panel runner now writes a tracked artifact manifest with
-source, panel, raw-input, derivation, and output hashes; a separate V3 verifier
+source, panel, raw-input, derivation, and output hashes. A separate V3 verifier
 checks that manifest without relying on ignored status files.
 
 ### Research status and next action
@@ -1541,9 +1541,9 @@ historical outputs to imply stronger evidence than the implementation supports.
 ### Corrections
 
 - Phase 1 is now labeled an educational engineering precursor. Its strategies
-  observe a bar close and execute at that close; hourly returns were annualized
-  with 365; the displayed OOS Sharpe is an average of monthly Sharpes rather
-  than one stitched OOS estimate; and the optimizer source was overwritten by
+  observe a bar close and execute at that close, hourly returns were annualized
+  with 365. The displayed OOS Sharpe is an average of monthly Sharpes rather
+  than one stitched OOS estimate, and the optimizer source was overwritten by
   the plotting pass. Phase 1 performance tables are therefore not used as
   rigorous strategy evidence.
 - The Phase B OFI conclusion is narrowed. The pre-specified conditional gate
@@ -1552,7 +1552,7 @@ historical outputs to imply stronger evidence than the implementation supports.
   formal power calculation. The full conditional pattern is non-monotone, with
   a smaller intermediate bucket that appears more favorable. The defensible
   conclusion is that the defined gate failed at both queue endpoints and did
-  not justify candidate evaluation; it is not that OFI universally disappears
+  not justify candidate evaluation. It is not that OFI universally disappears
   after conditioning or that the unrun candidate would lose.
 - “Pre-registered” is replaced in current public summaries by “pre-specified in
   repository history.” There was no external registry.
@@ -1601,7 +1601,7 @@ research system and engineering portfolio, with an informative negative result
 as a valid outcome. No new strategy search or holdout evaluation was requested.
 
 The initial Python 3.11.14 acceptance run passed all 379 existing tests. The
-selected development capture contains 240 files totaling 824,383,459 bytes;
+selected development capture contains 240 files totaling 824,383,459 bytes,
 every hash matches the frozen inventory. The V3 runner's development CSV pin
 was stale after publication normalized CRLF to LF. Updating the runner and
 comparator to the committed LF hash preserves all window identities and raw
@@ -1622,7 +1622,7 @@ frozen cases. A C++17 library and CLI now implement checked fixed-eight decimal
 storage, ordered price maps, byte-exact canonical serialization, OpenSSL hashes,
 operation traces, transcript verification, and a benchmark over preloaded
 operations. Native derived-price arithmetic and execution remain outside this
-contract; see `cpp/README.md` for the implementation boundary.
+contract. See `cpp/README.md` for the implementation boundary.
 
 Validation at the source checkpoint:
 
@@ -1630,17 +1630,17 @@ Validation at the source checkpoint:
 - 409 tests passed and 15 skipped in a clean checkout without those local inputs.
 - 23 native parity/vector Python checks passed in a minimal dependency environment.
 - Native CTest passed in Release and with address/undefined-behavior sanitizers.
-- All 36,000 states in the selected 2026-04-12 09:00 depth hour matched Python;
+- All 36,000 states in the selected 2026-04-12 09:00 depth hour matched Python,
   transcript digest `eec2fd20873bc2105d342ca3b5fe5736941007fcd087eb3eeb6c4140e5fd8731`.
 - Frozen V2 verification still passes, including the strategy-sealed holdout.
 
 The corrected rerun uses the existing 61 runner commands. Independent
 reconciliation windows and independent endpoint stages are scheduled in
-parallel through the existing `_run_step` function; shared-cache audit and OFI
+parallel through the existing `_run_step` function. Shared-cache audit and OFI
 stages remain sequential. The official full-panel entry point rechecks all
 resume markers and creates the final artifact manifest. Scheduling changes
 neither a replay command nor its source, input, output, or experiment identity.
-The computation is in progress at this entry; results and benchmark measurements
+The computation is in progress at this entry, results and benchmark measurements
 will be recorded separately after verification.
 
 ---
@@ -1656,7 +1656,7 @@ Population normalized OFI remains positive in all 24 windows, with a pooled
 one-second effect of +0.123285 bps per standard deviation and HAC t=64.6214.
 The primary 30-second conditional contrasts are -0.455884 bps without queue
 credit and -0.064348 bps with proportional credit. Both fail the predeclared
-1.0 bps screen; neither uses the exploratory fallback. The diagnostic window
+1.0 bps screen. Neither uses the exploratory fallback. The diagnostic window
 bootstrap intervals cross zero at both endpoints. No candidate advances and
 the holdout remains strategy-sealed.
 
@@ -1664,7 +1664,7 @@ Baseline mean net P&L is -0.773882 and -0.978202 USDT per five-hour window at
 the two endpoints. The respective 95% window-bootstrap intervals are
 [-1.954489, +0.181666] and [-2.204134, -0.081496]. These measurements aggregate
 reset hourly episodes under the locked queue, latency, and fee assumptions.
-The historical intermediate-credit/latency grid was not repeated; it remains
+The historical intermediate-credit/latency grid was not repeated. It remains
 V2 evidence.
 
 Final benchmark review found that assigning the next Python book could destroy
@@ -1674,8 +1674,8 @@ check. Both measurements were then regenerated. On an i5-12400F with GCC 13.3
 Release, five measured repetitions after one warmup give median ratios of
 12.39685x for 20,000 synthetic operations and 13.74497x for 35,999 operations
 from the selected development hour. Every-state transcript parity passed first.
-These are preloaded book-update measurements including numeric conversion;
-they exclude parsing, hashing, destruction, and the full execution/replay flow.
+These are preloaded book-update measurements including numeric conversion.
+They exclude parsing, hashing, destruction, and the full execution/replay flow.
 
 Later tooling changes make the current Python source fingerprint differ from
 the completed research run. Verification now supports an explicit
@@ -1685,18 +1685,18 @@ and durable outputs. The default remains a strict current-source check. The
 run manifest was not rewritten to imply a rerun on later source.
 
 Final validation: all 436 tests pass with the selected raw data and Release
-native binary; recorded-revision V3 verification and frozen V2 verification
+native binary, recorded-revision V3 verification and frozen V2 verification
 both pass, including the holdout boundary. The native Release and sanitizer
 CTest checks passed at the unchanged native source checkpoint. Documentation
-now leads with V3 and the implemented native milestone; the PDF and historical
+now leads with V3 and the implemented native milestone. The PDF and historical
 V2 artifacts retain their original evidence. Replay, execution, strategies,
 and accounting remain Python under the existing order-book-only port contract.
 
 ---
 ## 2026-09-12: End-to-end native integration and complete report
 
-The user clarified that completion means integrating C++ into the working
-Python research pipeline. The native storage now has a CPython extension,
+C++ storage is integrated into the working Python research pipeline.
+The native storage now has a CPython extension,
 Decimal-compatible adapter, backend selection in replay and research entry
 points, explicit public quantity/level accessors, and backend/binary identities
 in artifact provenance and cache keys. Python retains execution and derived
@@ -1730,9 +1730,9 @@ The new full report is `report/l2_mm_system_complete_report.pdf`, with LaTeX
 source under `report/v3`. It covers the educational precursor, data and engine
 design, modeling corrections, V3 methods/results, native integration, failures,
 limitations, and reproduction. Generated tables/figures read verified committed
-evidence; the report rebuilds without raw data using explicit artifact-only
+evidence. The report rebuilds without raw data using explicit artifact-only
 verification. The earlier report remains historical V2 evidence. Completed
-manifest trees now reject later output writes; read-only verification remains
+manifest trees now reject later output writes, read-only verification remains
 available. CI covers native integration and both report builds.
 
 Final acceptance includes 514 tests with raw captures and native modules, 88
@@ -1740,6 +1740,6 @@ focused native tests, and 64 binding/pipeline tests under address and undefined
 behavior sanitizers (interpreter leak detection disabled). The complete report
 has 26 pages, embedded fonts, resolved citations/references, and no overfull
 boxes. Both report builds reproduce committed outputs using an isolated pinned
-Python environment. Conda's differently linked FreeType changed PNG rendering;
-the new generator checks the wheel's FreeType version, and historical V2
+Python environment. Conda's differently linked FreeType changed PNG rendering.
+The new generator checks the wheel's FreeType version, and historical V2
 report/artifact bytes remain unchanged.

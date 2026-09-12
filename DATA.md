@@ -4,14 +4,14 @@ This repository studies Binance spot BTCUSDT with locally recorded depth and
 aggregate-trade streams. Raw captures are not committed. At the 4 August 2026
 report snapshot, the complete local multi-dataset capture is approximately 37
 GB, including recording-only perpetual-futures data. The two spot directories
-used by the research occupy approximately 20.5 GB; the 240 raw files selected
+used by the research occupy approximately 20.5 GB. The 240 raw files selected
 for the 24-window development panel occupy approximately 0.82 GB. The repository
 instead publishes selected derived artifacts and integrity metadata.
 
 The central distinction is:
 
 - **artifact-verifiable:** a clone can validate committed structures,
-  identities, verdicts, and presentation inputs;
+  identities, verdicts, and presentation inputs,
 - **fully replayable:** requires the original raw files listed and hashed in the
   integrity manifest.
 
@@ -62,7 +62,7 @@ parser emits a fail-closed resync barrier at the recorded local request time,
 then establishes a valid bridge and requires a sequence-valid retained depth
 receipt at or after recorded response completion. Legacy files lack that
 completion time, so their first strictly later local depth receipt is used as a
-post-response upper-bound proxy; the recorder's blocking design makes that
+post-response upper-bound proxy. The recorder's blocking design makes that
 ordering defensible. Snapshot and buffered reconstruction events are released
 at the selected record's `E`, and only the final reconstructed state reaches
 strategy logic or book sampling.
@@ -70,17 +70,17 @@ strategy logic or book sampling.
 This is a post-response-gated **exchange-clock proxy**, not a calibrated client
 observation clock. The modeled axis uses recorded local request time for resync
 barriers, depth `E` for recovery release and ordinary diffs, and trade `T` for
-trades. Those fields have different semantics and uncalibrated latency; local
+trades. Those fields have different semantics and uncalibrated latency. Local
 time is never substituted for a trade's `T`.
 
 ## Reconstruction rules
 
 The parser follows the snapshot/diff bridge contract:
 
-1. load a snapshot and its `lastUpdateId`;
-2. discard stale diffs at or before that ID;
-3. require the first retained update to bridge the snapshot;
-4. require continuous update IDs thereafter; and
+1. load a snapshot and its `lastUpdateId`,
+2. discard stale diffs at or before that ID,
+3. require the first retained update to bridge the snapshot,
+4. require continuous update IDs thereafter, and
 5. fail closed on a known gap until a later valid snapshot.
 
 Quantity zero removes a level. A positive quantity replaces aggregate displayed
@@ -128,7 +128,7 @@ hash-checks all 120 selected development depth files. Every snapshot had a valid
 bridge. The first later local depth receipt followed the legacy pre-fetch tag by
 a median 250.5 ms, 90th percentile 672.9 ms, and maximum 2,335 ms. This is an
 upper-bound response-completion proxy, not a measured REST round trip. All 120
-snapshots reached a sequence-valid policy boundary; on these files that boundary
+snapshots reached a sequence-valid policy boundary. On these files that boundary
 was the first valid bridge. Two no-credit and four proportional-credit fills
 came from orders placed before the selected exchange-clock boundary. Those are
 proxy counts, not bounds on all pre-observation effects, and they cannot exclude
@@ -164,7 +164,7 @@ Canonical selections:
 
 For the frozen economics, each five-hour development window is an inference
 cluster made from five separate one-hour replay episodes. Strategy, execution,
-and inventory state restart each hour; residual inventory is marked to that
+and inventory state restart each hour, residual inventory is marked to that
 session's final mid and then discarded without modeled liquidation. The
 five-hour statistic is therefore a sum of hourly marked episodes, not one
 continuous portfolio path.

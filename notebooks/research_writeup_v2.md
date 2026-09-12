@@ -7,7 +7,7 @@ This V2 writeup supersedes the V1 six-window result in `notebooks/research_write
 > `legacy_book_update_v1`, where modeled arrivals activated on the next depth
 > update and cancels were immediate. Its numerical claims remain the record of
 > that experiment, not current-engine results. The Phase 2.5
-> `event_driven_v2` Python implementation has passed local acceptance; see
+> `event_driven_v2` Python implementation has passed local acceptance. See
 > [`notebooks/execution_model_v2.md`](execution_model_v2.md). New results belong
 > under `results/panels/btcusdt_l2_panel_v3_event_driven`. Its development
 > rerun under `post_response_proxy_depth_boundary_v1` is pending, no V3 execution-derived
@@ -17,7 +17,7 @@ This V2 writeup supersedes the V1 six-window result in `notebooks/research_write
 
 ## Executive Summary
 
-Status: Phase C complete (2026-06-14); the Phase A/B/C development arc is
+Status: Phase C complete (2026-06-14). The Phase A/B/C development arc is
 finished. The integrity manifest and selected panels are frozen. Phase A remeasured the 24-window baseline at queue-credit
 endpoints `{0.0, 1.0}` (`Conditional V2: queue-model-dependent result`,
 conservative passive-edge verdict `Strengthens V1`). Phase B then tested OFI as a
@@ -25,7 +25,7 @@ premise: the unconditional signal is strong (pooled 1s HAC `t=64.6`, 24 of 24
 windows same-sign, clean bucket dose-response), but the conditional-on-fill test
 fails (separation `+0.13 bps` proportional, `-0.38 bps` none, both far below the
 `1.0 bps` bar). OFI is therefore `blocked` at the defined premise gate, and
-`OFIGatedMM` does not advance; this is not proof that every OFI-based passive
+`OFIGatedMM` does not advance. This is not proof that every OFI-based passive
 strategy lacks edge. Phase C queue-credit stress (2026-06-14) found negative
 pooled matched economics across the tested credit grid, worsening monotonically
 as credit increased. Its 0--50 ms sweep was numerically invariant because the
@@ -54,7 +54,7 @@ later local depth receipt (p90 `672.9 ms`, maximum `2,335 ms`). Frozen fills
 from orders placed before the selected policy boundary numbered `2` at no credit and
 `4` at proportional credit. Those small counts do not exclude changed queue age
 or later eligibility, so they are not a robustness result. V2 remains a
-historical result under this limitation; V3 must use the versioned
+historical result under this limitation, V3 must use the versioned
 `post_response_proxy_depth_boundary_v1` mixed-clock policy and rerun all
 replay-derived evidence.
 
@@ -95,15 +95,15 @@ not over-update in either direction.
 
 Generated from the 2026-06-09 Phase A run. V1 numbers are the corrected
 proportional six-window baseline. PnL figures are in account currency over a
-5-hour window; CIs are 95% bootstrap (10,000 iterations, seed 7).
+5-hour window, CIs are 95% bootstrap (10,000 iterations, seed 7).
 
 | Metric | V1 Six Windows | V2 24 Windows | What Changed |
 |---|---|---|---|
-| Window-level mean net PnL plus CI | `-2.4388`, `[-6.7121, +1.2887]` (proportional) | qc1 proportional: `-1.0431`, `[-2.3316, -0.0323]`; qc0 none: `-0.6858`, `[-1.8833, +0.2896]` | CI now excludes zero at the proportional endpoint. Mean less negative, variance much tighter. Negative result strengthened. |
-| Window-level matched net PnL plus CI | `-0.3599`, `[-1.7966, +0.8134]` | qc1: `-0.3577`, `[-0.7990, +0.0602]`; qc0: `-0.1074`, `[-0.4503, +0.2526]` | Much tighter, still crosses zero at both endpoints. The difference between matched and full-strategy rows sits in fees and the hourly residual-mark component; its interval also crosses zero, so no causal loss driver is assigned. |
-| Pooled microprice `beta * signal_std` (1s) | `+0.0168 bps`, HAC `t +1.06` | `+0.0190 bps`, HAC `t +1.74`; positive 1s beta in 19 of 24 windows | Directionally stable (79% same-sign) but still fails the `|t| >= 2` and `0.05 bps` economic bars. Premise not rescued. |
-| Fill-toxicity worst-5% tail share (30s) | `39.6%` of total adverse move | qc1 `40.6%`, qc0 `42.8%` (share of total); `25.9%` / `26.5%` (share of negative-only sum) | Stable on V1's denominator. Toxicity is broad, not a single-tail artifact. |
-| Fee break-even by queue credit (full strategy) | proportional needs `2.4618 bps` rebate; none needs `1.1572 bps` | qc1 needs `1.3515 bps` rebate; qc0 needs `0.7693 bps`. Tail-excluded matched lots flip positive at both endpoints. | Still requires a maker rebate at both endpoints. Tail concentration is material, while full-strategy values also contain hourly residual marks; the decomposition is descriptive, not causal. |
+| Window-level mean net PnL plus CI | `-2.4388`, `[-6.7121, +1.2887]` (proportional) | qc1 proportional: `-1.0431`, `[-2.3316, -0.0323]`, qc0 none: `-0.6858`, `[-1.8833, +0.2896]` | CI now excludes zero at the proportional endpoint. Mean less negative, variance much tighter. Negative result strengthened. |
+| Window-level matched net PnL plus CI | `-0.3599`, `[-1.7966, +0.8134]` | qc1: `-0.3577`, `[-0.7990, +0.0602]`, qc0: `-0.1074`, `[-0.4503, +0.2526]` | Much tighter, still crosses zero at both endpoints. The difference between matched and full-strategy rows sits in fees and the hourly residual-mark component, its interval also crosses zero, so no causal loss driver is assigned. |
+| Pooled microprice `beta * signal_std` (1s) | `+0.0168 bps`, HAC `t +1.06` | `+0.0190 bps`, HAC `t +1.74`, positive 1s beta in 19 of 24 windows | Directionally stable (79% same-sign) but still fails the `|t| >= 2` and `0.05 bps` economic bars. Premise not rescued. |
+| Fill-toxicity worst-5% tail share (30s) | `39.6%` of total adverse move | qc1 `40.6%`, qc0 `42.8%` (share of total), `25.9%` / `26.5%` (share of negative-only sum) | Stable on V1's denominator. Toxicity is broad, not a single-tail artifact. |
+| Fee break-even by queue credit (full strategy) | proportional needs `2.4618 bps` rebate, none needs `1.1572 bps` | qc1 needs `1.3515 bps` rebate, qc0 needs `0.7693 bps`. Tail-excluded matched lots flip positive at both endpoints. | Still requires a maker rebate at both endpoints. Tail concentration is material, while full-strategy values also contain hourly residual marks, the decomposition is descriptive, not causal. |
 
 ## Phase A Decision
 
@@ -133,22 +133,22 @@ endpoints classify differently, so the headline is conditional:
 The proportional endpoint produced a less negative point estimate than the
 frozen V1 proportional mean (`-2.4388`, CI `[-6.7121, +1.2887]`) but a much
 tighter CI that now excludes zero. More data did not make the baseline
-profitable; it made the proportional-endpoint interval exclude zero on this
+profitable. It made the proportional-endpoint interval exclude zero on this
 selected panel. Per the disagreement rule, the conservative verdict
 `Strengthens V1` is the headline.
 
 Supporting evidence on the expanded panel:
 
 - Matched round-trip PnL crosses zero at both endpoints (`-0.3577`,
-  `[-0.7990, +0.0602]` proportional; `-0.1074`, `[-0.4503, +0.2526]` none).
+  `[-0.7990, +0.0602]` proportional, `-0.1074`, `[-0.4503, +0.2526]` none).
   The difference from full-strategy PnL sits in fees and the hourly
-  residual-inventory mark component, whose own interval crosses zero; this does
+  residual-inventory mark component, whose own interval crosses zero. This does
   not identify a causal loss mechanism.
 - Microprice predictiveness is not rescued: pooled 1s `beta * signal_std`
   `+0.0190 bps`, HAC `t +1.74`, positive 1s beta in 19 of 24 windows. The sign
   is directionally stable but the signal fails both the `|t| >= 2` and the
   `0.05 bps` economic-size bars.
-- Fill toxicity remains broad (pooled 30s median `-1.50 bps` proportional);
+- Fill toxicity remains broad (pooled 30s median `-1.50 bps` proportional),
   worst-5% fill share is `40.6%` of the total adverse move, comparable to V1.
 - Fee break-even: the full strategy needs a maker rebate at both endpoints
   (`1.3515 bps` proportional, `0.7693 bps` none). Tail-excluded matched lots
@@ -171,7 +171,7 @@ Status: complete (2026-06-14). Verdict: `blocked`.
 
 OFI had to clear `75%` same-sign 1s beta stability across development windows,
 pooled HAC `|t| >= 2`, and pooled `|beta * signal_std| >= 0.05 bps`. Conditional
-30s toxicity is `pass`, `fail_signal`, or `inconclusive_power`; thin buckets
+30s toxicity is `pass`, `fail_signal`, or `inconclusive_power`, thin buckets
 (below 30 samples) are `inconclusive_power`, not signal failure. Conditional
 `pass` requires a side-aligned 30s separation of at least `1.0 bps`. That `1.0
 bps` value is a heuristic materiality threshold: it was committed before the run
@@ -191,10 +191,10 @@ near-zero t-stat when the OFI-to-drift pairing is destroyed (shuffled), which a
 window-overlap bug would not satisfy. The unconditional path was unchanged.
 
 The hardening moved the conditional separation only marginally (`qc1 +0.1264 ->
-+0.1272 bps`; `qc0 -0.3788 -> -0.3756 bps`) and changed no status. The bounded
++0.1272 bps`, `qc0 -0.3788 -> -0.3756 bps`) and changed no status. The bounded
 artifact audit found no evidenced contradiction of the same-ms assumption, but
 the stored reconciliation data cannot adjudicate every queue-drain timestamp.
-The result therefore narrows the risk; it does not prove that all same-ms
+The result therefore narrows the risk. It does not prove that all same-ms
 attribution is negligible.
 
 ### Unconditional result (passes, strongly)
@@ -231,7 +231,7 @@ Both are far below the `1.0 bps` separation bar and exceed the predefined
 minimum bucket count (`n >= 30`), so the mechanical status is `fail_signal`, not
 `inconclusive_power`. The count rule is not a formal power analysis. The full
 conditional pattern is non-monotone, and a smaller intermediate bucket appears
-more favorable at both endpoints; that exploratory observation does not replace
+more favorable at both endpoints. That exploratory observation does not replace
 the defined comparison. Combined with the strong unconditional signal, the
 overall verdict is `blocked`.
 
@@ -242,7 +242,7 @@ pre-specified fill-conditioned comparison, however, was far below the
 materiality bar at both queue endpoints and the complete bucket pattern was not
 monotone. The fill sample is not a representative draw from the book states used
 for the population regression. This is consistent with adverse selection of the
-fills; the experiment identifies failure of the defined conditional gate rather
+fills. The experiment identifies failure of the defined conditional gate rather
 than every causal mechanism
 behind it (hidden liquidity, participant heterogeneity, queue dynamics, and
 event-order effects could all contribute). This is the sharpest single result in
@@ -284,7 +284,7 @@ Three findings close the model-risk question:
   `{0, 10, 50}ms` give identical matched and full-strategy PnL (only
   orders-per-fill changes marginally). Changing latency from 0 to 50ms did not
   change the simulated fill set because modeled arrivals became eligible only
-  on the next depth update. That quantization motivates `event_driven_v2`; it is
+  on the next depth update. That quantization motivates `event_driven_v2`. It is
   not evidence that latency is immaterial in market making.
 - Monotonic in queue credit. More cancellation credit yields more fills
   (1595 to 2041) of worse quality: matched net per BTC degrades from `-9.75` to

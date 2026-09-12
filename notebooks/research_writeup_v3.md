@@ -10,7 +10,7 @@ endpoints. No candidate advances and the strategy-sealed holdout remains sealed.
 
 This completes the corrected baseline development study. The accompanying
 [C++17 order-book port](../cpp/README.md) is a separate engineering milestone.
-It reproduces the Python book's supported input domain; execution and accounting
+It reproduces the Python book's supported input domain. Execution and accounting
 continue to use the Python reference.
 
 ## Purpose and experiment
@@ -24,7 +24,7 @@ completion requirement.
 The rerun uses the same 24 non-overlapping five-hour development windows and the
 same 240 hash-verified BTCUSDT spot depth/trade files as V2. Each window aggregates
 five independently initialized one-hour episodes. Inventory is marked at each
-hour end and reset; liquidation costs are omitted. All 24 windows are development
+hour end and reset. Liquidation costs are omitted. All 24 windows are development
 evidence. The 12 holdout windows were not used for strategy evaluation.
 
 The locked baseline is `MicropriceMM`, with `0.001 BTC` orders, `0.01 BTC`
@@ -34,7 +34,7 @@ fees of `2/5 bps`. Queue-cancellation credit is tested at `0` and `1`.
 
 V3 uses `event_driven_v2`, `market_data_before_private_actions_v1`, and
 `post_response_proxy_depth_boundary_v1`. Entries and cancellations run on the
-model clock; cancel/fill races and own-order FIFO volume conservation are
+model clock, cancel/fill races and own-order FIFO volume conservation are
 explicit. Recovery hides snapshot state until its selected post-response proxy
 boundary. These corrections can alter which orders fill, so V2 execution
 results were retained as historical evidence and V3 was rerun in a new namespace.
@@ -60,7 +60,7 @@ pooled one-second regression has 430,259 observations, predicted drift of
 The conditional screen compares the most-populated negative and nonnegative
 side-aligned buckets at 30 seconds. Both endpoints select `<-1.0` and
 `[0.0,0.25)`. Separation is the nonnegative-bucket response minus the
-negative-bucket response. Both counts exceed the minimum of 30; both contrasts
+negative-bucket response. Both counts exceed the minimum of 30. Both contrasts
 fall below the pre-specified `1.0 bps` threshold. Neither endpoint triggers the
 exploratory five-second fallback. The combined decision is **blocked**.
 
@@ -68,7 +68,7 @@ The new diagnostic interval resamples the 24 whole windows 10,000 times with
 seed 7, keeping the two originally selected bucket labels fixed. All 24 windows
 contribute observations to each selected bucket and no draw has an undefined
 contrast. Both intervals cross zero. The intervals condition on bucket selection
-and assume independent window clusters; they are not selection-adjusted and do
+and assume independent window clusters. They are not selection-adjusted and do
 not alter the fixed gate. Counts above 30 are not a formal power calculation.
 
 Both prospective hypotheses hold under the defined measurements: the pooled
@@ -80,7 +80,7 @@ universally ineffective or that an unrun strategy would lose.
 
 The descriptive change in mean net P&L from V2 is `-0.088129 USDT/window` with
 no credit and `+0.064866 USDT/window` with proportional credit. The no-credit
-interval still crosses zero; the proportional interval remains entirely
+interval still crosses zero. The proportional interval remains entirely
 negative. These differences are descriptive model sensitivity, not paired
 confidence intervals or an automatic strategy-advancement verdict.
 
@@ -109,13 +109,13 @@ env PYTHONPATH=. python scripts/summarize_v3_development.py --source-revision re
 
 Without `--source-revision`, verification requires the current working source
 to match the run. Recorded-revision verification requires the exact manifest
-commit and reproduces the source hash from its Git objects; raw files and durable
+commit and reproduces the source hash from its Git objects. Raw files and durable
 outputs are still checked against the unchanged manifest.
 
 To rerun the original experiment, use an isolated checkout of `04df629`, restore
 the selected raw files, and run `scripts/run_l2_panel.py --phase all`. The normal
 entry point is serial and resumable. This completed run scheduled independent
-commands concurrently through the same runner checks; shared-cache OFI steps
+commands concurrently through the same runner checks. Shared-cache OFI steps
 remained sequential. No replay parameters or analysis algorithms were changed
 by scheduling.
 
@@ -127,4 +127,4 @@ identifies the durable evidence. Raw data and ephemeral caches remain excluded
 from Git. Git attributes preserve the frozen output bytes, including generated
 CSV line endings, so checkout conversion cannot invalidate their hashes.
 The [PDF report](../report/l2_mm_research_report.pdf) documents the
-historical V2 study; this note is the current V3 addendum.
+historical V2 study. This note is the current V3 addendum.

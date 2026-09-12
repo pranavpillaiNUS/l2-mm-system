@@ -7,7 +7,7 @@ ones.
 
 The committed V2 result set is historical: it was generated at research commit
 `1066950` under `legacy_book_update_v1`. The Phase 2.5 `event_driven_v2`
-Python implementation has passed local acceptance; see
+Python implementation has passed local acceptance. See
 [`notebooks/execution_model_v2.md`](execution_model_v2.md). Until the frozen
 development panel is rerun under the V3 event-driven namespace, the newer model
 has no validated execution-derived research result.
@@ -69,7 +69,7 @@ Current status:
 
 - The frozen artifacts remain under
   `results/panels/btcusdt_l2_panel_v2` with provenance marker
-  `EXECUTION_MODEL.json`; they are not silently regenerated.
+  `EXECUTION_MODEL.json`. They are not silently regenerated.
 - `event_driven_v2` schedules exact order and cancel arrivals, uses an explicit
   market-data-before-private equal-time rule, and models own-order FIFO with
   trade-volume conservation.
@@ -172,7 +172,7 @@ Required interpretation:
 ## Interpretation Guardrails
 
 - Do not treat total net PnL alone as edge when residual inventory PnL is large.
-- Do not use matched-lot bootstrap as the headline inference unit; lots inside
+- Do not use matched-lot bootstrap as the headline inference unit, lots inside
   the same hour are correlated.
 - Do not treat microprice beta per 1 bp as economically meaningful unless
   observed deviations are actually near that size.

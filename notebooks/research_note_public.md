@@ -4,7 +4,7 @@ A deterministic L2 order-book replay and execution simulator for studying passiv
 market making on real Binance spot BTCUSDT data. The central result is a contrast
 between a population-level association and the fill-conditioned gate, not a
 profitable strategy or an identified causal effect. This note is the short
-version; the full protocol and per-phase detail are in
+version. The full protocol and per-phase detail are in
 `notebooks/research_writeup_v2.md`, and every headline number reconciles against the
 artifacts listed at the end.
 
@@ -12,11 +12,11 @@ artifacts listed at the end.
 generated at research commit `1066950` under execution model
 `legacy_book_update_v1`. In that model, a modeled order arrival became active
 on the next depth update and a cancellation request took effect immediately.
-The numbers below remain historical results for that specified experiment; they
+The numbers below remain historical results for that specified experiment. They
 are not results from the current engine. The Phase 2.5 `event_driven_v2`
 Python implementation has passed local acceptance, documented in
 [`notebooks/execution_model_v2.md`](execution_model_v2.md). Its results belong
-only under `results/panels/btcusdt_l2_panel_v3_event_driven`; its development
+only under `results/panels/btcusdt_l2_panel_v3_event_driven`. Its development
 rerun under `post_response_proxy_depth_boundary_v1` is pending, and no V3 execution-derived
 conclusion has been published or validated yet. The C++ performance port is
 deferred until the Python reference is frozen and a separate modern C++
@@ -35,7 +35,7 @@ The pre-specified fill-conditioned screen did not show the same robust monotone
 separation. Its defined 30s comparison was `+0.127 bps` under proportional queue
 credit and `-0.376 bps` under no credit, both far below the heuristic `1.0 bps`
 materiality bar. The selected bucket counts (`n = 201` and `154`) exceeded the
-predefined minimum of 30; that is not a formal power analysis. The complete
+predefined minimum of 30. That is not a formal power analysis. The complete
 conditional response was non-monotone, including a smaller intermediate bucket
 with a more favorable mean. Under the frozen protocol, the premise gate failed,
 so running `OFIGatedMM` was not justified. This is a decision about candidate
@@ -73,11 +73,11 @@ Baseline (Phase A): a passive microprice strategy quoting a `$2` half-spread (ab
 `0.28 bps` from the reference at a representative `$71.5k` price level), 5s requote, 2
 bps maker fee. Across the 24 windows the baseline is net-negative in 18 of 24 at each
 queue endpoint. Under the proportional queue model the window-level mean net
-PnL is `-1.04` with 95% bootstrap CI `[-2.33, -0.03]`, which excludes zero; under no
+PnL is `-1.04` with 95% bootstrap CI `[-2.33, -0.03]`, which excludes zero. Under no
 credit it is `-0.69`, CI `[-1.88, +0.29]`, which crosses zero. The two endpoints
 classify differently, so the headline is `Conditional V2: queue-model-dependent`, with
 the conservative passive-edge verdict `Strengthens V1`. Matched round-trip and
-residual-inventory intervals each cross zero at both endpoints; full-strategy PnL
+residual-inventory intervals each cross zero at both endpoints, full-strategy PnL
 combines matched economics, fees, and terminal inventory marking, so no single
 component is assigned as the causal driver.
 
@@ -96,7 +96,7 @@ followed the pre-fetch tag by a median `250.5 ms`, p90 `672.9 ms`, and maximum
 `2,335 ms`. Two no-credit and four proportional-credit fills came from orders
 placed before the selected policy boundary, which equaled the valid bridge in
 all 120 files. These are proxy diagnostics, not upper bounds or proof that the
-V2 result is invariant; queue age can affect later fills. The V3 development
+V2 result is invariant, queue age can affect later fills. The V3 development
 rerun must remeasure the complete result under the new policy.
 
 Microprice premise: the strategy's own assumption, that microprice deviation predicts
@@ -107,7 +107,7 @@ it either. So before OFI, the project had already shown that the baseline's prem
 not a reliable standalone edge.
 
 OFI premise: the headline above. The strong unconditional signal is the reason OFI was
-worth testing as a gate; the conditional-on-fill failure is the reason the OFI-gated
+worth testing as a gate. The conditional-on-fill failure is the reason the OFI-gated
 candidate (`OFIGatedMM`) never advanced.
 
 ## Robustness and discipline
@@ -118,7 +118,7 @@ study was interpreted:
 - Post-only artifact. The first profitable-looking runs were contaminated: latency
   turned intended passive limits into taker fills. Enforcing post-only made the
   simulation honest and the apparent edge disappeared.
-- Replay correctness. A timestamp/snapshot synchronization bug was found and fixed; the
+- Replay correctness. A timestamp/snapshot synchronization bug was found and fixed. The
   affected studies were regenerated. A separate six-anchor trade-gap policy audit
   reports exact zero deltas.
 
@@ -135,25 +135,25 @@ bounded checks did not change the negative/conditional decision:
   entire cancellation-credit grid, `-9.75` at credit `0.0` worsening monotonically to
   `-23.65` at credit `1.0`. The frozen 0/10/50 ms sweep did not change the
   simulated fill set because the legacy model activated orders only on the next
-  depth update. This exposes timing quantization and motivates the V3 rerun; it is
+  depth update. This exposes timing quantization and motivates the V3 rerun. It is
   not evidence that real latency is irrelevant.
 
 Inference discipline is consistent throughout: full-strategy, matched-lot, and
-residual-inventory PnL are separated and never conflated; the five-hour-window
+residual-inventory PnL are separated and never conflated. The five-hour-window
 bootstrap is headlined while session and correlated matched-lot intervals are treated as a
-diagnostic; statistical significance is always reported with economic magnitude (`beta
-* signal_std`); thin conditional buckets are labeled `inconclusive_power` rather than
-forced into pass/fail; and, at frozen closure, determinism was checked by a 223-test
+diagnostic, statistical significance is always reported with economic magnitude (`beta
+* signal_std`), thin conditional buckets are labeled `inconclusive_power` rather than
+forced into pass/fail, and, at frozen closure, determinism was checked by a 223-test
 deterministic suite and state hashing. Those checks establish repeatability of that code
-path; they do not validate the legacy timing assumptions or substitute for the V3
+path. They do not validate the legacy timing assumptions or substitute for the V3
 rerun.
 
 ## Related work and scope
 
 The measured mechanisms are established market-microstructure ideas, not a claim of
 theoretical novelty. Glosten and Milgrom frame bid-ask spreads as compensation for
-trading against better-informed flow; Cont, Kukanov, and Stoikov connect order-flow
-imbalance to short-horizon price impact; and Avellaneda and Stoikov formulate the
+trading against better-informed flow, Cont, Kukanov, and Stoikov connect order-flow
+imbalance to short-horizon price impact, and Avellaneda and Stoikov formulate the
 inventory-aware market-making control problem that this project deliberately did not
 add after the development gate failed. The contribution here is the deterministic
 measurement pipeline, explicitly modeled execution conditioning, and pre-specified

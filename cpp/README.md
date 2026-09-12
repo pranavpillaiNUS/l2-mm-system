@@ -2,7 +2,7 @@
 
 The native order book implements the existing [parity contract](parity_contract.md).
 The Python book remains the reference. Its June golden vectors were recovered
-unchanged from commit `578b524`; book behavior and serialization remain the
+unchanged from commit `578b524`, book behavior and serialization remain the
 reference. The port is a library, standalone CLI, and compiled Python backend
 integrated throughout replay and research, with operation, transcript, and
 full-pipeline parity tests against Python.
@@ -11,7 +11,7 @@ full-pipeline parity tests against Python.
 
 `l2mm_book` stores each side in `std::map<int64_t, int64_t>`. Prices and
 quantities use an exact integer scale of `100000000`. For example,
-`74574.79000000` becomes `7457479000000`; parsing never passes through `double`.
+`74574.79000000` becomes `7457479000000`, parsing never passes through `double`.
 The map provides price ordering, replacement, insertion, and deletion in
 `O(log N)` time. Best bid is the last bid key, and best ask the first ask key.
 RAII containers own all book memory.
@@ -20,7 +20,7 @@ The parser checks the fixed-eight input format, integer overflow, and exact
 tick/quantity-step multiples. Stored prices and nonzero quantities must be at
 least `0.00000100`, where Python Decimal still renders ordinary fixed-point
 text. Signed values and other Decimal formats are outside this native contract
-and are rejected. These restrictions describe the accepted data domain; this
+and are rejected. These restrictions describe the accepted data domain. This
 is not a replacement for every possible Python Decimal input.
 
 Snapshots clear both sides and skip zero quantities. Diffs replace quantities
@@ -28,7 +28,7 @@ and erase zero levels, including absent levels without error. Input order is
 preserved for duplicate prices. Crossed books remain representable, matching
 Python. Each operation validates both sides before changing state, so rejected
 input cannot leave a partial update. Allocation failure during an otherwise
-valid diff is terminal; continuing the same book after `std::bad_alloc` is not
+valid diff is terminal. Continuing the same book after `std::bad_alloc` is not
 supported.
 
 Canonical serialization exactly preserves Python's key ordering, level
@@ -76,10 +76,10 @@ make cpp-test PYTHON=python CMAKE_ARGS="-DOPENSSL_ROOT_DIR=$CONDA_PREFIX"
 `cpp/build/l2mm_orderbook` is the executable and `libl2mm_book.a` the library.
 The native CTest, binding, and full-pipeline tests must pass. CI runs this
 target separately from the Python research suite. Python-only installations
-skip native checks when no binary exists; setting `L2MM_CPP_BINARY` makes a
+skip native checks when no binary exists, setting `L2MM_CPP_BINARY` makes a
 missing or invalid binary an error. `L2MM_CPP_MODULE` selects an exact compiled
 extension file. Selecting a missing or incompatible module fails explicitly.
-The build records the selected Python ABI; it is not a portable binary package.
+The build records the selected Python ABI. It is not a portable binary package.
 
 For an address/undefined-behavior sanitizer build:
 
@@ -135,7 +135,7 @@ source hashes, compiler/build details, Python version, CPU, and load average.
 
 The following local measurements were recorded on 2026-09-11 using an Intel
 Core i5-12400F, Python 3.11.14, and GCC 13.3.0 in Release mode (`-O3 -DNDEBUG`).
-Each implementation ran one warmup and five measured repetitions; the driver
+Each implementation ran one warmup and five measured repetitions. The driver
 timed Python first, then C++. Ratios compare the medians for the same operations.
 
 | Input | Operations | Python median | C++ median | Ratio of medians |
@@ -166,7 +166,7 @@ make native-pipeline-check PYTHON=python
 ```
 
 The backend flag also reaches comparison, reconciliation, microprice/OFI
-analysis, and panel orchestration. Native outputs use a `cpp` namespace;
+analysis, and panel orchestration. Native outputs use a `cpp` namespace,
 backend and binary identities travel with provenance and caches. A completed
 run's artifact manifest prevents subsequent output writes into that run.
 
@@ -176,7 +176,7 @@ fill, book sample, markout, queue diagnostic, OFI population/conditional sample,
 and final accounting state. Each endpoint processes 8,914,486 market events.
 The full [parity artifact](../results/native_pipeline/development_parity.json)
 retains per-stream hashes and input/source identities. During integration,
-the tests caught `0E-8` versus `0` in missing-level diagnostics; preserving the
+the tests caught `0E-8` versus `0` in missing-level diagnostics. Preserving the
 reference zero fixed the byte mismatch without changing fills or P&L.
 
 The separate [pipeline measurement](../results/native_pipeline/development_hour_benchmark.json)

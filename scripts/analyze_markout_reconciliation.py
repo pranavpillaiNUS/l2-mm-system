@@ -37,6 +37,9 @@ from src.execution.queue_credit import (
 )
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
+from src.replay.book_backend import (
+    add_book_arguments, book_kwargs, book_provenance_from_args, separate_backend_output,
+)
 
 
 RECON_HORIZONS_MS = {
@@ -191,6 +194,7 @@ def _run_replay(args, window: SessionWindow):
     strategy = _build_strategy(args.strategy, args)
 
     config = ReplayConfig(
+        **book_kwargs(args),
         depth_files=depth_files,
         trade_files=trade_files,
         sim_config=SimConfig(
@@ -582,7 +586,9 @@ def parse_args():
                         default=Path(
                             "results/event_driven_v2/markout_reconciliation"
                         ))
+    add_book_arguments(parser)
     args = parser.parse_args()
+    separate_backend_output(args)
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
             args.queue_cancellation_mode

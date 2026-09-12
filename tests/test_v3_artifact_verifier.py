@@ -3,7 +3,7 @@
 import copy
 import json
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,7 @@ import pytest
 from scripts.run_l2_panel import _command_sha256, _file_sha256
 from scripts.verify_v3_artifacts import _verify_completed_steps
 import scripts.run_l2_panel as panel_runner
+import scripts.verify_v3_artifacts as artifact_verifier
 from scripts.verify_v3_artifacts import (
     _revision_source_fingerprint, _verify_source, verify,
 )
@@ -198,3 +199,158 @@ def test_public_verifier_keeps_current_source_as_its_default(source_repository, 
     # still-required panel check; it does not waive the rest of verification.
     with pytest.raises(ValueError, match="frozen development panel"):
         verify(output_root, output_root / "status", source_revision="recorded")
+
+
+@pytest.fixture
+def complete_artifact_tree(source_repository, monkeypatch):
+    """A small 24-window publication with all 61 derivations and 240 inputs."""
+    root, _, source = source_repository
+    output = root / "results/current"
+    output.mkdir(parents=True)
+    starts = [datetime(2026, 4, 12, 9) + timedelta(hours=5 * i) for i in range(24)]
+    panel = root / "development_windows.csv"
+    panel.write_text("start\n" + "\n".join(start.isoformat() for start in starts) + "\n")
+    panel_hash = _file_sha256(panel)
+    monkeypatch.setattr(artifact_verifier, "DEVELOPMENT_PANEL_SHA256", panel_hash)
+    raw_dir = root / "raw"
+    raw_dir.mkdir()
+    raw_inputs = []
+    for start in starts:
+        for offset in range(5):
+            hour = start + timedelta(hours=offset)
+            row = {"start": hour.isoformat()}
+            for prefix in ("depth", "trade"):
+                path = raw_dir / f"{prefix}_{hour:%Y%m%d_%H}.json"
+                path.write_text(json.dumps({"kind": prefix, "hour": hour.isoformat()}))
+                row[f"{prefix}_path"] = str(path)
+                row[f"{prefix}_sha256"] = _file_sha256(path)
+            raw_inputs.append(row)
+    inventory = root / "integrity.json"
+    inventory.write_text(json.dumps({"hours": [{**row, "valid": True} for row in raw_inputs]}))
+    inventory_hash = _file_sha256(inventory)
+    monkeypatch.setattr(artifact_verifier, "INTEGRITY_MANIFEST_FILE_SHA256", inventory_hash)
+    payload = {
+        **source,
+        "manifest_version": panel_runner.ARTIFACT_MANIFEST_VERSION,
+        "execution_model_version": "event_driven_v2",
+        "equal_timestamp_policy": "market_data_before_private_actions_v1",
+        "snapshot_time_policy": "post_response_proxy_depth_boundary_v1",
+        "trade_gap_policy": "pause_until_snapshot",
+        "development_panel": {"path": str(panel), "sha256": panel_hash,
+                              "starts": [start.isoformat() for start in starts]},
+        "raw_integrity_manifest": {
+            "path": str(inventory), "file_sha256": inventory_hash,
+            "identity_sha256": artifact_verifier.INTEGRITY_MANIFEST_SHA256,
+        },
+        "experiment": {
+            "symbol": "btcusdt", "strategy": "microprice", "hours": 5,
+            "session_hours": 1, "half_spread": "2.00", "order_qty": "0.001",
+            "max_position": "0.01", "requote_interval_ms": 5000,
+            "latency_ms": 10, "jitter_ms": 0, "cancel_latency_ms": 10,
+            "cancel_jitter_ms": 0, "maker_bps": 2, "taker_bps": 5,
+            "queue_credits": ["0", "1"],
+        },
+        "raw_inputs": raw_inputs, "completed_steps": [], "artifacts": {},
+    }
+    names = ["microprice_signal", "execution_model_comparison", "fee_break_even"]
+    for credit in ("0", "1"):
+        names.extend(f"reconcile_qc{credit}_{start.isoformat()}" for start in starts)
+        names.extend(f"{name}_qc{credit}" for name in (
+            "bootstrap_ci", "microprice_fill_toxicity", "same_ms_audit",
+            "tail_diagnostics", "ofi_signal",
+        ))
+    for index, name in enumerate(names):
+        path = output / f"result_{index}.json"
+        path.write_text(json.dumps({"step": name}))
+        digest = _file_sha256(path)
+        command = ["python", "research.py", "--step", name]
+        payload["completed_steps"].append({
+            "step": name, "command": command,
+            "command_sha256": _command_sha256(command),
+            "expected_outputs": [str(path)],
+            "output_fingerprints": {str(path): f"file:{digest}"},
+        })
+        payload["artifacts"][path.name] = digest
+    (output / "ARTIFACT_MANIFEST.json").write_text(json.dumps(payload))
+    return payload, output, raw_dir
+
+
+def test_artifacts_only_verifies_complete_tree_without_reading_raw_captures(
+    complete_artifact_tree, monkeypatch,
+):
+    payload, output, raw_dir = complete_artifact_tree
+    manifest_before = (output / "ARTIFACT_MANIFEST.json").read_bytes()
+    for path in raw_dir.iterdir():
+        path.unlink()
+    with pytest.raises(ValueError, match="V3 raw input differs from manifest"):
+        verify(output, output / "status", source_revision="recorded")
+    original_hash = artifact_verifier._file_sha256
+
+    def no_raw_hash(path):
+        assert raw_dir not in path.parents, "artifact-only mode read a raw capture"
+        return original_hash(path)
+
+    monkeypatch.setattr(artifact_verifier, "_file_sha256", no_raw_hash)
+    checked = verify(output, output / "status", source_revision="recorded", artifacts_only=True)
+    assert len(checked["completed_steps"]) == 61
+    assert checked["raw_verification"] == {
+        "mode": "inventory_identities_only", "selected_files": 240, "files_hashed": 0,
+    }
+    assert checked["source_verification"]["revision"] == payload["git_head"]
+    assert (output / "ARTIFACT_MANIFEST.json").read_bytes() == manifest_before
+
+
+def test_full_verification_reports_actual_raw_hash_checks(complete_artifact_tree):
+    _, output, _ = complete_artifact_tree
+    checked = verify(output, output / "status", source_revision="recorded")
+    assert checked["raw_verification"] == {
+        "mode": "raw_file_hashes", "selected_files": 240, "files_hashed": 240,
+    }
+
+
+@pytest.mark.parametrize("mutation, message", [
+    ("raw_hash", "raw-input hash differs"),
+    ("raw_path", "raw-input path differs"),
+    ("missing_hour", "raw-input set differs"),
+    ("duplicate_hour", "duplicate raw-input rows"),
+    ("inventory_identity", "wrong raw-integrity identity"),
+    ("inventory_bytes", "raw-integrity manifest file"),
+    ("partial_workflow", "complete development workflow"),
+    ("output_bytes", "derivation hash does not match"),
+    ("extra_output", "artifact tree differs"),
+])
+def test_artifacts_only_still_rejects_invalid_publication(
+    complete_artifact_tree, mutation, message,
+):
+    payload, output, _ = complete_artifact_tree
+    if mutation == "raw_hash":
+        payload["raw_inputs"][0]["depth_sha256"] = "0" * 64
+    elif mutation == "raw_path":
+        payload["raw_inputs"][0]["depth_path"] = "different_capture.json"
+    elif mutation == "missing_hour":
+        payload["raw_inputs"].pop()
+    elif mutation == "duplicate_hour":
+        payload["raw_inputs"].append(payload["raw_inputs"][0])
+    elif mutation == "inventory_identity":
+        payload["raw_integrity_manifest"]["identity_sha256"] = "0" * 64
+    elif mutation == "inventory_bytes":
+        Path(payload["raw_integrity_manifest"]["path"]).write_text("{}")
+    elif mutation == "partial_workflow":
+        payload["completed_steps"].pop()
+    elif mutation == "output_bytes":
+        (output / "result_0.json").write_text("{}")
+    else:
+        (output / "unlisted.json").write_text("{}")
+    (output / "ARTIFACT_MANIFEST.json").write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=message):
+        verify(output, output / "status", source_revision="recorded", artifacts_only=True)
+
+
+def test_artifacts_only_does_not_waive_default_source_verification(
+    complete_artifact_tree, monkeypatch,
+):
+    _, output, _ = complete_artifact_tree
+    Path("scripts/runner.py").write_text("CHANGED = True\n")
+    monkeypatch.setattr(panel_runner, "_SOURCE_FINGERPRINT", None)
+    with pytest.raises(ValueError, match="current Python source differs"):
+        verify(output, output / "status", artifacts_only=True)

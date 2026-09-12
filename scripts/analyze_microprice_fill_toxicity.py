@@ -36,6 +36,9 @@ from src.execution.queue_credit import (
 )
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
+from src.replay.book_backend import (
+    add_book_arguments, book_kwargs, book_provenance_from_args, separate_backend_output,
+)
 
 
 DEFAULT_STARTS = [
@@ -69,6 +72,7 @@ def _run_session(args, block_label: str, window: SessionWindow) -> list[dict]:
     strategy = _build_strategy(args.strategy, args)
 
     config = ReplayConfig(
+        **book_kwargs(args),
         depth_files=depth_files,
         trade_files=trade_files,
         sim_config=SimConfig(
@@ -200,7 +204,9 @@ def parse_args():
                             "results/event_driven_v2/microprice_fill_toxicity"
                         ))
     parser.add_argument("--print-horizon", default="30s")
+    add_book_arguments(parser)
     args = parser.parse_args()
+    separate_backend_output(args)
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
             args.queue_cancellation_mode
@@ -256,6 +262,7 @@ def main():
                 queue_cancellation_credit=args.queue_cancellation_credit,
             ),
             trade_gap_policy="pause_until_snapshot",
+            orderbook=book_provenance_from_args(args),
         ),
         "params": {
             "symbol": args.symbol.lower(),

@@ -37,6 +37,9 @@ from src.execution.queue_credit import (
 )
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
+from src.replay.book_backend import (
+    add_book_arguments, book_kwargs, book_provenance_from_args, separate_backend_output,
+)
 
 
 DEFAULT_STARTS = [
@@ -101,6 +104,7 @@ def _session_windows(args) -> list[tuple[str, SessionWindow]]:
 def _run_depth_window(args, window: SessionWindow, ofi_interval_ms: int) -> dict:
     depth_files, _ = _select_files(args.data_root, args.symbol, window)
     config = ReplayConfig(
+        **book_kwargs(args),
         depth_files=depth_files,
         trade_files=[],
         sim_config=SimConfig(
@@ -159,6 +163,7 @@ def _run_fill_session(args, block_label: str, window: SessionWindow,
     depth_files, trade_files = _select_files(args.data_root, args.symbol, window)
     strategy = _build_strategy(args.strategy, args)
     config = ReplayConfig(
+        **book_kwargs(args),
         depth_files=depth_files,
         trade_files=trade_files,
         sim_config=SimConfig(
@@ -209,7 +214,10 @@ def _load_or_build_signal_windows(args, *, ofi_interval_ms: int) -> list[dict]:
         "max_staleness_ms": args.max_staleness_ms,
         "max_future_lag_ms": args.max_future_lag_ms,
         "data_root": str(args.data_root),
-        "book_replay_provenance": _book_only_replay_provenance(),
+        "book_replay_provenance": {
+            **_book_only_replay_provenance(),
+            "orderbook": book_provenance_from_args(args),
+        },
     }
     cached = payload["analyses"].get(key)
     if cached is not None:
@@ -424,7 +432,10 @@ def parse_args():
         default=Path("results/event_driven_v2/ofi_signal"),
     )
     parser.add_argument("--unconditional-cache", type=Path)
-    return parser.parse_args()
+    add_book_arguments(parser)
+    args = parser.parse_args()
+    separate_backend_output(args)
+    return args
 
 
 def main():
@@ -471,6 +482,7 @@ def main():
                 queue_cancellation_credit=args.queue_cancellation_credit,
             ),
             trade_gap_policy="pause_until_snapshot",
+            orderbook=book_provenance_from_args(args),
         ),
         "params": {
             "symbol": args.symbol.lower(),

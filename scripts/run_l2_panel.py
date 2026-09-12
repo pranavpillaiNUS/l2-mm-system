@@ -16,6 +16,7 @@ from src.execution.provenance import (
 )
 from src.execution.queue_credit import parse_queue_credit, queue_credit_suffix
 from src.replay.depth_parser import SNAPSHOT_TIME_POLICY
+from src.replay.book_backend import add_book_arguments, book_provenance_from_args
 
 
 DEVELOPMENT_PANEL_SHA256 = (
@@ -147,6 +148,7 @@ def _write_artifact_manifest(args, starts: list[datetime]) -> Path:
         "manifest_version": ARTIFACT_MANIFEST_VERSION,
         "git_head": git_head,
         "source_fingerprint": _source_fingerprint(),
+        "orderbook": book_provenance_from_args(args),
         "execution_model_version": "event_driven_v2",
         "equal_timestamp_policy": "market_data_before_private_actions_v1",
         "snapshot_time_policy": SNAPSHOT_TIME_POLICY,
@@ -315,6 +317,17 @@ def _run_step(
     expected_outputs: list[Path] | None = None,
     input_paths: list[Path] | None = None,
 ) -> None:
+    if getattr(args, "book_backend", "python") == "cpp" and command[1] in {
+        "scripts/analyze_markout_reconciliation.py",
+        "scripts/analyze_microprice_fill_toxicity.py",
+        "scripts/analyze_microprice_signal.py",
+        "scripts/analyze_ofi_signal.py",
+    }:
+        command = [*command, "--book-backend", "cpp",
+                   "--book-tick-size", args.book_tick_size,
+                   "--book-qty-step", args.book_qty_step]
+        from src.replay.cpp_orderbook import native_build_info
+        input_paths = [*(input_paths or []), Path(native_build_info()["path"])]
     if _is_complete(
         args.status_dir,
         step,
@@ -746,11 +759,19 @@ def parse_args():
     parser.add_argument("--taker-bps", type=int, default=5)
     parser.add_argument("--queue-credits", nargs="+", default=["0.0", "1.0"])
     parser.add_argument("--dry-run", action="store_true")
+    add_book_arguments(parser)
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if args.book_backend == "cpp":
+        if args.output_root == Path("results/panels/btcusdt_l2_panel_v3_event_driven"):
+            args.output_root = Path("results/panels/btcusdt_l2_panel_native/cpp")
+        elif "cpp" not in args.output_root.parts:
+            args.output_root = args.output_root / "cpp"
+        if args.status_dir == Path("results/panels/btcusdt_l2_panel_v3_event_driven/status"):
+            args.status_dir = args.output_root / "status"
     if args.hours <= 0 or args.session_hours <= 0:
         raise ValueError("--hours and --session-hours must be positive")
     if args.hours % args.session_hours:

@@ -47,6 +47,7 @@ def execution_provenance_for_replay(
     sim_config,
     *,
     trade_gap_policy: str,
+    orderbook: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Bind simulator and data-censoring semantics into one artifact identity."""
     if trade_gap_policy not in {"ignore", "pause_until_snapshot"}:
@@ -56,6 +57,8 @@ def execution_provenance_for_replay(
     provenance = dict(sim_config.provenance)
     provenance["snapshot_time_policy"] = SNAPSHOT_TIME_POLICY
     provenance["trade_gap_policy"] = trade_gap_policy
+    if orderbook is not None:
+        provenance["orderbook"] = dict(orderbook)
     return provenance
 
 
@@ -175,4 +178,10 @@ def require_event_driven_provenance(
         raise ValueError(
             "event-driven artifact has invalid queue-credit provenance"
         ) from exc
-    return {field: provenance[field] for field in EXECUTION_PROVENANCE_FIELDS}
+    result = {field: provenance[field] for field in EXECUTION_PROVENANCE_FIELDS}
+    if "orderbook" in provenance:
+        book = provenance["orderbook"]
+        if not isinstance(book, Mapping) or book.get("backend") not in {"python", "cpp"}:
+            raise ValueError("event-driven artifact has invalid orderbook provenance")
+        result["orderbook"] = dict(book)
+    return result

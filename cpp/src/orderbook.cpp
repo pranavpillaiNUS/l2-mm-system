@@ -137,6 +137,42 @@ std::optional<Scaled> Orderbook::best_ask() const {
     return asks_.begin()->first;
 }
 
+std::optional<Scaled> Orderbook::best_bid_qty() const {
+    if (bids_.empty()) return std::nullopt;
+    return bids_.rbegin()->second;
+}
+
+std::optional<Scaled> Orderbook::best_ask_qty() const {
+    if (asks_.empty()) return std::nullopt;
+    return asks_.begin()->second;
+}
+
+Scaled Orderbook::bid_quantity(Scaled price) const {
+    const auto found = bids_.find(price);
+    return found == bids_.end() ? 0 : found->second;
+}
+
+Scaled Orderbook::ask_quantity(Scaled price) const {
+    const auto found = asks_.find(price);
+    return found == asks_.end() ? 0 : found->second;
+}
+
+std::vector<std::pair<Scaled, Scaled>> Orderbook::bid_levels(std::size_t count) const {
+    std::vector<std::pair<Scaled, Scaled>> result;
+    for (auto it = bids_.rbegin(); it != bids_.rend() && result.size() < count; ++it) {
+        result.push_back(*it);
+    }
+    return result;
+}
+
+std::vector<std::pair<Scaled, Scaled>> Orderbook::ask_levels(std::size_t count) const {
+    std::vector<std::pair<Scaled, Scaled>> result;
+    for (auto it = asks_.begin(); it != asks_.end() && result.size() < count; ++it) {
+        result.push_back(*it);
+    }
+    return result;
+}
+
 bool Orderbook::is_crossed() const {
     const auto bid = best_bid(), ask = best_ask();
     return bid && ask && *bid >= *ask;

@@ -35,6 +35,12 @@ public:
 
     std::optional<Scaled> best_bid() const;
     std::optional<Scaled> best_ask() const;
+    std::optional<Scaled> best_bid_qty() const;
+    std::optional<Scaled> best_ask_qty() const;
+    Scaled bid_quantity(Scaled price) const;
+    Scaled ask_quantity(Scaled price) const;
+    std::vector<std::pair<Scaled, Scaled>> bid_levels(std::size_t count) const;
+    std::vector<std::pair<Scaled, Scaled>> ask_levels(std::size_t count) const;
     std::size_t bid_count() const { return bids_.size(); }
     std::size_t ask_count() const { return asks_.size(); }
     std::optional<std::uint64_t> last_update_id() const { return last_update_id_; }

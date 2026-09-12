@@ -155,6 +155,20 @@ class Orderbook:
 
     # --- book depth ---
 
+    @property
+    def bid_count(self) -> int:
+        return len(self._bids)
+
+    @property
+    def ask_count(self) -> int:
+        return len(self._asks)
+
+    def bid_quantity(self, price: Decimal) -> Decimal:
+        return self._bids.get(price, Decimal("0"))
+
+    def ask_quantity(self, price: Decimal) -> Decimal:
+        return self._asks.get(price, Decimal("0"))
+
     def bid_levels(self, n: int = 10) -> List[Tuple[Decimal, Decimal]]:
         """Top n bid levels, best first (descending price)."""
         keys = self._bids.keys()

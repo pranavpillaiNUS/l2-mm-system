@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import List, Optional, Protocol, Tuple, Union
 
 from src.replay.orderbook import Orderbook
+from src.replay.book_backend import create_orderbook, book_provenance
 from src.replay.depth_parser import DepthParser, DepthEvent
 from src.replay.trade_parser import TradeParser, TradeEvent
 from src.replay.event_merger import EventMerger
@@ -87,8 +88,18 @@ class ReplayConfig:
     checkpoint_interval: int = 1000  # book state hash every N events
     record_book_samples: bool = False
     trade_gap_policy: str = "pause_until_snapshot"
+    book_backend: str = "python"
+    book_tick_size: Decimal = Decimal("0.01")
+    book_qty_step: Decimal = Decimal("0.00000001")
 
     def __post_init__(self) -> None:
+        if self.book_backend not in {"python", "cpp"}:
+            raise ValueError("book_backend must be 'python' or 'cpp'")
+        for name in ("book_tick_size", "book_qty_step"):
+            value = Decimal(getattr(self, name))
+            if not value.is_finite() or value <= 0:
+                raise ValueError(f"{name} must be finite and positive")
+            setattr(self, name, value)
         if self.trade_gap_policy not in {"ignore", "pause_until_snapshot"}:
             raise ValueError(
                 "trade_gap_policy must be 'ignore' or 'pause_until_snapshot'"
@@ -159,7 +170,11 @@ class ReplayEngine:
 
     def __init__(self, config: ReplayConfig):
         self.config = config
-        self.book = Orderbook()
+        self.book = create_orderbook(config.book_backend, config.book_tick_size,
+                                     config.book_qty_step)
+        self._book_provenance = book_provenance(
+            config.book_backend, config.book_tick_size, config.book_qty_step,
+        )
         self.sim = ExecutionSimulator(config.sim_config)
         self._in_gap = True  # no book state until first snapshot
         self._stats = ReplayStats()
@@ -256,6 +271,7 @@ class ReplayEngine:
             execution_provenance=execution_provenance_for_replay(
                 self.config.sim_config,
                 trade_gap_policy=self.config.trade_gap_policy,
+                orderbook=self._book_provenance,
             ),
         )
 

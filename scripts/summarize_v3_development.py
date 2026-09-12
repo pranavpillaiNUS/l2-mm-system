@@ -356,8 +356,12 @@ def build_summary(
     legacy_root: Path = DEFAULT_LEGACY_ROOT,
     protocol_path: Path = DEFAULT_PROTOCOL,
     source_revision: str | None = None,
+    artifacts_only: bool = False,
 ) -> dict:
-    manifest = verify(output_root, status_dir, source_revision=source_revision)
+    manifest = verify(
+        output_root, status_dir,
+        source_revision=source_revision, artifacts_only=artifacts_only,
+    )
     starts = manifest["development_panel"]["starts"]
     if len(starts) != 24:
         raise ValueError("V3 decision requires the complete 24-window panel")
@@ -406,6 +410,7 @@ def build_summary(
             "sha256": _artifact_sha256(output_root / "ARTIFACT_MANIFEST.json"),
             "source_fingerprint": manifest["source_fingerprint"],
             "source_verification": manifest["source_verification"],
+            "raw_verification": manifest["raw_verification"],
         },
         "development_panel": manifest["development_panel"],
         "combined_screen": status,
@@ -442,6 +447,10 @@ def main() -> None:
         "--source-revision", metavar="recorded|COMMIT",
         help="Verify the run's recorded Git source; default checks the current tree",
     )
+    parser.add_argument(
+        "--artifacts-only", action="store_true",
+        help="Recompute from verified artifacts and frozen input identities without reading raw captures",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     guard_event_driven_output_path(args.output)
@@ -453,10 +462,13 @@ def main() -> None:
         legacy_root=args.legacy_root,
         protocol_path=args.protocol,
         source_revision=args.source_revision,
+        artifacts_only=args.artifacts_only,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(f"V3 development screen: {report['combined_screen']}; holdout remains strategy-sealed")
+    if args.artifacts_only:
+        print("Raw captures: NOT READ (--artifacts-only); frozen inventory identities verified")
     print(f"Wrote {args.output}")
 
 

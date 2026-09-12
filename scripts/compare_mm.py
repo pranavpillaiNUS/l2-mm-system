@@ -24,6 +24,9 @@ from src.execution.provenance import guard_event_driven_output_path
 from src.execution.queue_credit import credit_from_legacy_mode, parse_queue_credit
 from src.execution.simulator import SimConfig
 from src.replay.engine import ReplayConfig, ReplayEngine
+from src.replay.book_backend import (
+    add_book_arguments, book_kwargs, book_provenance_from_args, separate_backend_output,
+)
 from src.strategies.microprice_mm import MicropriceMM
 from src.strategies.ofi_gated_mm import OFIGatedMM
 from src.strategies.symmetric_mm import SymmetricMM
@@ -148,6 +151,7 @@ def _run_session(strategy_name: str, window: SessionWindow, args) -> dict:
     strategy = _build_strategy(strategy_name, args)
 
     config = ReplayConfig(
+        **book_kwargs(args),
         depth_files=depth_files,
         trade_files=trade_files,
         sim_config=SimConfig(
@@ -476,7 +480,9 @@ def parse_args():
     )
     parser.add_argument("--skip-missing", action="store_true",
                         help="Skip sessions whose depth/trade files are missing")
+    add_book_arguments(parser)
     args = parser.parse_args()
+    separate_backend_output(args)
     if args.queue_cancellation_mode is not None:
         args.queue_cancellation_credit = credit_from_legacy_mode(
             args.queue_cancellation_mode

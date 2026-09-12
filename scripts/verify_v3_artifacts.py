@@ -173,7 +173,19 @@ def _artifact_fingerprints(
     return fingerprints
 
 
-def verify(output_root: Path, status_dir: Path, *, source_revision: str | None = None) -> dict:
+def verify(
+    output_root: Path,
+    status_dir: Path,
+    *,
+    source_revision: str | None = None,
+    artifacts_only: bool = False,
+) -> dict:
+    """Verify durable evidence, optionally without reading excluded raw captures.
+
+    Artifact-only verification still requires the complete frozen input identity
+    set, inventory, source revision, derivations, and artifact hashes. It cannot
+    establish that locally available capture bytes match those identities.
+    """
     guard_event_driven_output_path(output_root)
     manifest_path = output_root / "ARTIFACT_MANIFEST.json"
     if not manifest_path.is_file() or manifest_path.is_symlink():
@@ -258,9 +270,13 @@ def verify(output_root: Path, status_dir: Path, *, source_revision: str | None =
         for prefix in ("depth", "trade"):
             path = Path(str(row.get(f"{prefix}_path", "")))
             expected = row.get(f"{prefix}_sha256")
+            if row.get(f"{prefix}_path") != frozen.get(f"{prefix}_path"):
+                raise ValueError("V3 raw-input path differs from frozen inventory")
             if expected != frozen.get(f"{prefix}_sha256"):
                 raise ValueError("V3 raw-input hash differs from frozen inventory")
-            if path.is_symlink() or not path.is_file() or _file_sha256(path) != expected:
+            if not artifacts_only and (
+                path.is_symlink() or not path.is_file() or _file_sha256(path) != expected
+            ):
                 raise ValueError(f"V3 raw input differs from manifest: {path}")
     expected_raw_starts = {
         (start + timedelta(hours=offset)).isoformat()
@@ -280,7 +296,16 @@ def verify(output_root: Path, status_dir: Path, *, source_revision: str | None =
     )
     if actual_artifacts != expected_artifacts:
         raise ValueError("V3 artifact tree differs from its committed manifest")
-    return {**payload, "source_verification": source_verification}
+    raw_verification = {
+        "mode": "inventory_identities_only" if artifacts_only else "raw_file_hashes",
+        "selected_files": 2 * len(raw_inputs),
+        "files_hashed": 0 if artifacts_only else 2 * len(raw_inputs),
+    }
+    return {
+        **payload,
+        "source_verification": source_verification,
+        "raw_verification": raw_verification,
+    }
 
 
 def parse_args():
@@ -299,18 +324,33 @@ def parse_args():
         "--source-revision", metavar="recorded|COMMIT",
         help="Verify committed source at the manifest's exact Git revision; default checks the current tree",
     )
+    parser.add_argument(
+        "--artifacts-only", action="store_true",
+        help="Verify committed artifacts and frozen input identities without reading raw captures",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    payload = verify(args.output_root, args.status_dir, source_revision=args.source_revision)
+    payload = verify(
+        args.output_root, args.status_dir,
+        source_revision=args.source_revision, artifacts_only=args.artifacts_only,
+    )
     print(
         "OK: V3 artifacts verified at source fingerprint "
         f"{payload['source_fingerprint']}"
     )
     if payload["source_verification"]["revision"] is not None:
         print(f"Source: recorded Git revision {payload['source_verification']['revision']}")
+    raw = payload["raw_verification"]
+    if args.artifacts_only:
+        print(
+            "Raw captures: NOT READ (--artifacts-only); frozen inventory "
+            f"identities verified for {raw['selected_files']} files"
+        )
+    else:
+        print(f"Raw captures: all {raw['files_hashed']} file hashes verified")
 
 
 if __name__ == "__main__":

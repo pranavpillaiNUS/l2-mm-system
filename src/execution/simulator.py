@@ -577,10 +577,10 @@ class ExecutionSimulator:
         ), Decimal("0"))
 
         if order.side == OrderSide.BUY:
-            external_ahead = book._bids.get(order.price, Decimal("0"))
+            external_ahead = book.bid_quantity(order.price)
             self._prev_bid_qty[order.price] = external_ahead
         else:
-            external_ahead = book._asks.get(order.price, Decimal("0"))
+            external_ahead = book.ask_quantity(order.price)
             self._prev_ask_qty[order.price] = external_ahead
 
         # A later own order can never overtake an earlier live own order, even
@@ -634,9 +634,9 @@ class ExecutionSimulator:
         """
         fills = []
         levels = (
-            book.ask_levels(len(book._asks))
+            book.ask_levels(book.ask_count)
             if order.side == OrderSide.BUY
-            else book.bid_levels(len(book._bids))
+            else book.bid_levels(book.bid_count)
         )
         consumed = (
             self._taker_consumed_asks
@@ -879,7 +879,7 @@ class ExecutionSimulator:
                     ask_prices.add(order.price)
 
         for price in bid_prices:
-            new_qty = book._bids.get(price, Decimal("0"))
+            new_qty = book.bid_quantity(price)
             prev_qty = self._prev_bid_qty.get(price, new_qty)
             cancel_frac = self._cancel_fraction(
                 OrderSide.BUY, price, prev_qty, new_qty
@@ -916,7 +916,7 @@ class ExecutionSimulator:
             self._prev_bid_qty[price] = new_qty
 
         for price in ask_prices:
-            new_qty = book._asks.get(price, Decimal("0"))
+            new_qty = book.ask_quantity(price)
             prev_qty = self._prev_ask_qty.get(price, new_qty)
             cancel_frac = self._cancel_fraction(
                 OrderSide.SELL, price, prev_qty, new_qty

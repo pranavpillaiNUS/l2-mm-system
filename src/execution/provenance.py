@@ -76,8 +76,12 @@ def guard_frozen_v2_output_path(
         )
 
 
-def guard_event_driven_output_path(path: Path) -> None:
-    """Refuse frozen-root targets and existing symlink write redirections."""
+def guard_event_driven_output_path(path: Path, *, allow_completed_run: bool = False) -> None:
+    """Refuse frozen roots, completed run mutations, and symlink redirections.
+
+    A read-only verifier can explicitly inspect a completed run. Writers must
+    choose a new output root once an ARTIFACT_MANIFEST.json has frozen the tree.
+    """
     guard_frozen_v2_output_path(
         path,
         writer_label=EXECUTION_MODEL_VERSION,
@@ -88,6 +92,11 @@ def guard_event_driven_output_path(path: Path) -> None:
             raise ValueError(
                 "event-driven output path cannot traverse a symlink: "
                 f"{component}"
+            )
+        if not allow_completed_run and (component / "ARTIFACT_MANIFEST.json").exists():
+            raise ValueError(
+                f"output is beneath a completed artifact manifest: {component}; "
+                "choose a new output root"
             )
     if lexical.is_dir():
         redirected = next(

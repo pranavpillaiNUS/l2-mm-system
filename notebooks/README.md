@@ -1,5 +1,9 @@
 # Research documents
 
+The new [complete project report](../report/l2_mm_system_complete_report.pdf)
+and its [LaTeX source](../report/v3/main.tex) cover the project from the bar
+backtester through corrected V3 research and the integrated native backend.
+
 The [V3 writeup](research_writeup_v3.md) documents the completed corrected
 development study and its blocked primary screen. The compiled
 [technical report](../report/l2_mm_research_report.pdf) remains the historical
@@ -33,8 +37,9 @@ useful for audit depth, but they are not all current summaries.
   frozen against Python research commit `04df629`. Its primary screen is blocked
   at both queue endpoints.
 - No candidate strategy has been evaluated on the strategy-sealed holdout.
-- The native implementation ports the order book; replay, execution, and
-  accounting remain Python.
+- Native book storage is integrated throughout the Python replay/research
+  pipeline. Full output streams match across all 120 development hours at both
+  queue endpoints; execution and accounting retain Python Decimal arithmetic.
 
 When documents differ, use the V3 writeup for the completed corrected study,
 the execution-model note for current mechanics, and each version's frozen

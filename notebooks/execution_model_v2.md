@@ -29,6 +29,13 @@ The corrected Python research reference is frozen at commit `04df629`. The
 implemented C++17 port reproduces the order-book contract; replay, execution,
 and accounting continue to use Python.
 
+The port is integrated as the selectable `cpp` book backend. Full-stream
+comparisons pass across all 120 selected development hours at both queue
+endpoints; [native design and measurements](../cpp/README.md) describe the
+binding and [complete report](../report/l2_mm_system_complete_report.pdf) covers
+the finished project. This integration does not replace `04df629` as the source
+of the frozen V3 economics.
+
 A later publication audit found a separate recorder issue: historical REST
 snapshots were tagged at request start, before the blocking response completed.
 The returned book could therefore enter replay before it was observable. New

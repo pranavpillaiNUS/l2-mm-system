@@ -1,0 +1,18 @@
+% Generated from verified native pipeline artifacts; do not edit.
+Native storage matched Python across all 120 selected development hours and 240 hour/endpoint runs. The comparison hashes every order event, fill, book sample, markout, queue diagnostic, OFI population and conditional sample, and final accounting state. It also checks hold-time and P\&L summaries, replay statistics, and book checkpoints every 1,000 market events. All hourly replay statistics, net P\&L, fees, and final positions also match the frozen V3 reconciliation artifacts. No holdout strategy outcomes were evaluated.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Queue endpoint & Python median (s) & Native median (s) & Ratio \\
+\midrule
+No credit & 5.638 & 4.826 & 1.168\,$\times$ \\
+Proportional credit & 5.672 & 4.771 & 1.189\,$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Integrated pipeline measurements for 12 April 2026, 09:00 UTC. One warmup and three measured repetitions per backend, with alternating backend order and a warm operating-system page cache. Ratios compare the measured medians and need not indicate an overall speedup.}
+\label{tab:native-pipeline-timing}
+\end{table}
+
+These timings include raw gzip reads and JSON parsing, object construction, replay, strategy callbacks, execution, checkpoint hashing, book samples, markouts, P\&L, hold-time and queue diagnostics, and OFI sample construction. They exclude imports and initial native discovery, parity serialization, object destruction, output writing, pooled regressions, bootstrap inference, and report generation. Every measured repetition is checked against the Python output streams. This is a separately scoped measurement from the preloaded book-update benchmark.

@@ -1,0 +1,160 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=0.85in,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,booktabs,longtable,tabularx,array}
+\usepackage{graphicx,tikz,xcolor,enumitem,listings,float,caption}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage{fancyhdr,titlesec,mdframed}
+\usepackage[numbers,sort&compress]{natbib}
+\PassOptionsToPackage{obeyspaces}{url}
+\usepackage{xurl}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black,
+  pdftitle={L2 Market Microstructure System: Complete Project Report},
+  pdfauthor={Pranav Pillai},
+  pdfsubject={Deterministic replay, passive execution research, corrected V3 study, and C++ implementation},
+  pdflang={en-US},pdfdisplaydoctitle=true]{hyperref}
+\usepackage{bookmark}
+\definecolor{Navy}{HTML}{17324D}
+\definecolor{Blue}{HTML}{0072B2}
+\definecolor{Teal}{HTML}{009E73}
+\definecolor{Slate}{HTML}{58636D}
+\definecolor{Pale}{HTML}{F2F5F7}
+\setlist{leftmargin=1.5em,itemsep=0.25em,topsep=0.4em}
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.17}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\titleformat{\section}{\Large\bfseries}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{2.3ex}{1ex}
+\titlespacing*{\subsection}{0pt}{1.8ex}{0.6ex}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small L2 Market Microstructure System}
+\rhead{\small Complete project report}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\newmdenv[backgroundcolor=Pale,linecolor=Navy,linewidth=0.6pt,
+  innerleftmargin=10pt,innerrightmargin=10pt,
+  innertopmargin=8pt,innerbottommargin=8pt,
+  skipabove=0.7em,skipbelow=0.7em]{finding}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{Pale},
+  breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false,
+  frame=single,rulecolor=\color{Pale},aboveskip=0.7em,belowskip=0.7em}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcommand{\artifact}[1]{\href{https://github.com/pranavpillaiNUS/l2-mm-system/blob/main/#1}{\nolinkurl{#1}}}
+\newcommand{\repo}{\href{https://github.com/pranavpillaiNUS/l2-mm-system}{github.com/pranavpillaiNUS/l2-mm-system}}
+\newcommand{\LegacyModel}{\code{legacy_book_update_v1}}
+\newcommand{\CurrentModel}{\code{event_driven_v2}}
+\newcommand{\ResearchCommit}{\code{04df629}}
+\newcommand{\ProtocolCommit}{\code{63f4f0b}}
+\newcommand{\ReportDate}{12 September 2026}
+% Generated values and figures come from committed research and benchmark
+% artifacts. The generator owns generated/results.tex, not report prose.
+\input{generated/results.tex}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+\thispagestyle{empty}
+\vspace*{0.8cm}
+\noindent{\color{Navy}\rule{\textwidth}{1.8pt}}
+\vspace{0.8cm}
+{\Huge\bfseries L2 Market\\[0.2em]Microstructure System\par}
+\vspace{0.6cm}
+{\Large Complete project report\par}
+\vspace{0.3cm}
+{\large From a bar backtester to deterministic passive-execution research
+and a verified C++ order book\par}
+\vspace{1cm}
+{\large Pranav Pillai\par}
+{\normalsize National University of Singapore\par}
+\vspace{0.25cm}
+{\normalsize\ReportDate\par}
+{\small Corrected V3 research reference: \ResearchCommit\quad
+Protocol locked: \ProtocolCommit\par}
+\vspace{0.2cm}
+{\small\repo\par}
+\vspace{0.7cm}
+\begin{finding}
+\textbf{Research question.} Does a signal that predicts future mid-price
+movement remain useful after passive execution selects which states become
+fills?
+\end{finding}
+\vspace{0.2cm}
+\textbf{Principal result.} Normalized one-second order-flow imbalance has a
+positive coefficient in all 24 development windows, with pooled effect
+\VThreeOFIEffect{} bps per signal standard deviation. Its locked 30-second
+passive-fill screen fails at both queue-credit endpoints. No candidate advances;
+the 12-window holdout remains strategy-sealed.
+
+\vspace{0.6cm}
+\textbf{Engineering result.} The corrected Python model makes arrival timing,
+delayed cancellations, FIFO queue competition, risk, and data recovery explicit.
+The C++17 order book matches the Python reference across every state of a
+recorded development hour. This report distinguishes native book-update
+measurements from complete replay performance.
+
+\vfill
+{\small Binance spot BTCUSDT; April--May 2026 development data. Offline
+research and simulation. Raw captures are excluded from Git; selected derived
+artifacts, data identities, native parity evidence, and report source are
+published. The earlier August report remains the historical V2 record.}\par
+\vspace{0.4cm}
+\noindent{\color{Navy}\rule{\textwidth}{1.8pt}}
+\end{titlepage}
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+\begin{abstract}
+This report describes the complete research and engineering path of an offline
+market-microstructure system. An educational hourly bar backtester supplied
+interfaces and testing lessons, but its performance claims were demoted after
+execution and annualization limitations were identified. The project then
+recorded Binance spot depth and aggregate trades, reconstructed an exact L2
+book, modeled passive orders and queue position, and studied the difference
+between price prediction and fill-conditioned economics.
+
+The corrected V3 experiment reruns the same 24 five-hour development windows
+under explicit private-event scheduling and a post-response-gated snapshot
+policy. Each window aggregates five independently reset hourly episodes.
+The microprice baseline has mean net P\&L of \VThreeMeanZero{} and
+\VThreeMeanOne{} USDT per window at zero and proportional queue-cancellation
+credit, respectively. Normalized OFI retains a positive population association
+at one second, with HAC $t=\VThreeOFITStat$ and
+$R^2=\VThreeOFIRSquared$. The predeclared 30-second selected-bucket separation
+is \VThreeContrastZero{} and \VThreeContrastOne{} bps, below the 1.0 bps
+materiality screen at both endpoints. Diagnostic window-clustered intervals
+cross zero. The study therefore blocks the proposed OFI-gated candidate and
+preserves the strategy-sealed holdout; it does not establish that all OFI
+strategies are ineffective.
+
+A C++17 implementation uses checked scaled integers and reproduces the exact
+Python Decimal book's canonical bytes and state-hash transcript.
+The recorded-hour parity test covers \NativeRecordedStates{} states.
+Preloaded book-update benchmarks show a \NativeRecordedSpeedup{}-fold ratio of
+Python to C++ median duration on the recorded hour. Parser, execution, research
+accounting, language-boundary costs, and full replay require separate measurement.
+The contribution is a traceable combination of execution-aware research,
+negative development evidence, a deterministic behavioral reference, and a
+measured native implementation, with limitations and reproduction steps made
+explicit.
+\end{abstract}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\input{sections/01_purpose_evolution}
+\input{sections/02_data_architecture}
+\input{sections/03_execution}
+\input{sections/04_research_design}
+\input{sections/05_results}
+\input{sections/06_native}
+\input{sections/07_verification_limits}
+\clearpage
+\appendix
+\input{sections/08_reproduction}
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

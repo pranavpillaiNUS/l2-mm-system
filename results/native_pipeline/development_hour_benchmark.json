@@ -1,0 +1,320 @@
+{
+  "schema_version": "native_pipeline_validation_v1",
+  "status": "passed",
+  "reference_manifest_sha256": "d70195704c98a14f7ce0daf747b97906754d7d2ffebcc181d308dad8af57d27a",
+  "input_hours": 1,
+  "endpoint_runs": 2,
+  "raw_inputs": [
+    {
+      "start": "2026-04-12T09:00:00",
+      "depth_path": "/home/pranav/trading-projects/l2-mm-system/data/raw/btcusdt/btcusdt_depth_20260412_0900.jsonl.gz",
+      "depth_sha256": "f19e6b9e855e84e32c77b177d3a55dbbbca56e9a35a35410b53ad7a45cf4aeca",
+      "trade_path": "/home/pranav/trading-projects/l2-mm-system/data/raw/btcusdt_trades/btcusdt_trades_20260412_0900.jsonl.gz",
+      "trade_sha256": "182e519f4f245c8f2a298bb17af56b5c6ebca85d4061b29e39828acaeadcb965"
+    }
+  ],
+  "parity_scope": "full output streams and diagnostics, book checkpoints every 1000 events",
+  "results": [
+    {
+      "start": "2026-04-12T09:00:00",
+      "queue_credit": "0",
+      "status": "passed",
+      "component_sha256": {
+        "checkpoints": "ed102188c78c8aaf15185e9dadfe26474e1544c0efb2e8d85b14e4a462c44bd1",
+        "order_events": "8ab5f9068d96d91817433c9903eea8759d89b877d1197e667dc10e68e59e5c4f",
+        "fills": "be6783b0be4161e84777d42c6f9f0e01f1b44572ee34efe16b8d83c7c7d1d944",
+        "book_samples": "1a0916fcf93c6af09b59309f5c43e13e023c626ca3f254d3861c170835188e89",
+        "markouts": "23c4647d5933cd3c239f2d6c6846f2f85b672bc77c2d3d0a01547d45d10dab40",
+        "queue_diagnostics": "25c655f2fd299ac2dd282e361c035d7115f562194302a0ac65a6925bc47318b9",
+        "ofi_population_samples": "3ba251829826fca38e9ec6041d4f9e7df09976c6cd858b9f3aa29d0932d2205a",
+        "ofi_conditional_samples": "e7269f10ac0d257977cc0babf77f4a762feeeaa7e0a1215b50e5357e9948d71a",
+        "hold_time": "7da588d6eed828c66847c61c0a7eca72b0f23f77314a83e02ab74426bb7de4cb",
+        "pnl": "ad76ee17a8398a52039c5f05e2f3eab64b44aee304058ba8628c861705d4a307",
+        "stats": "e17689d680681986cd8b276cfab9fefdb0486d7bf3e39adb3e927a92b5259e5a",
+        "final_strategy": "6f42b55064e4760a785cdd4fbfd15a53496ba48c5a300cd48ec2c258966fbffb",
+        "final_book": "b51057fad7348e786df7b30b5ebda73c1051575eea1cb9986447f94125da66de"
+      },
+      "counts": {
+        "checkpoints": 48,
+        "order_events": 2243,
+        "fills": 7,
+        "book_samples": 35998,
+        "markouts": 21,
+        "queue_diagnostics": 442,
+        "ofi_population_samples": 10758,
+        "ofi_conditional_samples": 21,
+        "hold_time": 1,
+        "pnl": 1,
+        "stats": 1,
+        "final_strategy": 1,
+        "final_book": 1
+      },
+      "stats": {
+        "total_events": 48258,
+        "snapshot_resyncs": 1,
+        "depth_diffs": 35998,
+        "snapshots": 1,
+        "trade_events": 12258,
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0,
+        "events_during_gap": 0,
+        "orders_submitted": 442,
+        "order_arrivals": 442,
+        "cancel_requests": 437,
+        "orders_cancelled": 436,
+        "cancels_too_late": 1,
+        "gap_invalidations": 0,
+        "replay_end_invalidations": 2,
+        "pending_actions_at_end": 0,
+        "pending_cancels_at_end": 0,
+        "fills": 7
+      },
+      "net_pnl": "-0.16413534600000000000",
+      "fees": "0.07229319600000000000",
+      "position": "0.00113000"
+    },
+    {
+      "start": "2026-04-12T09:00:00",
+      "queue_credit": "1",
+      "status": "passed",
+      "component_sha256": {
+        "checkpoints": "ed102188c78c8aaf15185e9dadfe26474e1544c0efb2e8d85b14e4a462c44bd1",
+        "order_events": "15672c05f3c2a5bef20f2564575434924ff95ee84dada10be0a890d583c7b5ef",
+        "fills": "a447b4a58d4906275f8b85012906d2fcad0d1ef1bbfbc41c62b6e0d1e50324eb",
+        "book_samples": "1a0916fcf93c6af09b59309f5c43e13e023c626ca3f254d3861c170835188e89",
+        "markouts": "9fa4be1b576cf4de2034bbe7d4d78b3857f88a636929bd191a736b6906180dab",
+        "queue_diagnostics": "b3e4c815c54dc635c68eae0c690b86050206a1191b02955e95117c098f16db04",
+        "ofi_population_samples": "3ba251829826fca38e9ec6041d4f9e7df09976c6cd858b9f3aa29d0932d2205a",
+        "ofi_conditional_samples": "d19c9941d71ffafa806617f6bcb666e7325565cf6e3864b1a6d107d9f85a5b32",
+        "hold_time": "dddff01f7e36f7e66267dd8aefdd5488dac8a2c0234ec97bf530d9d7db9b008d",
+        "pnl": "172e9babf31445ebdb1f27e090e85c46d39079274b9a9b95b96200152b17138d",
+        "stats": "8560b63385b8b2fff902497fbd2f4a0f631ab90cdc51f6d936e42a49949faaf9",
+        "final_strategy": "ece014211da0a9395fbde82cc4beab5741736c39795a9fff4ff8ef6986c6940a",
+        "final_book": "b51057fad7348e786df7b30b5ebda73c1051575eea1cb9986447f94125da66de"
+      },
+      "counts": {
+        "checkpoints": 48,
+        "order_events": 2274,
+        "fills": 8,
+        "book_samples": 35998,
+        "markouts": 24,
+        "queue_diagnostics": 442,
+        "ofi_population_samples": 10758,
+        "ofi_conditional_samples": 24,
+        "hold_time": 1,
+        "pnl": 1,
+        "stats": 1,
+        "final_strategy": 1,
+        "final_book": 1
+      },
+      "stats": {
+        "total_events": 48258,
+        "snapshot_resyncs": 1,
+        "depth_diffs": 35998,
+        "snapshots": 1,
+        "trade_events": 12258,
+        "gaps_detected": 0,
+        "depth_gaps_detected": 0,
+        "trade_gaps_detected": 0,
+        "events_during_gap": 0,
+        "orders_submitted": 442,
+        "order_arrivals": 442,
+        "cancel_requests": 437,
+        "orders_cancelled": 436,
+        "cancels_too_late": 1,
+        "gap_invalidations": 0,
+        "replay_end_invalidations": 2,
+        "pending_actions_at_end": 0,
+        "pending_cancels_at_end": 0,
+        "fills": 8
+      },
+      "net_pnl": "-0.1626591499047058823529411341",
+      "fees": "0.07358974108117647058823529412",
+      "position": "0.001039411764705882352941176471"
+    }
+  ],
+  "benchmarks": [
+    {
+      "start": "2026-04-12T09:00:00",
+      "queue_credit": "0",
+      "parity": "passed",
+      "repeat": 3,
+      "warmup": 1,
+      "order": [
+        [
+          "python",
+          "cpp"
+        ],
+        [
+          "cpp",
+          "python"
+        ],
+        [
+          "python",
+          "cpp"
+        ],
+        [
+          "cpp",
+          "python"
+        ]
+      ],
+      "elapsed_ns": {
+        "python": [
+          5652594948,
+          5622185183,
+          5637994790
+        ],
+        "cpp": [
+          4792667014,
+          4873893678,
+          4826440756
+        ]
+      },
+      "median_ns": {
+        "python": 5637994790,
+        "cpp": 4826440756
+      },
+      "median_speedup": 1.1681475180216632,
+      "scope": "raw gzip I/O and JSON parsing, construction, replay, strategy, execution, checkpoints, samples, markouts, P&L, hold-time, queue diagnostics, and OFI population/conditional sample construction",
+      "excluded": [
+        "imports and initial native module discovery",
+        "parity serialization",
+        "object destruction",
+        "output file writing",
+        "pooled regression, bootstrap, and report generation"
+      ],
+      "cache_state": "warm OS page cache; raw files reopened each repetition"
+    },
+    {
+      "start": "2026-04-12T09:00:00",
+      "queue_credit": "1",
+      "parity": "passed",
+      "repeat": 3,
+      "warmup": 1,
+      "order": [
+        [
+          "python",
+          "cpp"
+        ],
+        [
+          "cpp",
+          "python"
+        ],
+        [
+          "python",
+          "cpp"
+        ],
+        [
+          "cpp",
+          "python"
+        ]
+      ],
+      "elapsed_ns": {
+        "python": [
+          5635545674,
+          5698465865,
+          5672124172
+        ],
+        "cpp": [
+          4790308595,
+          4771343316,
+          4731525685
+        ]
+      },
+      "median_ns": {
+        "python": 5672124172,
+        "cpp": 4771343316
+      },
+      "median_speedup": 1.1887897802238132,
+      "scope": "raw gzip I/O and JSON parsing, construction, replay, strategy, execution, checkpoints, samples, markouts, P&L, hold-time, queue diagnostics, and OFI population/conditional sample construction",
+      "excluded": [
+        "imports and initial native module discovery",
+        "parity serialization",
+        "object destruction",
+        "output file writing",
+        "pooled regression, bootstrap, and report generation"
+      ],
+      "cache_state": "warm OS page cache; raw files reopened each repetition"
+    }
+  ],
+  "provenance": {
+    "created_at_utc": "2026-09-12T08:49:57.478330+00:00",
+    "git_head": "c6518dd8b6bddca567e8956a770017587220f3ff",
+    "git_status": "M .github/workflows/report.yml\n M .github/workflows/tests.yml\n M .gitignore\n M Makefile\n?? report/COMPLETE_SHA256SUMS\n?? report/l2_mm_system_complete_report.pdf\n?? report/v3/\n?? results/native_pipeline/\n?? scripts/build_complete_report_assets.py\n?? scripts/check_complete_report.py\n?? tests/test_native_pipeline.py",
+    "source_sha256": {
+      "cpp/CMakeLists.txt": "ac88bdf2d7cb29189db95206f7118be7c073ea35f1d1b53caad9474d657188f0",
+      "cpp/include/l2mm/orderbook.hpp": "9ae4609622b260738ed538897cac4898b629c03fb3620041f017d3bb7e1143dd",
+      "cpp/src/main.cpp": "59feefd3ed75837d47ab01e954a7f57f46968806029db72097f2e50ff13beacd",
+      "cpp/src/orderbook.cpp": "d657eb7b73215370b772dfc6880f93317659c98e7f6c64e91c6e2f394a93d240",
+      "cpp/src/python_module.cpp": "bb5023f254c2fa81efe502ea0c3fc40261482d7e5ea05d52bcf432c53d2e63e8",
+      "scripts/validate_native_pipeline.py": "1c1a940c790929e32748ffa34817d95750dffe171f68164b93b0f61c0b0ac862",
+      "src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/analysis/__init__.py": "89cc1379c3a4e4680f9344bb5986a50d775df33e67525959548ff3b67c1df77f",
+      "src/analysis/bootstrap.py": "4990d034ac6631884e0d2c6505a2cf8af025aa16effcd06f1a8594f5532d490c",
+      "src/analysis/data_integrity.py": "a5ba43a573b416057202a046309b0579123435273ebf8da5dd8b3ddc5fc26035",
+      "src/analysis/fee_break_even.py": "48b5a78833580cfa669c3cef3763f4487ce458c3207984ed222aa18a6c32757c",
+      "src/analysis/fill_rate.py": "597f19692e31e932535eb26a415003b5559f1735e5739ae13c58a22c2ce9fab6",
+      "src/analysis/hold_time.py": "ba7490017363554309da56573eefa4ca92f34a6d1faa0cc6e37c7d0db3fca782",
+      "src/analysis/holdout_gate.py": "35ff14c7451e5f3a758376d1bd6b671ca7ae75e3f5fce227ccb11fa0abce5c9a",
+      "src/analysis/markout.py": "03d82b67140c97d306c060bf2a617a3dd3d712986bbdde861437e749fab30f5a",
+      "src/analysis/microprice_fill_toxicity.py": "11d66b5afb2952a1c4fd6165c6a2f8599138880167d7bd0ecd1657e9740514af",
+      "src/analysis/microprice_signal.py": "ac5ac25c3b575302248e24928bd2523444a3b7d0ae09eaf0f38eb6debdeb44e9",
+      "src/analysis/ofi_signal.py": "20e64d49762f72eae9fa6d402916016731b0219a82e8d45a03a22603cc7d95d5",
+      "src/analysis/pnl.py": "a1ef1617672924d83ae2fdb43a85524b0fcb8b1737e4df4aaab853760e5ad5cf",
+      "src/analysis/queue_credit_summary.py": "0b8f5869bef21060302b2ea044569b63b0ab2efeb48f6c079816afa779915ef2",
+      "src/analysis/strategy_gate.py": "f0a9e5bb16e79032a340e4588da1ed3f9b146559ac575ab6d0e47b714e934102",
+      "src/analysis/tail_diagnostics.py": "e08d00cea35287ce53116011a009d87f7eeea21b36f7b2cb46ad48d84b299e4c",
+      "src/analysis/v2_classification.py": "a4f1b9e476297719d3ce6cc23287b3b7b75f3641a61d04398c48a7e24e58ba7e",
+      "src/analysis/window_selection.py": "e528990c7d26955eba9ee4afd211f7b2775ae18ffb680a26b081ef2e2a80b9ca",
+      "src/backtester/config.py": "9cf5407ecffeee5e23e75a9153326567923ff875a9254e64e3b5e1fd193c2665",
+      "src/backtester/data_loader.py": "0aed490846785e83fb0080a5217608d505a307c359325c487a5d4053e50f5826",
+      "src/backtester/engine.py": "4e353797ca0ac28f49bd16c48b45e6107539bb38dae469f5c756b926b20ca5cd",
+      "src/backtester/metrics.py": "701b7b5397679805239143bd8cfc1cb13b386ac56ed3507445241e8523251d00",
+      "src/backtester/plotting.py": "062e5ebfc966c8fd91a53b6860f3871ce120ea043c11d23a02af45b2af2e917e",
+      "src/backtester/portfolio.py": "b1500b69716765b3fa53cc22e90f45d08694ea9877997617502ce63dd27a7a96",
+      "src/backtester/strategy.py": "03edb6ea69960452080dc802755e46dbb940503283e450324033230ca1e533e6",
+      "src/execution/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/execution/order.py": "64329970258f2c08429d19d1a4583446323ee063e4f58f9e65d908e9951af785",
+      "src/execution/provenance.py": "13d6ddc8268de32d1fb7ce1f36b86c71b9d387807ebf924a9277cbde4b3f5dca",
+      "src/execution/queue_credit.py": "5e1b4aa6b2b44f0cdb79208b357bbf8427be2519d64ad83336b3fc832f68c534",
+      "src/execution/simulator.py": "e42f60a1b532a09318a0c9b3def19c3e94e40e74440953af055cf206e0b8267c",
+      "src/recorder/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/recorder/run_recorder.py": "fc058369ea8af36f3c3b83c0ff37e57ff1d4ea145f059de3200a8e541416db4b",
+      "src/recorder/simple_recorder.py": "ac8172e49289f2d131bdaf6c6f139ed6cce7fb390cc84f6e53a9fcfbc5021b29",
+      "src/recorder/trade_recorder.py": "530811de183cbf5c2ed205252d6cdee775818c113e496bdab5b49fbece41899d",
+      "src/replay/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/replay/book_backend.py": "292adcad9ba500f965f00666558bfdaad734dcaf86a72cfebc1b95c0354370d0",
+      "src/replay/cpp_orderbook.py": "0498e449b9ce6c9869e7bb9db6bce0ec69c3530e875be2680fa561750fab8626",
+      "src/replay/depth_parser.py": "9ea47d4a830744ab7d29f77c4492a91f75e717be3c04680f17e88b7698f97358",
+      "src/replay/engine.py": "02737b82f36ee53e58162e629fc998d7b1f408d8137c736549f19d00a2ac17b2",
+      "src/replay/event_merger.py": "a441f76084151c30c4b48263d0a94151cdad3f73a667c0b4eaf804eff27933d9",
+      "src/replay/orderbook.py": "618df2fecb3e144f2f088012e9b0490171cfaeea444f355f3c7a979efc823cef",
+      "src/replay/trade_parser.py": "26253ab5fbce3faaf5f60942f94062b5e353749791a1e4c13d1214b7e19c1bc0",
+      "src/strategies/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/strategies/base_mm.py": "e65b459658033de8212bebe28d87a05fc853bfcc034db660d85dcfc1571c72bf",
+      "src/strategies/microprice_mm.py": "989721cc940e0c9dd24c4d0ec957399c225f6ccb7dc83a326a81f0e5f1cc37c8",
+      "src/strategies/ofi_gated_mm.py": "6c8b25fb20ebf26e32d7c6c4e9747cf578957108f4ff5f912b86055710d8556e",
+      "src/strategies/symmetric_mm.py": "33cd13c2ba2de471713e6e396efff3394453b2f96aee1874501e70b1ae8f0ad2"
+    },
+    "native": {
+      "compiler": "13.3.0",
+      "build_type": "Release",
+      "api_version": 1,
+      "decimal_scale": "100000000",
+      "path": "/home/pranav/trading-projects/l2-mm-system/cpp/build/_l2mm_book.cpython-311-x86_64-linux-gnu.so",
+      "sha256": "b5dcb2b0bdd2fd75fa634572c1f967d464b61063159e8010c90bd0e989d0852f",
+      "module_path": "/home/pranav/trading-projects/l2-mm-system/cpp/build/_l2mm_book.cpython-311-x86_64-linux-gnu.so",
+      "module_sha256": "b5dcb2b0bdd2fd75fa634572c1f967d464b61063159e8010c90bd0e989d0852f"
+    },
+    "python": "3.11.14",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "load_average": [
+      1.0546875,
+      0.5791015625,
+      0.23046875
+    ],
+    "workers_for_validation": 1
+  },
+  "holdout_status": "strategy_sealed"
+}

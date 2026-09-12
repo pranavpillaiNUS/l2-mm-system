@@ -1,0 +1,218 @@
+\section{Reproduction and Artifact Map}\label{sec:reproduction}
+
+\subsection{Three distinct reproduction levels}
+
+A clone contains code, synthetic/golden inputs, selected derived artifacts,
+and this report's generation inputs. It does not contain the raw market
+capture. The following levels must be distinguished:
+
+\begin{enumerate}
+\item \textbf{Mechanics and native implementation.} Install the supported
+Python environment, run deterministic tests, build C++, and compare native
+behavior on committed/synthetic traces. These do not require raw data.
+\item \textbf{Committed evidence.} Verify the historical V2 structure and
+current V3 durable artifacts, reconstruct the decision summary from committed
+outputs, and regenerate this report. Artifact-only mode verifies recorded
+input identities but does not claim to read missing capture bytes.
+\item \textbf{Full empirical replay.} Restore all selected raw files at their
+manifest paths with matching SHA-256 values, use the frozen research source,
+and rerun the panel. Native pipeline comparisons similarly require selected
+raw development captures.
+\end{enumerate}
+
+The project is therefore artifact-verifiable from its public repository and
+fully replayable only with the specified captures. A newer download covering
+the same dates is not an interchangeable raw input: packet order, snapshot
+timing, and capture gaps are part of the recorded experiment.
+
+\subsection{Install and verify mechanics}
+
+Python 3.11 is the supported reference environment. From a complete Git clone:
+
+\begin{lstlisting}[language=bash]
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install --no-deps --editable ".[analysis,dev]"
+env PYTHONPATH=. pytest -q
+env PYTHONPATH=. python scripts/demo_event_driven_execution.py
+env PYTHONPATH=. python scripts/verify_v2_artifacts.py
+\end{lstlisting}
+
+Native builds require a C++17 compiler, CMake 3.18 or newer, OpenSSL development
+headers/libraries, and CPython development support for the selected
+interpreter. The Make target builds the native tests, CLI, and Python binding:
+
+\begin{lstlisting}[language=bash]
+make cpp-test PYTHON=python
+\end{lstlisting}
+
+For Conda-provided OpenSSL, pass
+\code{CMAKE_ARGS="-DOPENSSL_ROOT_DIR=$CONDA_PREFIX"}. The extension is built
+for that Python interpreter and is not assumed portable across Python ABIs.
+The adapter loads the build-directory extension, or the exact module selected
+by \code{L2MM_CPP_MODULE}. \code{L2MM_CPP_BINARY} similarly selects the CLI
+for standalone parity tests. Explicit selection fails if the requested
+artifact is absent or invalid.
+
+\subsection{Verify V3 without raw captures}
+
+The recorded source commit must be available in Git history; shallow clones
+must first obtain that history. A later tooling commit is expected to differ
+from the research source, so the historical-source choice is explicit:
+
+\begin{lstlisting}[language=bash]
+env PYTHONPATH=. python scripts/verify_v3_artifacts.py \
+  --source-revision recorded --artifacts-only
+env PYTHONPATH=. python scripts/summarize_v3_development.py \
+  --source-revision recorded --artifacts-only
+\end{lstlisting}
+
+Omit \code{--artifacts-only} when the selected raw captures are present to
+hash-check those bytes as well. Omit \code{--source-revision} only when the
+current working Python source is intended to be exactly the recorded research
+source. The verifier never rewrites the run manifest to accommodate later
+code changes.
+
+\subsection{Reproduce the frozen research run}
+
+The original V3 experiment is identified by the full commit below. An isolated
+checkout avoids mixing later backend or tooling changes with the frozen
+experiment:
+
+\begin{lstlisting}[language=bash]
+git worktree add --detach ../l2mm-v3-research \
+  04df6294872a256374f910d12d5e5e3e08e8757a
+\end{lstlisting}
+
+Restore the selected captures under that checkout's \code{data/raw/} layout
+using \code{DATA.md} and the inventory. With the project environment active,
+the original serial, resumable entry point is:
+
+\begin{lstlisting}[language=bash]
+env PYTHONPATH=. python scripts/run_l2_panel.py --phase all
+\end{lstlisting}
+
+The completed research run scheduled independent commands concurrently through
+the same runner checks; OFI commands sharing a cache remained sequential.
+Scheduling did not change replay parameters or algorithms. The durable
+manifest contains all 61 completed steps and 330 output identities. Ephemeral
+caches and progress files are not substituted for durable evidence.
+
+\subsection{Use and validate the native backend}
+
+The current checkout exposes \code{--book-backend cpp} on replay and analysis
+entry points. Native output and cache identities remain separate from the
+frozen Python research result. Command help describes the input-specific
+arguments for each entry point:
+
+\begin{lstlisting}[language=bash]
+env PYTHONPATH=. python scripts/run_replay.py --help
+env PYTHONPATH=. python scripts/run_l2_panel.py --help
+\end{lstlisting}
+
+Full development pipeline parity compares both queue endpoints on the selected
+120 hourly inputs. Worker count controls independent validation jobs, not
+concurrent timing repetitions:
+
+\begin{lstlisting}[language=bash]
+env PYTHONPATH=. python scripts/validate_native_pipeline.py \
+  --workers 2 \
+  --output results/native_pipeline/development_parity.json
+\end{lstlisting}
+
+The recorded-hour application measurement is separate from standalone book
+timing and reruns stream parity before accepting durations:
+
+\begin{lstlisting}[language=bash]
+env PYTHONPATH=. python scripts/validate_native_pipeline.py \
+  --starts 2026-04-12T09:00:00 --benchmark-repeats 3 \
+  --output results/native_pipeline/development_hour_benchmark.json
+
+make cpp-benchmark PYTHON=python
+\end{lstlisting}
+
+These commands remeasure the local system and may produce different durations
+from the committed benchmark. Correctness identities are expected to match;
+wall-clock timings are observations of a particular environment and load.
+
+\subsection{Build the complete report}
+
+Tectonic 0.17.0 is the pinned TeX engine. The generated figures and numeric
+macros use committed research and benchmark artifacts. The complete report's
+targets preserve the historical V2 PDF:
+
+\begin{lstlisting}[language=bash]
+make complete-report
+make complete-report-check
+\end{lstlisting}
+
+The output is \code{report/l2_mm_system_complete_report.pdf}; its source is
+\code{report/v3/main.tex}. The existing \code{make report} builds the
+historical \code{report/l2_mm_research_report.pdf}. Report checks inspect the
+generated assets, PDF structure and text, embedded fonts, build diagnostics,
+and recorded output identity. Poppler supplies \code{pdfinfo},
+\code{pdffonts}, and \code{pdftotext}; \code{qpdf} can add a structural check.
+
+\subsection{Canonical identities}
+
+\begin{longtable}{@{}L{0.28\textwidth}L{0.67\textwidth}@{}}
+\caption{Distinct hashes identify protocol, selection, source, and durable outputs.}\\
+\toprule
+Object & Identity \\
+\midrule
+\endfirsthead
+\toprule
+Object & Identity \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Integrity inventory logical identity & \nolinkurl{a3a99b0a616abe3bc39e0863ed047f075db9ed5d8118ced57c16140b499d8a61} \\
+Selected-panel identity & \nolinkurl{760c55b7c0929b4a99657f6ca02eb723d930b9f48ebd3786d57bcb1a0f481122} \\
+Development CSV SHA-256 & \nolinkurl{c779138fdffb739715c53cfa27c75b3c8ca140bc4f5a6128f60f2251948bd362} \\
+V3 protocol SHA-256 & \nolinkurl{e1890d2e4fa715154f28778febe3367d391a8c8be1b44b766b4ccc0decf3e395} \\
+V3 research Git commit & \nolinkurl{04df6294872a256374f910d12d5e5e3e08e8757a} \\
+V3 Python source fingerprint & \nolinkurl{45141ba610bb070217e6d08bbb5fef9ca1a725f5c7d5e40b6e14881450a4cb4d} \\
+V3 durable manifest SHA-256 & \nolinkurl{d70195704c98a14f7ce0daf747b97906754d7d2ffebcc181d308dad8af57d27a} \\
+\end{longtable}
+
+The inventory identity is a logical content identity, not the SHA-256 of its
+JSON file. The source fingerprint hashes the selected Python source tree
+rather than the compiled extension. Native evidence separately records its
+source and binary identities. Later integration code does not replace
+\ResearchCommit{} as the source of the V3 economics.
+
+\subsection{Artifact map}
+
+\begin{longtable}{@{}L{0.47\textwidth}L{0.48\textwidth}@{}}
+\caption{Primary files for independent inspection. Paths are relative to the repository.}\\
+\toprule
+Path & Purpose \\
+\midrule
+\endfirsthead
+\toprule
+Path & Purpose \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\path{notebooks/v3_development_protocol.md} & Prospective hypotheses, frozen parameters, primary gate, bootstrap procedure, and stopping boundary. \\
+\path{results/panels/btcusdt_l2_panel_v2/} & Frozen inventory, development/holdout selection, and historical V2 empirical evidence. \\
+\path{results/panels/btcusdt_l2_panel_v3_event_driven/ARTIFACT_MANIFEST.json} & Complete V3 workflow, source and raw identities, and durable artifact hashes. \\
+\path{results/panels/btcusdt_l2_panel_v3_development_summary/summary.json} & Recomputed decision, both endpoint diagnostics, uncertainty, and descriptive legacy comparison. \\
+\path{results/replay_correctness/snapshot_timing_panel24.json} & Selected-depth snapshot timing audit and observed legacy exposure. \\
+\path{cpp/parity_contract.md} & Frozen native input, operation, serialization, and arithmetic scope. \\
+\path{results/cpp_orderbook/development_hour_parity.json} & Every-state recorded depth parity, without performance timing. \\
+\path{results/cpp_orderbook/synthetic_20000.json} & Corrected standalone synthetic book benchmark. \\
+\path{results/cpp_orderbook/development_hour.json} & Corrected standalone recorded-hour book benchmark. \\
+\path{results/native_pipeline/development_parity.json} & Full replay and diagnostic stream comparison at the native backend boundary. \\
+\path{results/native_pipeline/development_hour_benchmark.json} & Separately scoped application-path timing with parity gates. \\
+\path{report/v3/generated/asset_manifest.json} & Report presentation inputs and generated asset identities. \\
+\bottomrule
+\end{longtable}
+
+The root \code{results/} tree also includes exploratory and superseded
+outputs. Use \code{results/README.md}, the versioned protocol, and the
+canonical manifest before citing a file. An attractive number elsewhere in
+the tree is not automatically part of the completed study.

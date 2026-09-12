@@ -1,0 +1,91 @@
+\section{Purpose, Scope, and Project Evolution}
+
+\subsection{What the project is trying to establish}
+
+A passive limit order does not receive a random sample of future price moves.
+It fills when opposing flow consumes the modeled quantity ahead of it, while
+other orders may remain unfilled or be cancelled. A signal can therefore
+predict the market's next mid-price move without improving the outcome of the
+particular trades a passive maker receives. The project asks whether that
+distinction is visible in a controlled BTCUSDT experiment.
+
+The deliverable is an offline chain from recorded data to a documented research
+decision: capture and integrity inventory; sequence-valid book reconstruction;
+deterministic replay; explicit execution and inventory constraints; economic
+and signal diagnostics; a predeclared development gate; and verified artifacts.
+Native implementation follows a behavioral contract so that speed can be
+assessed after correctness. A profitable strategy is an empirical possibility,
+not a requirement imposed on the answer.
+
+This is a small-order counterfactual simulator over aggregate L2. It is not a
+market-by-order reconstruction, a calibrated exchange replica, or a live
+trading service. The distinction matters because an exact implementation of a
+queue assumption does not make that assumption observable in the underlying
+data.
+
+\subsection{The bar-backtesting precursor}
+
+The initial framework used BTCUSDT hourly OHLCV data and a common interface for
+momentum, mean reversion, moving-average crossover, and Bollinger-band
+strategies. Data loading, transaction costs, portfolio accounting, metrics,
+parameter sweeps, and walk-forward orchestration were separate components.
+Useful lessons included recreating stateful strategies between runs and
+checking whether fees erased a gross result.
+
+The historical Phase 1 ratios are not current strategy evidence. The audit
+found same-close signal observation and execution, hourly equity annualized as
+365 periods per year, an ``out-of-sample Sharpe'' formed from monthly Sharpe
+estimates, and an optimizer source overwritten during plotting. The metrics
+helper now infers observation frequency, and the logged search grids have a
+reconstructed runner; the old CSVs retain their historical identity. These
+limitations motivated the move to observable book events rather than a more
+elaborate interpretation of coarse bar returns.
+
+\subsection{Why the project moved to L2}
+
+Bars cannot identify post-only eligibility at arrival, displayed volume ahead,
+partial fills, cancellation races, or whether a fill is followed by an adverse
+move. L2 depth and trades expose enough information to model these mechanisms,
+while still leaving true queue position latent. The engineering design makes
+that missing information an explicit parameter, rather than silently treating
+a price touch as a guaranteed fill.
+
+Initial L2 exploration rejected attractive results contaminated by unintended
+taker execution. A later profitable passive anchor did not generalize across
+the expanded panel. The fixed microprice baseline and OFI premise test then
+became a structured development study, with a reserved holdout and a stopping
+rule when the premise failed.
+
+\begin{table}[H]
+\centering
+\caption{The project record preserves distinct research and implementation stages.}
+\begin{tabularx}{\textwidth}{@{}L{0.16\textwidth}L{0.26\textwidth}Y@{}}
+\toprule
+Stage & Deliverable & Evidential role \\
+\midrule
+Jan--Apr 2026 & Bar framework and walk-forward exercise & Educational precursor; historical performance limitations are retained. \\
+Apr--May 2026 & L2 capture, replay, baseline exploration & Established passive execution mechanics and the development hypothesis. \\
+Jun 2026 & Frozen V2 24-window study & Historical baseline, OFI gate, queue-credit and latency stress under \LegacyModel. \\
+Jul--Aug 2026 & Execution and publication audits & Exact private scheduling, own FIFO, working exposure, snapshot timing, and explicit model boundaries. \\
+Sep 2026 & Corrected V3 development rerun & Same development data and locked baseline; current-model economics and diagnostic conditional uncertainty. \\
+Sep 2026 & Native implementation and report closure & Checked C++ book, Python parity, scoped measurement, and this complete project account. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Model corrections and the meaning of completion}
+
+The frozen V2 engine activated orders at the next book update after their
+modeled arrival and made cancellations effective immediately. A later audit
+also identified snapshots stamped before a blocking REST request completed.
+These details could change fill eligibility and queue age. The project froze
+the old evidence as \LegacyModel, implemented \CurrentModel, and reran the
+development experiment in a distinct V3 namespace.
+
+The V3 protocol was committed at \ProtocolCommit{} before its corrected
+economics were inspected; \ResearchCommit{} identifies the research source.
+Completion means executing that protocol, reporting its actual outcome,
+preserving the holdout boundary, and validating the native work within its
+stated arithmetic and integration contract. It does not require advancing a
+candidate that failed the gate or relabeling the historical sensitivity grid
+as current-model evidence.

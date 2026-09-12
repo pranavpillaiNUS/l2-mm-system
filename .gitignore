@@ -9,6 +9,7 @@ notebooks/current_stage_brief.md
 
 *.png
 !report/figures/*.png
+!report/v3/figures/*.png
 *.log
 *.jsonl
 *.jsonl.gz
@@ -28,4 +29,5 @@ results/panels/*/status*/
 results/panels/*/hourly_depth_descriptors.json
 results/panels/**/*_cache.json
 report/build/
+report/v3/build/
 cpp/build*/

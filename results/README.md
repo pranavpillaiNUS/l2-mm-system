@@ -11,6 +11,7 @@ result only after checking its execution-model namespace and status.
 | `results/panels/btcusdt_l2_panel_v3_event_driven/` | `event_driven_v2` | Completed, frozen at `04df629` | Corrected 24-window baseline development evidence |
 | `results/panels/btcusdt_l2_panel_v3_development_summary/` | `event_driven_v2` | Completed; both endpoints blocked | Locked primary screen and diagnostic conditional uncertainty |
 | `results/cpp_orderbook/` | Native order book | Separate engineering evidence | Book-state parity and explicitly scoped update benchmarks |
+| `results/native_pipeline/` | Integrated native book / Python execution | Complete | 240 full-pipeline comparisons and separately scoped application measurements |
 | Other root result folders | Mixed exploratory code paths | Historical/superseded unless documented otherwise | Debugging and project history, not headline claims |
 
 The legacy model made entries eligible on the next depth update after modeled
@@ -46,8 +47,12 @@ See the [V3 writeup](../notebooks/research_writeup_v3.md) for methods and limits
 and the [run manifest](panels/btcusdt_l2_panel_v3_event_driven/ARTIFACT_MANIFEST.json)
 for the exact inputs, derivations, and outputs. The historical intermediate
 queue-credit and latency grid below was not repeated; V3 covers both endpoints
-at the locked 10 ms latency. Native results cover the order book only; replay,
-execution, and accounting remain Python.
+at the locked 10 ms latency. Native storage is now integrated into the Python
+pipeline. [Full-panel parity](native_pipeline/development_parity.json) covers
+all 240 hour/endpoint runs; [integrated timings](native_pipeline/development_hour_benchmark.json)
+show 1.168x and 1.189x ratios on the first hour. Replay control, execution, and
+accounting remain Python. The [complete report](../report/l2_mm_system_complete_report.pdf)
+explains both the isolated and integrated measurements.
 
 ## Frozen V2 configuration
 

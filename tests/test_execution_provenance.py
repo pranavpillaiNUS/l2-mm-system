@@ -21,9 +21,9 @@ def test_frozen_v2_output_path_is_rejected():
         )
 
 
-def test_nonlegacy_output_path_is_allowed():
+def test_nonlegacy_output_path_is_allowed(tmp_path):
     guard_event_driven_output_path(
-        Path("results/panels/btcusdt_l2_panel_v3_event_driven")
+        tmp_path / "new_event_driven_run"
     )
 
 
@@ -157,3 +157,14 @@ def test_frozen_v2_marker_declares_legacy_model():
     payload = json.loads(marker.read_text(encoding="utf-8"))
     assert payload["execution_model_version"] == LEGACY_EXECUTION_MODEL_VERSION
     assert payload["status"] == "frozen_historical_artifacts"
+
+
+@pytest.mark.parametrize('target', ['new.csv', 'nested/status'])
+def test_completed_run_is_immutable_but_can_be_verified(tmp_path, target):
+    root = tmp_path / 'completed'
+    root.mkdir()
+    (root / 'ARTIFACT_MANIFEST.json').write_text('{}')
+    with pytest.raises(ValueError, match='completed artifact manifest'):
+        guard_event_driven_output_path(root / target)
+    guard_event_driven_output_path(root, allow_completed_run=True)
+    guard_event_driven_output_path(tmp_path / 'new_run' / target)

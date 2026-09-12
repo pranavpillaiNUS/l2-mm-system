@@ -2,9 +2,10 @@
 
 The native order book implements the existing [parity contract](parity_contract.md).
 The Python book remains the reference. Its June golden vectors were recovered
-unchanged from commit `578b524`; the reference book is byte-identical on current
-Python source. The port is a library and standalone CLI, with operation and
-transcript parity tests against Python.
+unchanged from commit `578b524`; book behavior and serialization remain the
+reference. The port is a library, standalone CLI, and compiled Python backend
+integrated throughout replay and research, with operation, transcript, and
+full-pipeline parity tests against Python.
 
 ## Design and scope
 
@@ -44,17 +45,22 @@ temporary divergence cannot disappear behind an equal final state.
 | `../tests/test_cpp_parity.py` | Differential Python/native states and benchmarks |
 | `parity/golden_vectors.json` | Unchanged Python reference vectors |
 
+The CPython extension `src/python_module.cpp` owns each native book through a
+capsule. `src/replay/cpp_orderbook.py` supplies the Python adapter with cached
+Decimal BBO values and public quantity/level queries, without a mirror Python
+book. `ReplayEngine` selects this backend with `book_backend="cpp"`.
+
 The execution simulator, scheduler, strategies, parsers, and research accounting
-continue to run in Python. The native CLI can consume operations emitted by the
-current depth parser. It is not plugged into `ReplayEngine` as an alternative
-backend. Derived `mid`, `spread`, `microprice`, proportional queue arithmetic,
-fees, and P&L are outside the order-book port contract. Porting those later
-requires their own Decimal arithmetic and execution-event parity contracts.
+continue to run in Python. The adapter inherits the reference's exact Decimal
+`mid`, `spread`, and `microprice` formulas. Queue fractions, fees, and P&L retain
+their Python arithmetic. Native calls retain the GIL. The standalone CLI also
+consumes operations emitted by the current depth parser.
 
 ## Build and verify
 
-Use a C++17 compiler, CMake 3.16 or newer, and OpenSSL development headers and
-libraries. On Ubuntu the native packages are `g++ cmake libssl-dev`. Use the
+Use a C++17 compiler, CMake 3.18 or newer, OpenSSL development headers and
+libraries, and development support for your Python interpreter. On Ubuntu the
+native packages are `g++ cmake libssl-dev python3-dev`. Use the
 project's Python 3.11 environment for the differential tests.
 
 ```bash
@@ -68,16 +74,19 @@ make cpp-test PYTHON=python CMAKE_ARGS="-DOPENSSL_ROOT_DIR=$CONDA_PREFIX"
 ```
 
 `cpp/build/l2mm_orderbook` is the executable and `libl2mm_book.a` the library.
-The native CTest checks and Python parity checks must both pass. CI runs this
+The native CTest, binding, and full-pipeline tests must pass. CI runs this
 target separately from the Python research suite. Python-only installations
 skip native checks when no binary exists; setting `L2MM_CPP_BINARY` makes a
-missing or invalid binary an error.
+missing or invalid binary an error. `L2MM_CPP_MODULE` selects an exact compiled
+extension file. Selecting a missing or incompatible module fails explicitly.
+The build records the selected Python ABI; it is not a portable binary package.
 
 For an address/undefined-behavior sanitizer build:
 
 ```bash
 cmake -S cpp -B cpp/build-sanitize -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+  -DPython3_EXECUTABLE="$(command -v python)"
 cmake --build cpp/build-sanitize --parallel 2
 ctest --test-dir cpp/build-sanitize --output-on-failure
 ```
@@ -146,3 +155,44 @@ Their depth-only operation sequence applies current snapshot and depth-gap
 recovery. Trade-gap handling and execution events belong to full replay and
 are not exercised by a depth-only benchmark. A measured order-book speedup
 must not be presented as an end-to-end replay speedup.
+
+## Integrated replay and research
+
+```bash
+env PYTHONPATH=. python scripts/run_replay.py --book-backend cpp \
+  --strategy microprice --date 2026-04-12 --hour 9 --hours 1 \
+  --half-spread 2.00 --requote-interval-ms 5000 --write-results
+make native-pipeline-check PYTHON=python
+```
+
+The backend flag also reaches comparison, reconciliation, microprice/OFI
+analysis, and panel orchestration. Native outputs use a `cpp` namespace;
+backend and binary identities travel with provenance and caches. A completed
+run's artifact manifest prevents subsequent output writes into that run.
+
+At integration reference `c6518dd`, all **120 development hours × 2 queue
+endpoints** matched: checkpoints every 1,000 market events, every order event,
+fill, book sample, markout, queue diagnostic, OFI population/conditional sample,
+and final accounting state. Each endpoint processes 8,914,486 market events.
+The full [parity artifact](../results/native_pipeline/development_parity.json)
+retains per-stream hashes and input/source identities. During integration,
+the tests caught `0E-8` versus `0` in missing-level diagnostics; preserving the
+reference zero fixed the byte mismatch without changing fills or P&L.
+
+The separate [pipeline measurement](../results/native_pipeline/development_hour_benchmark.json)
+uses the same recorded first hour, one warmup, three measured repetitions, and
+alternating backend order on the same i5-12400F/GCC 13.3 Release setup:
+
+| Queue assumption | Python median | Native median | Ratio |
+|---|---:|---:|---:|
+| No credit | 5.638 s | 4.826 s | 1.168× |
+| Proportional credit | 5.672 s | 4.771 s | 1.189× |
+
+These timings include gzip/JSON input, construction, replay, strategies,
+execution, checkpoint hashing, book samples, markouts, P&L, hold/queue
+diagnostics, and OFI sample construction. They exclude imports, initial module
+discovery, parity serialization, destruction, output writing, pooled regression,
+bootstrap inference, and report generation. Files are reopened on every run
+with a warm OS page cache. Every repetition passes the same output-stream gate.
+The smaller application improvement reflects the work remaining in Python and
+conversion across the language boundary.

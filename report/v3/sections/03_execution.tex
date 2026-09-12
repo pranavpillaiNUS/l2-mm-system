@@ -1,0 +1,134 @@
+\section{Deterministic Execution and Risk}
+
+\subsection{The execution model defines the fill sample}
+
+Arrival, cancellation, and queue rules determine which recorded trades can
+fill a hypothetical order. They therefore determine both economic outcomes
+and the conditioning set for the signal study. V3 uses \CurrentModel,
+\code{market_data_before_private_actions_v1},
+\code{post_response_proxy_depth_boundary_v1}, and the
+\code{pause_until_snapshot} trade-gap policy. V2 economics remain labeled
+\LegacyModel{} and are used only for an explicit historical comparison.
+
+\begin{table}[H]
+\centering
+\caption{Behavioral changes that required a new research namespace.}
+\begin{tabularx}{\textwidth}{@{}L{0.22\textwidth}YY@{}}
+\toprule
+Mechanism & Frozen V2 & Corrected V3 \\
+\midrule
+Order arrival & Activated at a subsequent depth update & Scheduled at its modeled millisecond \\
+Cancel effect & Immediate at request & Separately delayed; order can fill in flight \\
+Same-ms private events & Implicit through book activation & Entire recorded market group processed first \\
+Own queue & Weaker separation of public and own quantity & Non-overlapping FIFO ranks and conserved trade budget \\
+Snapshot release & Returned state applied at pre-fetch tag & Request barrier and post-response receipt gate \\
+Working risk & Needed stronger cancel/replace envelope & Active, pending, and cancelling orders count together \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Clock and order lifecycle}
+
+Private actions strictly before the next market timestamp execute first. At
+the same millisecond, all recorded depth/trade events execute before private
+arrivals; unresolved market-data ties use depth before trade and preserve
+within-stream order. Consequently a new order arriving at a trade's
+millisecond cannot capture that trade, and a cancel arriving at the same
+millisecond can lose the race. This is a deterministic policy for unresolved
+timestamps, not knowledge of the venue's sub-millisecond sequence.
+
+For submission at $t_s$, entry latency $L_e$, and seeded jitter $J_e$,
+\begin{equation}
+ t_a=t_s+L_e+J_e.
+\end{equation}
+For a cancel requested at $t_r$ with its own latency and jitter,
+\begin{equation}
+ t_c=\max(t_r+L_c+J_c,t_a).
+\end{equation}
+Pending entry contributes potential inventory but cannot fill. At arrival,
+the simulator checks whether the order would cross. Post-only crossing orders
+terminate with an explicit reason. Resting orders remain fillable until their
+cancellation reaches the modeled exchange.
+
+\begin{finding}
+\textbf{A tested race.} A synthetic order is placed at 0 ms, arrives and joins
+the queue at 5 ms, receives a cancel request at 6 ms, fills at 10 ms, and emits
+\code{cancel_too_late} when the cancel arrives at 11 ms. The demo tests the
+order lifecycle; it does not calibrate the latency assumption to a live venue.
+\end{finding}
+
+\subsection{External queue credit and own-order FIFO}
+
+The simulator decomposes an order's modeled quantity ahead into external
+displayed volume and remaining earlier own orders at the same side and price:
+\begin{equation}
+ Q_i^{\mathrm{ahead}}=Q_i^{\mathrm{external}}+Q_i^{\mathrm{own}}.
+\end{equation}
+The external queue starts from displayed quantity, with an ordering floor
+imposed by earlier own orders. A depth decrease unexplained by recorded trades
+can reduce only the external component:
+\begin{equation}
+ Q_{i,t+1}^{\mathrm{external}}
+ =Q_{i,t}^{\mathrm{external}}(1-c\rho_t),\qquad c\in[0,1],
+\end{equation}
+where $\rho_t$ is the inferred fraction removed and $c$ the queue-cancellation
+credit. At $c=0$, unexplained cancellations confer no advancement; at $c=1$,
+the model gives proportional advancement. Neither endpoint is observed ground
+truth, and they are not guaranteed mathematical bounds on actual execution.
+
+Depth-decrease attribution waits until all trades at the same millisecond have
+been observed. Otherwise depth-before-trade processing could mistake traded
+quantity for cancellation and award improvement twice. Recorded aggressor
+volume advances non-overlapping own FIFO ranks. The complete transition is
+planned and validated before mutation, with the invariant
+\begin{equation}
+ \sum_i q_{i,t}^{\mathrm{maker\ fill}}
+ \le q_t^{\mathrm{recorded\ aggressor}}.
+\end{equation}
+Cancelling an earlier own order releases its remaining own quantity from later
+orders' ranks. A scale-aware Decimal tolerance of $10^{-24}$ handles division
+residue; it cannot create fill volume. Partial fills preserve remaining order
+quantity and FIFO relationships.
+
+\subsection{Worst-case working exposure}
+
+Inventory alone understates risk during delayed cancel/replace. Let $I_t$ be
+current inventory and $B_t,S_t$ the remaining quantities of all buy and sell
+orders that can still fill. These sets include active orders, pending entries,
+and live orders with cancels in flight. The admission envelope checks the
+appropriate prospective side against
+\begin{equation}
+ I_t+\sum_{i\in B_t}q_i\le I_{\max},\qquad
+ I_t-\sum_{i\in S_t}q_i\ge-I_{\max}.
+\end{equation}
+Opposite-side working quantity is not assumed to offset a same-side fill
+scenario. Breaching an invariant aborts replay rather than being recorded as a
+temporary harmless overshoot. The experimental cap is 0.01 BTC, and each new
+baseline quote is 0.001 BTC.
+
+\subsection{Accounting, marks, and termination}
+
+Let fill direction $s_i$ be $+1$ for a buy and $-1$ for a sell, quantity $q_i$,
+price $p_i$, and fee $f_i$. With cash $C$ and inventory $I$,
+\begin{equation}
+ C\leftarrow C-s_i p_iq_i-f_i,\qquad I\leftarrow I+s_iq_i,
+ \qquad V_t=C_t+I_tm_t.
+\end{equation}
+Maker/taker fee classification follows actual modeled execution. The baseline
+uses post-only orders and produced no taker fills in V3, but the accounting
+code still distinguishes the two paths. Reconciliation separates completed
+lots from residual inventory so matched-lot statistics are not confused with
+full-strategy marked P\&L.
+
+A known data gap invalidates the complete timestamp group before it can drive
+fills or strategy callbacks. Local order and queue state is invalidated until
+snapshot recovery. This is fail-closed research bookkeeping; it does not assert
+that exchange orders disappear on a feed failure. At the last market event,
+private actions scheduled later are not executed against an invented future
+book. Remaining live orders expire. Pending-action diagnostics are captured
+before that final cleanup and can therefore be nonzero.
+
+Each nominal five-hour result sums five independently initialized hourly
+episodes. Inventory is marked at each hour's final mid and reset without
+liquidation cost. The resulting statistic measures repeated short episodes,
+not one continuous five-hour portfolio or deployable account return.

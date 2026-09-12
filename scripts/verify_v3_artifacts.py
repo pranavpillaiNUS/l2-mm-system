@@ -186,7 +186,7 @@ def verify(
     set, inventory, source revision, derivations, and artifact hashes. It cannot
     establish that locally available capture bytes match those identities.
     """
-    guard_event_driven_output_path(output_root)
+    guard_event_driven_output_path(output_root, allow_completed_run=True)
     manifest_path = output_root / "ARTIFACT_MANIFEST.json"
     if not manifest_path.is_file() or manifest_path.is_symlink():
         raise ValueError(f"V3 artifact manifest is missing or redirected: {manifest_path}")

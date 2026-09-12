@@ -18,10 +18,16 @@ on:
       - "requirements.txt"
       - "report/**"
       - "results/README.md"
-      - "results/panels/btcusdt_l2_panel_v2/**"
+      - "results/panels/**"
+      - "results/cpp_orderbook/**"
+      - "results/native_pipeline/**"
       - "results/replay_correctness/snapshot_timing_panel24.json"
       - "scripts/audit_snapshot_timing.py"
       - "scripts/build_report_assets.py"
+      - "scripts/build_complete_report_assets.py"
+      - "scripts/check_complete_report.py"
+      - "scripts/verify_v3_artifacts.py"
+      - "scripts/summarize_v3_development.py"
       - "scripts/check_report.py"
       - "scripts/verify_v2_artifacts.py"
       - "src/recorder/simple_recorder.py"
@@ -39,10 +45,16 @@ on:
       - "requirements.txt"
       - "report/**"
       - "results/README.md"
-      - "results/panels/btcusdt_l2_panel_v2/**"
+      - "results/panels/**"
+      - "results/cpp_orderbook/**"
+      - "results/native_pipeline/**"
       - "results/replay_correctness/snapshot_timing_panel24.json"
       - "scripts/audit_snapshot_timing.py"
       - "scripts/build_report_assets.py"
+      - "scripts/build_complete_report_assets.py"
+      - "scripts/check_complete_report.py"
+      - "scripts/verify_v3_artifacts.py"
+      - "scripts/summarize_v3_development.py"
       - "scripts/check_report.py"
       - "scripts/verify_v2_artifacts.py"
       - "src/recorder/simple_recorder.py"
@@ -53,6 +65,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11.14"
@@ -67,9 +81,13 @@ jobs:
           python -m pip install --no-deps --editable ".[analysis,dev]"
           python -m pip check
       - name: Rebuild and validate report
-        run: make report-check PYTHON=python
+        run: |
+          make report-check PYTHON=python
+          make complete-report-check PYTHON=python
       - name: Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: l2-mm-technical-report
-          path: report/l2_mm_research_report.pdf
+          path: |
+            report/l2_mm_research_report.pdf
+            report/l2_mm_system_complete_report.pdf

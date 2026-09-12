@@ -1691,3 +1691,55 @@ CTest checks passed at the unchanged native source checkpoint. Documentation
 now leads with V3 and the implemented native milestone; the PDF and historical
 V2 artifacts retain their original evidence. Replay, execution, strategies,
 and accounting remain Python under the existing order-book-only port contract.
+
+---
+## 2026-09-12: End-to-end native integration and complete report
+
+The user clarified that completion means integrating C++ into the working
+Python research pipeline. The native storage now has a CPython extension,
+Decimal-compatible adapter, backend selection in replay and research entry
+points, explicit public quantity/level accessors, and backend/binary identities
+in artifact provenance and cache keys. Python retains execution and derived
+arithmetic. The integration reference is `c6518dd`.
+
+Whole-stream differential validation passed for all 120 development hours at
+both queue endpoints: 240 comparisons and 8,914,486 market events per endpoint.
+Every order event, fill, book sample, markout, queue diagnostic, OFI population
+and conditional sample, accounting summary, and periodic book checkpoint was
+compared. The 240 hourly statistics, net P&L, fees, and final positions also
+match the frozen V3 reconciliation evidence. No holdout outcomes were evaluated.
+
+The initial real-hour test detected a serialized-zero mismatch: a missing
+native level yielded Decimal `0E-8`, while Python returned `0`. Exact event
+and queue diagnostics caught this even though fills and P&L matched. The
+adapter now preserves the reference zero. Synthetic integration tests cover
+both queue endpoints, nonzero jitter, gaps/recovery, own FIFO, partial fills,
+taker book walks, and delayed/equal-time cancellation races.
+
+Integrated measurements on the first development hour use one warmup and three
+measured repeats per backend, alternating order. Python/native median times
+are 5.638/4.826 seconds without queue credit and 5.672/4.771 seconds with
+proportional credit: ratios 1.168x and 1.189x. The metric includes raw gzip/JSON
+input, replay/execution, book checkpoints/samples, and the listed downstream
+diagnostics. It excludes publication, pooled regression/bootstrap, parity
+serialization, and destruction. It is distinct from the earlier 13.7x isolated
+book-update measurement. Both native evidence files retain exact inputs,
+source hashes, binary identity, and every measured duration.
+
+The new full report is `report/l2_mm_system_complete_report.pdf`, with LaTeX
+source under `report/v3`. It covers the educational precursor, data and engine
+design, modeling corrections, V3 methods/results, native integration, failures,
+limitations, and reproduction. Generated tables/figures read verified committed
+evidence; the report rebuilds without raw data using explicit artifact-only
+verification. The earlier report remains historical V2 evidence. Completed
+manifest trees now reject later output writes; read-only verification remains
+available. CI covers native integration and both report builds.
+
+Final acceptance includes 514 tests with raw captures and native modules, 88
+focused native tests, and 64 binding/pipeline tests under address and undefined
+behavior sanitizers (interpreter leak detection disabled). The complete report
+has 26 pages, embedded fonts, resolved citations/references, and no overfull
+boxes. Both report builds reproduce committed outputs using an isolated pinned
+Python environment. Conda's differently linked FreeType changed PNG rendering;
+the new generator checks the wheel's FreeType version, and historical V2
+report/artifact bytes remain unchanged.

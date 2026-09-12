@@ -2,11 +2,15 @@
 
 [![Tests](https://github.com/pranavpillaiNUS/l2-mm-system/actions/workflows/tests.yml/badge.svg)](https://github.com/pranavpillaiNUS/l2-mm-system/actions/workflows/tests.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB.svg)](https://www.python.org/downloads/release/python-3110/)
-[![Historical V2 report](https://img.shields.io/badge/V2_report-PDF-B30B00.svg)](report/l2_mm_research_report.pdf)
+[![Complete project report](https://img.shields.io/badge/full_report-PDF-B30B00.svg)](report/l2_mm_system_complete_report.pdf)
 
 A deterministic research system for reconstructing Binance BTCUSDT spot L2
 order books, replaying market data, and simulating passive execution, with a
-Python reference and a verified C++17 order-book port.
+Python reference and an integrated C++17 order-book backend.
+
+**Read the [complete project report (PDF)](report/l2_mm_system_complete_report.pdf)**
+for the project's evolution, architecture, corrected research, native design,
+validation, measurements, and limitations. [LaTeX source](report/v3/main.tex).
 
 > **Research question:** Does a signal that predicts the next mid-price move
 > remain useful after passive execution selects which states become fills?
@@ -25,15 +29,16 @@ University of Singapore
 - **Research result:** strong population-level one-second OFI association with
   forward mid-price drift, but a failed pre-specified passive-fill screen for
   the tested market-making baseline.
-- **Verification:** all 436 tests pass locally with raw data and the native
-  build, alongside native CTest, sanitizer checks, and byte-exact parity across
-  36,000 recorded book states.
+- **Verification:** all 514 tests pass locally with raw data and the native
+  build, alongside native CTest and sanitizer checks. Full output streams match
+  across all 120 development hours at both queue endpoints (240 comparisons).
   Report generation and native parity are configured in CI.
-- **Current status:** the corrected 24-window V3 study and planned C++17
-  order-book port are complete. Read the [V3 results](notebooks/research_writeup_v3.md)
+- **Current status:** the corrected 24-window V3 study, integrated native hot
+  path, and complete report are finished. Read the [V3 results](notebooks/research_writeup_v3.md)
   and [native design and measurements](cpp/README.md).
-- **Native measurement:** 13.7× median speedup on preloaded book updates from
-  one development hour; this does not measure end-to-end replay performance.
+- **Native measurement:** 1.17–1.19× median speedup for the integrated replay
+  and diagnostics on one development hour; 13.7× for the narrower standalone
+  book-update benchmark. Both measurements retain their timing boundaries.
 
 ## Execution in one trace
 
@@ -58,7 +63,7 @@ suite.
 | Event-driven Python model | Implemented and tested | Deterministic private-event scheduling on the model clock, post-response-gated snapshot recovery, delayed cancels, own FIFO, volume conservation, gap handling, and risk invariants |
 | V3 development study | Complete | Current-model baseline and conditional OFI evidence at both queue endpoints; the committed gate blocks candidate advancement |
 | Holdout strategy evaluation | Strategy-sealed | Reserved for one candidate that clears development and enters with a locked protocol |
-| C++17 order-book port | Implemented and tested | Checked integer storage, byte/operation/transcript parity, native checks, and benchmark tooling; execution and accounting remain Python |
+| Integrated C++17 backend | Complete | Native storage throughout replay and research entry points, full-stream parity on all 240 endpoint runs, measured pipeline performance; execution and accounting remain Python |
 
 The frozen study and current simulator use distinct execution models. The
 historical `legacy_book_update_v1` engine activated arrivals on the next depth
@@ -227,28 +232,44 @@ env PYTHONPATH=. python scripts/verify_v2_artifacts.py
 ```
 
 A fresh checkout runs the committed and synthetic tests. Restoring the selected
-raw captures activates three smoke checks; building C++ activates 12 native
-checks. Run `make cpp-test` to build and verify the native implementation.
+raw captures and building C++ activate their corresponding integration checks.
+Run `make cpp-test PYTHON=python` to build and verify the native implementation.
 The demo verifies execution lifecycle mechanics. The V2 verifier checks committed
 identities, artifact shapes, verdict fields, model separation, and the
 strategy-sealed holdout boundary.
 
-With the selected raw data restored, verify V3 against its recorded research
-commit and rebuild the decision summary:
+Verify V3's committed evidence without raw data:
 
 ```bash
-env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorded
-env PYTHONPATH=. python scripts/summarize_v3_development.py --source-revision recorded
+env PYTHONPATH=. python scripts/verify_v3_artifacts.py --source-revision recorded --artifacts-only
 ```
 
 This explicitly checks source bytes at the manifest's exact Git commit
 `04df629`; later benchmark and verification tooling is separate. Omitting the
 flag requires the current working source to match the recorded run.
+Omit `--artifacts-only` to hash-check the restored raw captures as well. Completed
+manifest trees reject further writes; use a new output root for a new run.
+
+To use native storage in the working replay pipeline:
+
+```bash
+make cpp-test PYTHON=python
+env PYTHONPATH=. python scripts/run_replay.py --book-backend cpp \
+  --strategy microprice --date 2026-04-12 --hour 9 --hours 1 \
+  --half-spread 2.00 --requote-interval-ms 5000 --write-results
+```
+
+The same backend flag is available in comparison, reconciliation, microprice,
+OFI, and development-panel entry points. Native outputs use a `cpp` namespace
+and retain native binary and backend provenance. With all selected raw files
+restored, `make native-pipeline-check PYTHON=python` repeats all 240 comparisons.
 
 ## Documentation and reproducibility
 
-The [V3 addendum](notebooks/research_writeup_v3.md) contains the current study;
-the [technical report](report/l2_mm_research_report.pdf) preserves the historical
+The [complete report](report/l2_mm_system_complete_report.pdf), built from
+[LaTeX source](report/v3/main.tex), covers the project end to end.
+The [V3 writeup](notebooks/research_writeup_v3.md) gives a shorter current study;
+the [August report](report/l2_mm_research_report.pdf) preserves the historical
 V2 methodology, results, and failure analysis. Supporting references:
 [data specification](DATA.md) · [result map](results/README.md) ·
 [execution-model contract](notebooks/execution_model_v2.md).
@@ -266,15 +287,19 @@ There are three levels of reproduction:
 Raw market data is intentionally excluded from Git. See [DATA.md](DATA.md) for
 schemas, directory layout, integrity rules, missingness, and exact boundaries.
 
-To build the report from committed artifacts:
+To build the new full report from committed artifacts:
 
 ```bash
-make report
-make report-check
+make complete-report PYTHON=python
+make complete-report-check PYTHON=python
 ```
 
-The report build is pinned in CI to Tectonic 0.17.0. `report-check` also uses
+The report build is pinned in CI to Tectonic 0.17.0. Use an isolated virtual
+environment with `requirements.txt`; the Matplotlib wheel's bundled FreeType
+version matters for byte-identical PNG output. Report checks also use
 Poppler (`pdfinfo`, `pdffonts`, and `pdftotext`) and uses `qpdf` when available.
+The original `make report` and `make report-check` targets rebuild the historical
+V2 report. Both reports are checked in CI without requiring raw captures.
 
 ## Repository guide
 
@@ -325,14 +350,15 @@ the [result map](results/README.md) before citing a file.
 ## Completed scope and extensions
 
 The corrected development study, committed decision rule, verified artifact
-manifest, and native order-book milestone are complete. A new signal hypothesis
+manifest, integrated native backend, and full report are complete. A new signal hypothesis
 would need a separate development protocol before candidate or holdout testing.
 Extending the current-model sensitivity grid or porting the full replay and
 execution engine would likewise be a separate versioned experiment or port.
 
-The C++17 order-book implementation reproduces the unchanged Python book
-reference on its fixed-eight-decimal input domain. Build and verify it with
-`make cpp-test`; use `make cpp-benchmark` for a parity-gated benchmark of book
-updates. This benchmark excludes file/protocol parsing, strategy callbacks, and execution,
-so it does not establish an end-to-end replay speedup. See the
+The C++17 backend reproduces Python's book behavior on its fixed-eight-decimal
+input domain. Python retains derived Decimal arithmetic, execution, and
+accounting. The [full-panel parity artifact](results/native_pipeline/development_parity.json)
+and [integrated measurements](results/native_pipeline/development_hour_benchmark.json)
+validate this application boundary. Use `make cpp-benchmark` for the separate
+book-only benchmark. See the
 [native design note](cpp/README.md) for the arithmetic boundary and build steps.

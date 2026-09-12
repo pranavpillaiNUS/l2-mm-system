@@ -1,0 +1,150 @@
+\section{Locked Research Design}
+
+\subsection{Price, microprice, and order-flow imbalance}
+
+For best bid $b_t$, best ask $a_t$, and their displayed quantities $q^b_t,q^a_t$,
+the arithmetic mid and microprice are
+\begin{equation}
+ m_t=\frac{b_t+a_t}{2},\qquad
+ \mu_t=\frac{q^b_ta_t+q^a_tb_t}{q^b_t+q^a_t}.
+\end{equation}
+The microprice moves toward the ask when bid-side displayed quantity is larger.
+Its deviation from mid is expressed in basis points. This is the project's
+simple reference-price signal, not an optimal-control solution calibrated to
+an arrival-intensity model.
+
+Top-of-book order-flow imbalance (OFI) uses the event construction associated
+with \citet{cont2014}:
+\begin{align}
+ e_n={}&\mathbf{1}_{b_n\ge b_{n-1}}q^b_n
+ -\mathbf{1}_{b_n\le b_{n-1}}q^b_{n-1} \\
+ &-\mathbf{1}_{a_n\le a_{n-1}}q^a_n
+ +\mathbf{1}_{a_n\ge a_{n-1}}q^a_{n-1}.
+\end{align}
+One-second raw OFI sums these increments over the preceding second. Normalized
+OFI divides the sum by mean displayed bid-plus-ask top depth over contributing
+updates. The exact implementation is \code{src/analysis/ofi_signal.py}.
+The prior literature motivates this observable; the BTCUSDT results here are
+the project's own measurements.
+
+On the one-second sampling grid, the population response at horizon $h$ is
+\begin{equation}
+ r_{t,h}=10^4\frac{m_{t+h}-m_t}{m_t}.
+\end{equation}
+Regression reports the signal coefficient, its HAC statistic, $R^2$, and
+predicted drift for a one-standard-deviation signal change. The last quantity
+makes effect size interpretable across signal scales.
+
+For maker fill $i$ with direction $s_i\in\{-1,+1\}$, the conditional response is
+\begin{equation}
+ z_{i,h}=10^4s_i\frac{m_{i+h}-m_{i^-}}{m_{i^-}},
+ \qquad x_i=s_i\,\mathrm{OFI}_{i^-}.
+\end{equation}
+Here $m_{i^-}$ and the OFI anchor are strictly before the fill. A book sample at
+the fill millisecond is excluded because it may already include the move
+associated with that fill. This response measures side-aligned future mid
+movement; a separate transaction-price markout measures spread capture and is
+not substituted into the gate. Maximum anchor staleness and permitted future
+sample lag are each 1,000 ms.
+
+\subsection{Frozen baseline and episode construction}
+
+\begin{table}[H]
+\centering
+\caption{V3 parameters locked before the rerun. Latency and fees are model inputs.}
+\begin{tabularx}{\textwidth}{@{}L{0.40\textwidth}Y@{}}
+\toprule
+Setting & Value \\
+\midrule
+Instrument and strategy & Binance spot BTCUSDT; existing \code{MicropriceMM} \\
+Order size and position cap & 0.001 BTC per quote; 0.01 BTC maximum position \\
+Half-spread and tick & 2.00 USDT from microprice; 0.01 USDT tick \\
+Requote interval & 5,000 ms \\
+Entry and cancel latency & 10 ms each; zero jitter; seed 42 \\
+Maker and taker fee & 2 bps and 5 bps; post-only enabled \\
+Queue-cancellation credit & $c=0$ and $c=1$ \\
+Panel and episode unit & 24 five-hour windows; five independent hourly episodes each \\
+Terminal inventory & Mark to hour-end mid, then reset; no liquidation cost \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The 2 USDT half-spread and five-second requote were chosen in earlier
+exploration. The six anchors remain development observations. V3 neither
+reselects windows nor tunes a threshold after its corrected outcomes. Its
+purpose is remeasurement of an existing hypothesis under corrected mechanics,
+not an untouched replication of a randomly chosen baseline.
+
+\subsection{Prospective hypotheses and decision rule}
+
+The repository protocol \code{v3_development_protocol_v1} was committed at
+\ProtocolCommit. It predicted a positive pooled one-second OFI coefficient
+and a selected 30-second conditional contrast below 1.0 bps at both queue
+endpoints. This is a repository specification, not an external registration.
+
+At each endpoint, population support requires a common coefficient sign in at
+least 75\% of usable windows, pooled HAC $|t|\ge2$, and an absolute effect of
+at least 0.05 bps per signal standard deviation. The historical sign-stability
+rule admits either dominant sign; the positive pooled-coefficient hypothesis
+is reported separately.
+
+The conditional analysis fixes bucket edges $[-1,-0.25,0,0.25,1]$ for the
+side-aligned normalized signal. It selects the most-populated negative bucket
+and the most-populated nonnegative bucket in pooled buy/sell observations,
+breaking count ties by the existing ascending bucket order. The separation is
+\begin{equation}
+ \Delta=\overline z_{\mathrm{selected\ nonnegative},30s}
+       -\overline z_{\mathrm{selected\ negative},30s}.
+\end{equation}
+With at least 30 observations in each selected bucket, $\Delta\ge1.0$ bps
+passes and a smaller contrast fails. Missing or thinner buckets are
+inconclusive. The compatibility label \code{inconclusive_power} denotes a
+minimum-count rule, not a power calculation. The selected pair need not be the
+two extreme buckets, so the entire response curve must accompany the contrast.
+
+Both endpoints must be supported for the combined screen to be supported.
+Any blocked endpoint blocks the combined screen; otherwise any inconclusive
+endpoint makes it inconclusive. A five-second fallback is exploratory and
+cannot replace this primary decision. Even a supported premise would require a
+separately locked development candidate; it would not automatically authorize
+holdout evaluation.
+
+\subsection{Uncertainty and the unit of inference}
+
+Baseline confidence intervals resample the 24 five-hour windows 10,000 times
+with seed 7 and use two-sided percentile 95\% limits. Window resampling
+preserves dependence within each observed cluster. Session- and matched-lot
+intervals remain diagnostics because their independence assumptions are
+stronger. Resampling practice follows the bootstrap framework
+\citep{efron1979}; it does not make these mechanically selected market windows
+a random sample of all regimes.
+
+The population regression uses Newey--West standard errors
+\citep{neweywest1987}, with the larger of the overlapping-return horizon lag
+and sample-size lag rule, capped at $n-1$. This addresses the specified local
+serial dependence. It does not produce uncertainty across independently
+sampled market regimes; a window-clustered population-effect interval is not
+part of the completed protocol.
+
+V3 adds a diagnostic clustered interval for the conditional contrast. The
+original pooled sample selects the two labels once. Every bootstrap draw
+resamples all 24 windows with replacement, bringing all their fills and
+retaining zero-count clusters. Each draw recomputes pooled fill-weighted means
+for those fixed labels. There are 10,000 draws using Python \code{Random(7)}.
+Any draw lacking a selected bucket would withhold the interval rather than be
+silently discarded. Both endpoints have zero undefined draws.
+
+This interval conditions on the original bucket selection, is not
+selection-adjusted, assumes independent window clusters, and does not change
+the gate. Its role is to show how the selected contrast varies across this
+development panel, not to turn a failed heuristic screen into a universal
+negative result.
+
+\subsection{Holdout boundary}
+
+The 12 late-May holdout windows are strategy-sealed. Their membership and
+pre-strategy regime descriptors are public; no candidate has been evaluated
+on them. The completed V3 gate blocks the proposed \code{OFIGatedMM} before
+candidate or holdout strategy evaluation. A new hypothesis would require a new
+development protocol and a locked candidate before one holdout evaluation.
+Leaving the holdout sealed is the prescribed outcome of this experiment.
